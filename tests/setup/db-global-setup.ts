@@ -21,7 +21,14 @@ const DB = "teamhappi";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    db: { adminUrl: string; appUrl: string; migratorUrl: string };
+    db: {
+      adminUrl: string;
+      appUrl: string;
+      migratorUrl: string;
+      migratorRole: string;
+      /** True when the app URL goes through a connection pooler (Neon). */
+      pooled: boolean;
+    };
   }
 }
 
@@ -136,7 +143,13 @@ export default async function setup(project: TestProject) {
       },
     );
 
-    project.provide("db", { adminUrl, appUrl, migratorUrl });
+    project.provide("db", {
+      adminUrl,
+      appUrl,
+      migratorUrl,
+      migratorRole: "teamhappi_migrator",
+      pooled: false,
+    });
   } catch (error) {
     await stopServer();
     throw error;

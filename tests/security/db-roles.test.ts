@@ -27,6 +27,19 @@ describe("application role posture", () => {
     });
   });
 
+  it("is not a member of any other role (e.g. neon_superuser)", async () => {
+    const memberships = await admin(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid
+             WHERE m.member = 'teamhappi_app'::regrole`,
+          )
+        ).rows,
+    );
+    expect(memberships).toEqual([]);
+  });
+
   it("owns no tables, schemas or functions", async () => {
     const owned = await admin(
       async (c) =>

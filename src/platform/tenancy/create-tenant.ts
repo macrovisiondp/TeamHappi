@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import type { DbClient } from "@/lib/db/create-client";
 import { SYSTEM_ROLES } from "@/lib/permissions/catalogue";
+import {
+  assertPlatformGrant,
+  type PlatformStaffActor,
+} from "@/platform/authz/internal";
 import { trustedTenantContext } from "@/lib/tenancy/internal";
 import { withTenant } from "@/lib/tenancy/with-tenant";
 
@@ -15,13 +19,20 @@ export type CreateTenantInput = z.infer<typeof createTenantInput>;
 
 /**
  * Creates a tenant with its default roles and the owner's membership, in one
- * transaction. Platform operation: callers must be authorised Macrovision staff
- * (enforced in Milestone 3); audit logging is added in Milestone 4.
+ * transaction. Platform operation: requires a PlatformStaffActor holding
+ * "tenant.create". No issuer exists in the application until Milestone 3, so
+ * this cannot be reached by any route or module before then. Audit logging is
+ * added in Milestone 4.
  *
  * No cross-tenant privilege is used: the new tenant's id is generated first and
  * set as the transaction's tenant context, so every insert passes RLS on its own.
  */
-export async function createTenant(client: DbClient, input: CreateTenantInput) {
+export async function createTenant(
+  client: DbClient,
+  actor: PlatformStaffActor,
+  input: CreateTenantInput,
+) {
+  assertPlatformGrant(actor, "tenant.create");
   const { slug, legalName, ownerUserId } = createTenantInput.parse(input);
   const [row] = await client.$queryRaw<
     { id: string }[]

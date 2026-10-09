@@ -2,7 +2,7 @@
   "name": "teamhappi",
   "version": "0.1.0",
   "private": true,
-  "description": "TeamHappi \u2014 multi-tenant workforce management for UK hospitality",
+  "description": "TeamHappi — multi-tenant workforce management for UK hospitality",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=22.12.0 <23"
@@ -24,7 +24,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:status": "prisma migrate status",
     "test:unit": "vitest run --project unit",
-    "test:db": "vitest run --project db"
+    "test:db": "vitest run --project db",
+    "verify:neon": "node scripts/verify-neon.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

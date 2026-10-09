@@ -86,11 +86,25 @@ describe("missing tenant context (default deny)", () => {
     expect(r.rowCount).toBe(0);
   });
 
-  it("a malformed tenant setting fails closed with an error", async () => {
+  it("a malformed tenant setting without a valid token is ignored", async () => {
+    const n = await withPg(urls.appUrl, async (c) => {
+      await c.query(`BEGIN`);
+      await c.query(`SELECT set_config('app.tenant_id', 'garbage', true)`);
+      return (
+        await c.query<{ n: number }>(`SELECT count(*)::int AS n FROM site`)
+      ).rows[0]!.n;
+    });
+    expect(n).toBe(0);
+  });
+
+  it("a malformed tenant setting with a valid token fails closed with an error", async () => {
     await expect(
       withPg(urls.appUrl, async (c) => {
         await c.query(`BEGIN`);
-        await c.query(`SELECT set_config('app.tenant_id', 'garbage', true)`);
+        await c.query(
+          `SELECT set_config('app.tenant_id', 'garbage', true),
+                  set_config('app.context_token', app.context_token(), true)`,
+        );
         return c.query(`SELECT count(*) FROM site`);
       }),
     ).rejects.toThrow(/invalid input syntax for type uuid/);
@@ -210,7 +224,9 @@ describe("connection reuse (pool of one connection)", () => {
              (SELECT count(*)::int FROM employee) AS n`;
     pids.add(after!.pid);
 
-    expect(pids.size).toBe(1); // genuinely the same pooled connection
+    // Locally the pool has one real connection. Through Neon's pooler the server
+    // connection may change; the context assertions below hold either way.
+    if (!urls.pooled) expect(pids.size).toBe(1);
     expect(after!.t).toBeNull();
     expect(after!.n).toBe(0);
   });
@@ -244,18 +260,16 @@ describe("connection reuse (pool of one connection)", () => {
     expect(after!.t).toBeNull();
   });
 
-  it("a session-level SET by rogue code is not how context works, and is cleared by our pattern", async () => {
-    // Demonstrates why the app never uses session-level SET: it would persist.
+  it("a session-level tenant setting is ignored by the database (token guard)", async () => {
     await withPg(urls.appUrl, async (c) => {
       await c.query(`SELECT set_config('app.tenant_id', $1, false)`, [
         A.tenantId,
       ]);
-      const leaked = await c.query<{ n: number }>(
+      const r = await c.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM employee`,
       );
-      expect(leaked.rows[0]!.n).toBeGreaterThan(0); // session setting persists on this connection
+      expect(r.rows[0]!.n).toBe(0);
     });
-    // The application's transaction-local pattern does not persist (tests above).
   });
 });
 

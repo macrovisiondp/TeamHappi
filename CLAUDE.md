@@ -23,6 +23,9 @@ Development is **free-tier only** (docs/architecture/free-tier-limits.md). Use s
   - Business code uses `TenantDb`, which is created only from a server-resolved `TenantContext`. Never trust a tenant ID from the client.
   - Every tenant-owned table has `tenant_id`, RLS (ENABLE + FORCE + policy), `UNIQUE(tenant_id,id)` and composite FKs, all in the same migration that creates it.
   - Cross-tenant access returns 404.
+  - Tenant context is set **only** by `withTenant()` (`src/lib/tenancy/with-tenant.ts`), transaction-locally. Never `SET app.*` or `set_config` anywhere else (lint and static tests enforce this).
+  - RLS doesn't defend against arbitrary SQL run as the app role (design doc §5a). Use parameterised SQL only, never `$queryRawUnsafe` or `Prisma.raw`.
+- **Platform operations** (tenant creation and similar) need a `PlatformStaffActor`. Application code can't import `@/platform/*` until Milestone 3 adds the session-backed issuer.
 - **Authorisation** happens on the server in the service or API layer. Hiding UI is never the control.
 - Modules touch other modules only through `src/modules/<m>/index.ts` or domain events (outbox). Never through another module's tables.
 - Documents go to private storage only. Downloads use short-lived presigned URLs. Every view of restricted documents is audited.

@@ -4,6 +4,7 @@ import pg from "pg";
 import { inject } from "vitest";
 
 import { createDbClient, type DbClient } from "@/lib/db/create-client";
+import { issuePlatformStaffActorForTests } from "@/platform/authz/internal";
 import { createTenant } from "@/platform/tenancy/create-tenant";
 
 export const urls = inject("db");
@@ -33,6 +34,12 @@ export const admin = <T>(fn: (c: pg.Client) => Promise<T>) =>
 
 const suffix = () => randomBytes(4).toString("hex");
 
+/** Stand-in for a Milestone 3 platform-staff session (tests only). */
+export const platformStaff = issuePlatformStaffActorForTests(
+  "01900000-0000-7000-8000-000000000001",
+  ["tenant.create"],
+);
+
 export async function createUser(name: string): Promise<string> {
   return admin(async (c) => {
     const r = await c.query<{ id: string }>(
@@ -59,7 +66,7 @@ export async function createTenantFixture(
   label: string,
 ): Promise<TenantFixture> {
   const ownerUserId = await createUser(`${label}-owner`);
-  const { tenant, membershipId } = await createTenant(db, {
+  const { tenant, membershipId } = await createTenant(db, platformStaff, {
     slug: `${label}-${suffix()}`,
     legalName: `${label} Hospitality Ltd`,
     ownerUserId,

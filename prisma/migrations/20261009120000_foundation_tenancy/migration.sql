@@ -320,26 +320,49 @@ ALTER TABLE "document" ADD CONSTRAINT "document_size_positive"
 -- =============================================================================
 -- The application runs every tenant-scoped transaction as:
 --   BEGIN;
---   SELECT set_config('app.tenant_id', '<uuid>', true);   -- true = transaction-local
+--   SELECT set_config('app.tenant_id',     '<uuid>',             true),
+--          set_config('app.user_id',       '<uuid or empty>',    true),
+--          set_config('app.context_token', app.context_token(),  true);
 --   ... queries ...
---   COMMIT;   -- setting is discarded; the pooled connection is clean for the next user
+--   COMMIT;   -- all three settings are discarded
 --
--- current_setting(..., true) returns NULL if the setting was never defined in this
--- session and '' if it was defined earlier in the session but is not set now
--- (the connection-reuse case). nullif() maps both to NULL, and `tenant_id = NULL`
--- is never true, so a missing context matches no rows: default deny.
+-- Default deny: current_setting(..., true) is NULL when never set and '' after a
+-- transaction-local value has ended (the connection-reuse case); nullif() maps both
+-- to NULL, and `tenant_id = NULL` matches no rows.
+--
+-- Session-level guard: a context is honoured only when app.context_token equals
+-- app.context_token() for the *current* transaction (backend pid + transaction
+-- start time). A value set at session level (SET app.tenant_id, or set_config(...,
+-- false)) carries a stale token in every later transaction, so it is ignored there.
+--
+-- Security boundary (see docs/architecture/m2-database-design.md §5a): these are
+-- ordinary custom settings. SQL running as teamhappi_app can set them for its own
+-- transaction, so RLS here enforces tenant scope for correctly authorised
+-- application transactions and stops forgotten filters and leaked context; it is
+-- not a defence against arbitrary SQL executed as the application role.
 
 CREATE SCHEMA "app";
 REVOKE ALL ON SCHEMA "app" FROM PUBLIC;
 
+-- Identifies the current transaction on this connection.
+CREATE FUNCTION "app"."context_token"() RETURNS text
+  LANGUAGE sql STABLE PARALLEL SAFE
+  AS $$ SELECT pg_backend_pid()::text || ':'
+            || (extract(epoch FROM transaction_timestamp()) * 1000000)::bigint::text $$;
+
 CREATE FUNCTION "app"."current_tenant_id"() RETURNS uuid
   LANGUAGE sql STABLE PARALLEL SAFE
-  AS $$ SELECT nullif(current_setting('app.tenant_id', true), '')::uuid $$;
+  AS $$ SELECT CASE WHEN current_setting('app.context_token', true) = "app"."context_token"()
+                    THEN nullif(current_setting('app.tenant_id', true), '')::uuid
+               END $$;
 
 CREATE FUNCTION "app"."current_user_id"() RETURNS uuid
   LANGUAGE sql STABLE PARALLEL SAFE
-  AS $$ SELECT nullif(current_setting('app.user_id', true), '')::uuid $$;
+  AS $$ SELECT CASE WHEN current_setting('app.context_token', true) = "app"."context_token"()
+                    THEN nullif(current_setting('app.user_id', true), '')::uuid
+               END $$;
 
+REVOKE ALL ON FUNCTION "app"."context_token"() FROM PUBLIC;
 REVOKE ALL ON FUNCTION "app"."current_tenant_id"() FROM PUBLIC;
 REVOKE ALL ON FUNCTION "app"."current_user_id"() FROM PUBLIC;
 
@@ -354,56 +377,56 @@ REVOKE ALL ON FUNCTION "app"."current_user_id"() FROM PUBLIC;
 ALTER TABLE "tenant_membership" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "tenant_membership" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "tenant_membership" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "role" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "role" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "role" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "role_permission" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "role_permission" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "role_permission" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "role_assignment" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "role_assignment" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "role_assignment" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "site" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "site" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "site" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "team" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "team" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "team" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "team_member" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "team_member" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "team_member" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "employee" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "employee" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "employee" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 ALTER TABLE "document" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "document" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON "document" FOR ALL TO teamhappi_app
-  USING ("tenant_id" = "app"."current_tenant_id"())
-  WITH CHECK ("tenant_id" = "app"."current_tenant_id"());
+  USING ("tenant_id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("tenant_id" = (SELECT "app"."current_tenant_id"()));
 
 -- Tenant registry: the app sees only the tenant of the current context. A new
 -- tenant is created by setting the context to its pre-generated id first, so no
@@ -411,21 +434,24 @@ CREATE POLICY "tenant_isolation" ON "document" FOR ALL TO teamhappi_app
 ALTER TABLE "tenant" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "tenant" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_self" ON "tenant" FOR ALL TO teamhappi_app
-  USING ("id" = "app"."current_tenant_id"())
-  WITH CHECK ("id" = "app"."current_tenant_id"());
+  USING ("id" = (SELECT "app"."current_tenant_id"()))
+  WITH CHECK ("id" = (SELECT "app"."current_tenant_id"()));
 
--- Users (global identity): visible to the app only as the signed-in user, or as a
--- member of the current tenant. Read-only here; sign-up and profile writes come
--- with authentication in Milestone 3 (separate decision).
+-- Users (global identity): visible to the app only as the signed-in user, or as an
+-- ACTIVE member of the current tenant. Invited, suspended and former members are
+-- not visible through this table (their membership row still is); any admin view
+-- that needs their names must be designed and reviewed explicitly in Milestone 3.
+-- Read-only here; sign-up and profile writes come with authentication in M3.
 ALTER TABLE "user" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "user" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "user_visible" ON "user" FOR SELECT TO teamhappi_app
   USING (
-    "id" = "app"."current_user_id"()
+    "id" = (SELECT "app"."current_user_id"())
     OR EXISTS (
       SELECT 1 FROM "tenant_membership" m
       WHERE m."user_id" = "user"."id"
-        AND m."tenant_id" = "app"."current_tenant_id"()
+        AND m."tenant_id" = (SELECT "app"."current_tenant_id"())
+        AND m."status" = 'active'
     )
   );
 
@@ -439,6 +465,7 @@ CREATE POLICY "user_visible" ON "user" FOR SELECT TO teamhappi_app
 -- people, tenant and document records are never hard-deleted by the app.
 
 GRANT USAGE ON SCHEMA "app" TO teamhappi_app;
+GRANT EXECUTE ON FUNCTION "app"."context_token"() TO teamhappi_app;
 GRANT EXECUTE ON FUNCTION "app"."current_tenant_id"() TO teamhappi_app;
 GRANT EXECUTE ON FUNCTION "app"."current_user_id"() TO teamhappi_app;
 

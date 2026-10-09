@@ -45,6 +45,8 @@ const eslintConfig = defineConfig([
   {
     // Business code reaches the database only through withTenant(); the raw
     // client and TenantContext construction stay inside the tenancy layer.
+    // Platform operations (and the platform-staff actor) are not importable from
+    // application code until Milestone 3 adds the session-backed issuer.
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/lib/db/**", "src/lib/tenancy/**", "src/platform/**"],
     rules: {
@@ -63,11 +65,41 @@ const eslintConfig = defineConfig([
                 "@/lib/db/*",
                 "@/generated/*",
                 "@/lib/tenancy/internal",
+                "@/platform/authz/*",
+                "@/platform/tenancy/*",
               ],
               message:
-                "Use withTenant() and resolveTenantContext() from @/lib/tenancy; the raw client and context constructor are internal.",
+                "Internal: use withTenant()/resolveTenantContext() from @/lib/tenancy. Platform operations are not reachable from application code until Milestone 3.",
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    // Tenant context may only be set transaction-locally, in one place.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/lib/tenancy/with-tenant.ts", "src/generated/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TemplateElement[value.raw=/set_config|(^|[^a-z_])(set|reset)[ ]+(session[ ]+|local[ ]+)?app[.]/i]",
+          message:
+            "Tenant context is set only by withTenant() (src/lib/tenancy/with-tenant.ts).",
+        },
+        {
+          selector:
+            "Literal[value=/set_config|(^|[^a-z_])(set|reset)[ ]+(session[ ]+|local[ ]+)?app[.]/i]",
+          message:
+            "Tenant context is set only by withTenant() (src/lib/tenancy/with-tenant.ts).",
+        },
+        {
+          selector:
+            "MemberExpression[object.name='Prisma'][property.name='raw']",
+          message:
+            "Prisma.raw builds unparameterised SQL; use tagged templates.",
         },
       ],
     },
