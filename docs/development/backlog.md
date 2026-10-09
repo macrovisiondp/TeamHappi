@@ -9,16 +9,16 @@ Status key: ☐ not started · ◐ in progress · ☑ done.
 - ☑ Product-owner decisions D-1..D-8 recorded ([sprint-0-report](sprint-0-report.md#product-owner-decisions-8-october-2026))
 - ☐ Product owner: review the [interim specifications](../requirements/interim-specifications.md) (IS-03/07 before M3, IS-06/08 before M4)
 
-## M1 — Repository and application setup (no paid services needed)
+## M1 — Repository and application setup — ☑ done 2026-10-09 ([report](milestone-1-report.md))
 
-1. ☐ Scaffold Next.js 16.4 + TS 5.9 + Tailwind 4 with exact pins; `src/` layout
-2. ☐ ESLint (next, typescript-eslint strict, boundary rules), Prettier, `.editorconfig`
-3. ☐ Vitest (unit) + Playwright (smoke) set-up; one real test each
-4. ☐ `src/lib/env.ts` Zod env validation; `.env.example`
-5. ☐ Security headers and CSP middleware skeleton
-6. ☐ App shell: layout, design tokens, shadcn/ui base components, accessible nav, error and not-found pages
-7. ☐ GitHub Actions: lint, typecheck, test, build, gitleaks, npm audit
-8. ☐ README, CLAUDE.md, contributor workflow
+1. ☑ Next.js 16.4 + TS 5.9 + Tailwind 4 with exact pins; `src/` layout
+2. ☑ ESLint (Next + boundary, raw-SQL and XSS rules), Prettier, `.editorconfig`, `.gitattributes`
+3. ☑ Vitest (unit) + Playwright (desktop + mobile smoke, axe accessibility)
+4. ☑ Zod env validation (`src/lib/env`); `.env.example`
+5. ☑ Baseline security headers (nonce CSP deferred to M3)
+6. ☑ App shell: tokens, Button/Card, accessible nav, skip link, loading, error and not-found pages; `/api/v1/health`
+7. ☑ GitHub Actions: lint, typecheck, format, unit, build, e2e, dependency audit, gitleaks; Dependabot
+8. ☑ README, CLAUDE.md, AGENTS.md
 9. ☐ (Product owner, optional now) Connect the GitHub repo to Vercel Hobby (private development only, risk R-1)
 
 ## M2 — Database and tenancy

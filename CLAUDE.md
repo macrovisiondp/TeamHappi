@@ -4,6 +4,19 @@ TeamHappi is a multi-tenant workforce management SaaS for UK hospitality, owned 
 
 Read first: `docs/architecture/solution-architecture.md`, `docs/decisions/`, `docs/development/backlog.md`.
 
+Next.js 16.4 differs from older versions. Check `node_modules/next/dist/docs/` before using an API (see AGENTS.md).
+
+@AGENTS.md
+
+## Commands
+
+- `npm run dev`: local server (http://localhost:3000)
+- `npm run lint` / `npm run typecheck` / `npm run format:check` / `npm test` / `npm run build`
+- `npm run check`: all of the above in one go (run before every commit)
+- `npm run test:e2e`: Playwright against a production build (`npm run build` first; set `PORT` if 3000 is taken)
+
+Development is **free-tier only** (docs/architecture/free-tier-limits.md). Use synthetic data only. Never add a paid service without product-owner approval.
+
 ## Non-negotiables
 
 - **Tenant isolation.**

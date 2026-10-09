@@ -2,7 +2,24 @@
 
 Multi-tenant workforce management for UK hospitality: recruitment, onboarding and compliance, training, rota, attendance, and later payroll.
 
-**Status:** Sprint 0 (architecture). No application code yet.
+**Status:** Milestone 1 (application setup). The application shell only; no business features yet.
+
+## Local development
+
+Requirements: Node.js 22 (see `.nvmrc`) and npm.
+
+```bash
+npm ci
+cp .env.example .env.local   # optional in Milestone 1; all variables have safe defaults
+npm run dev                  # http://localhost:3000
+```
+
+| Command | What it does |
+|---|---|
+| `npm run check` | Lint, type check, format check, unit tests, production build |
+| `npm run test:e2e` | Browser tests (desktop + mobile) with accessibility checks. Run `npm run build` first. `npx playwright install chromium` once. |
+
+CI (GitHub Actions) runs all of the above plus a dependency audit and a gitleaks secret scan on every pull request.
 
 | Start here | |
 |---|---|

@@ -15,7 +15,7 @@ A **TypeScript modular monolith on Next.js (App Router)**, with PostgreSQL throu
 | UI | React | 19.3.0 | |
 | Language | TypeScript | **5.9.3** | *Corrected in M1 (was 6.0.3):* `create-next-app@16.4.0` scaffolds `typescript@^5`, so we stay on the major Next 16.4 is tested with. TS 6/7 is a planned upgrade task. |
 | Styling | Tailwind CSS | 4.3.3 | |
-| Components | shadcn/ui (copied source, Radix primitives) | CLI at setup | Accessible primitives. We own the code. |
+| Components | shadcn/ui (copied source, Radix primitives) | Hand-copied in M1 (`components.json` kept for the CLI later) | Accessible primitives. We own the code. |
 | Forms / validation | React Hook Form 7.89.0, Zod 4.6.5 | | The same Zod schemas validate the API boundary |
 | ORM | Prisma + `@prisma/adapter-pg` | **7.10.0** | Not 8.0.0-rc: the npm `latest` tag currently points at a release candidate. We pin stable 7.10.0. |
 | Auth | Better Auth | 1.7.7 | See ADR-0004 |
