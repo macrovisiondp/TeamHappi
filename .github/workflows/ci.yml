@@ -16,7 +16,20 @@ jobs:
   quality:
     name: Lint, types, unit tests, build, e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    services:
+      # Disposable database for the tenant-isolation suite. Throwaway CI-only
+      # credentials; the job never has access to Neon.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: ci-only-throwaway
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgresql://postgres:ci-only-throwaway@localhost:5432/postgres
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -27,7 +40,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
-      - run: npm test
+      - name: Unit, integration and tenant-isolation tests
+        run: npm test
       - run: npm run build
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -49,12 +63,12 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      # Blocking: anything shipped to users.
+      # Blocking: any high/critical advisory not explicitly accepted (with reason and
+      # review date) in scripts/audit-check.mjs.
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
-      # Reported, not blocking: dev tooling only (see the M1 report for the known braces advisory).
-      - name: Audit all dependencies (report only)
-        run: npm audit --audit-level=high || echo "::warning::Dev-dependency advisories present; see npm audit output"
+        run: node scripts/audit-check.mjs --omit=dev
+      - name: Audit all dependencies
+        run: node scripts/audit-check.mjs
 
   secrets:
     name: Secret scan

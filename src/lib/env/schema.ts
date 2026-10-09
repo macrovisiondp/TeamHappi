@@ -10,6 +10,8 @@ export const serverEnvSchema = z.object({
   LOG_LEVEL: z
     .enum(["trace", "debug", "info", "warn", "error", "fatal"])
     .default("info"),
+  // Application role (teamhappi_app), pooled. Optional until a page needs the database.
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

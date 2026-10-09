@@ -24,3 +24,6 @@ Thumbs.db
 *.log
 .vercel
 ~$*.docx
+
+# generated Prisma client
+src/generated/

@@ -42,6 +42,36 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Business code reaches the database only through withTenant(); the raw
+    // client and TenantContext construction stay inside the tenancy layer.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/lib/db/**", "src/lib/tenancy/**", "src/platform/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/*/*"],
+              message:
+                "Import a module only through its public API (@/modules/<name>). Inside a module, use relative imports.",
+            },
+            {
+              group: [
+                "@/lib/db",
+                "@/lib/db/*",
+                "@/generated/*",
+                "@/lib/tenancy/internal",
+              ],
+              message:
+                "Use withTenant() and resolveTenantContext() from @/lib/tenancy; the raw client and context constructor are internal.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
   globalIgnores([
     ".next/**",
@@ -51,6 +81,7 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "next-env.d.ts",
+    "src/generated/**",
   ]),
 ]);
 

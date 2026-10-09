@@ -21,16 +21,17 @@ Status key: ☐ not started · ◐ in progress · ☑ done.
 8. ☑ README, CLAUDE.md, AGENTS.md
 9. ☐ (Product owner, optional now) Connect the GitHub repo to Vercel Hobby (private development only, risk R-1)
 
-## M2 — Database and tenancy
+## M2 — Database and tenancy — ◐ prepared, awaiting review ([design](../architecture/m2-database-design.md))
 
-1. ☐ Neon Free project `teamhappi-dev` in London (**product owner creates it and supplies the connection strings**); roles `migrator` and `teamhappi_app`. CI uses a Postgres service container (free).
-2. ☐ Prisma 7.10 + adapter-pg; prisma.config; migration workflow
-3. ☐ Schema: tenant, user (auth tables), tenant_membership, role, permission, role_permission, role_assignment, site, team, employee (core)
-4. ☐ RLS + FORCE + composite FKs + grants (hand-written SQL migration)
-5. ☐ `TenantContext` + `TenantDb` (transaction-local `set_config`)
-6. ☐ Tenant creation service (platform) + seed of system roles + audit
-7. ☐ **Isolation test suite** + RLS coverage check (CI Postgres service)
-8. ☐ Clean-environment reproducibility: migrate from zero in CI
+1. ☑ Neon Free project `teamhappi-dev` (London), database `teamhappi`, role `teamhappi_app` (NOBYPASSRLS, verified)
+2. ☑ Prisma 7.10 + adapter-pg; prisma.config; migration workflow (`db:migrate`, `db:status`)
+3. ☑ Schema: tenant, user, permission, tenant_membership, role, role_permission, role_assignment, site, team, team_member, employee, document (metadata)
+4. ☑ RLS ENABLE+FORCE, default-deny policies, composite FKs, storage-key CHECK, least-privilege grants (hand-written SQL)
+5. ☑ `TenantContext` + `resolveTenantContext` + `withTenant` (transaction-local `set_config`)
+6. ☑ `createTenant` platform service + system roles (audit in M4)
+7. ☑ Isolation, context, connection-reuse and role-posture suites (53 database tests) + CI Postgres service
+8. ☐ **Product owner:** review; run bootstrap steps 2–4 on Neon; approve the migration
+9. ☐ Apply the migration to Neon dev and verify posture there (after approval)
 
 ## M3 — Authentication and administration — *sign-off needs interim specs IS-03 and IS-07 approved*
 

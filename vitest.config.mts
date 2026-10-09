@@ -7,10 +7,26 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: [
-      "tests/unit/**/*.test.ts",
-      "tests/integration/**/*.test.ts",
-      "tests/security/**/*.test.ts",
+    projects: [
+      {
+        extends: true,
+        test: { name: "unit", include: ["tests/unit/**/*.test.ts"] },
+      },
+      {
+        // Real PostgreSQL 18 (embedded locally, service container in CI).
+        extends: true,
+        test: {
+          name: "db",
+          include: [
+            "tests/integration/**/*.test.ts",
+            "tests/security/**/*.test.ts",
+          ],
+          globalSetup: ["tests/setup/db-global-setup.ts"],
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
+      },
     ],
   },
 });
