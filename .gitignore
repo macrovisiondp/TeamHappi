@@ -24,3 +24,9 @@ Thumbs.db
 *.log
 .vercel
 ~$*.docx
+
+# generated Prisma client
+src/generated/
+
+# Neon verification logs (redacted, local only)
+.verify-logs/

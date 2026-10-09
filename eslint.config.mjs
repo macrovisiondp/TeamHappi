@@ -42,6 +42,69 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Business code reaches the database only through withTenant(); the raw
+    // client and TenantContext construction stay inside the tenancy layer.
+    // Platform operations (and the platform-staff actor) are not importable from
+    // application code until Milestone 3 adds the session-backed issuer.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/lib/db/**", "src/lib/tenancy/**", "src/platform/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/*/*"],
+              message:
+                "Import a module only through its public API (@/modules/<name>). Inside a module, use relative imports.",
+            },
+            {
+              group: [
+                "@/lib/db",
+                "@/lib/db/*",
+                "@/generated/*",
+                "@/lib/tenancy/internal",
+                "@/lib/tenancy/tx-budget",
+                "@/platform/authz/*",
+                "@/platform/tenancy/*",
+              ],
+              message:
+                "Internal: use withTenant()/resolveTenantContext() from @/lib/tenancy. Platform operations are not reachable from application code until Milestone 3.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Tenant context may only be set transaction-locally, in one place.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/lib/tenancy/with-tenant.ts", "src/generated/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TemplateElement[value.raw=/set_config|(^|[^a-z_])(set|reset)[ ]+(session[ ]+|local[ ]+)?app[.]/i]",
+          message:
+            "Tenant context is set only by withTenant() (src/lib/tenancy/with-tenant.ts).",
+        },
+        {
+          selector:
+            "Literal[value=/set_config|(^|[^a-z_])(set|reset)[ ]+(session[ ]+|local[ ]+)?app[.]/i]",
+          message:
+            "Tenant context is set only by withTenant() (src/lib/tenancy/with-tenant.ts).",
+        },
+        {
+          selector:
+            "MemberExpression[object.name='Prisma'][property.name='raw']",
+          message:
+            "Prisma.raw builds unparameterised SQL; use tagged templates.",
+        },
+      ],
+    },
+  },
   prettier,
   globalIgnores([
     ".next/**",
@@ -51,6 +114,7 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "next-env.d.ts",
+    "src/generated/**",
   ]),
 ]);
 

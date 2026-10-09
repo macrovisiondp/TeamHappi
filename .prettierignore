@@ -8,3 +8,4 @@ next-env.d.ts
 
 # Markdown is prose; tables are hand-formatted
 *.md
+src/generated
