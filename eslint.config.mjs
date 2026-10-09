@@ -65,6 +65,7 @@ const eslintConfig = defineConfig([
                 "@/lib/db/*",
                 "@/generated/*",
                 "@/lib/tenancy/internal",
+                "@/lib/tenancy/tx-budget",
                 "@/platform/authz/*",
                 "@/platform/tenancy/*",
               ],

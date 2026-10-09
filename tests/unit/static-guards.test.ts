@@ -64,6 +64,26 @@ describe("tenant context can only be set transaction-locally, in one place", () 
   });
 });
 
+describe("transaction time limits cannot be changed by application code", () => {
+  it("only tx-budget.ts mentions the verification override", () => {
+    const offenders = files
+      .filter((f) => f.path !== "src/lib/tenancy/tx-budget.ts")
+      .filter((f) => /configureVerificationTxBudget|resetTxBudget/.test(f.code))
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("withTenant takes no per-call timeout option", () => {
+    const code = files.find(
+      (f) => f.path === "src/lib/tenancy/with-tenant.ts",
+    )!.code;
+    expect(code).toMatch(
+      /maxWait: txBudget\(\)\.maxWaitMs, timeout: txBudget\(\)\.timeoutMs/,
+    );
+    expect(code).not.toMatch(/options|timeoutMs\s*\?\?/);
+  });
+});
+
 describe("platform operations are unreachable before Milestone 3", () => {
   const appCode = files.filter(
     (f) =>

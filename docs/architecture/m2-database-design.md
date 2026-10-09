@@ -84,7 +84,7 @@ BEGIN;
 | Reused connections | Once a setting has been used, Postgres returns `''` (not NULL) for it on later transactions in that session. `app.current_tenant_id()` turns `''` and NULL into NULL, and `tenant_id = NULL` matches nothing. **A reused connection with no context sees zero rows.** Tested with a pool of one connection, confirmed by an identical backend PID. |
 | Prepared statements | `pg` uses unnamed statements, which work with Neon's pooler |
 | Where context can't be forgotten | Every RLS policy depends on `app.current_tenant_id()`. A query outside `withTenant` returns nothing, and inserts are rejected (tested). |
-| Long transactions | `withTenant` caps a transaction at 10 s, and the role-level `idle_in_transaction_session_timeout` is 15 s, so a stuck request can't hold a pooled connection |
+| Long transactions | `withTenant` caps a transaction at 10 s and waits at most 5 s to acquire one (`src/lib/tenancy/tx-budget.ts`). The role-level `idle_in_transaction_session_timeout` is 15 s, so a stuck request can't hold a pooled connection. Callers can't change these limits; there's no per-call option and no production environment variable. Only the approved Neon verification run may raise them, within a 120 s / 60 s maximum (§8). |
 
 ## 5. Default-deny policies
 
@@ -188,6 +188,17 @@ It refuses to start unless all of these hold: `--approved` is passed, both hosts
 | RLS checks: ENABLE + FORCE + a policy on every `tenant_id` table; policies target only the app role; default deny without context | `db-roles`, `tenant-context` |
 | Cross-tenant tests: reads, writes, joins, file references, manipulated identifiers, user visibility | `tenant-isolation`, `user-visibility` |
 | Pooled connection reuse: 200 interleaved transactions for two tenants on a pool of 2, plus a context-free query after each; zero leaks; reports how many server backends were shared | `neon-verify/pooled-reuse` |
+
+**Verification time limits (added after the first Neon run, 9 Oct 2026).** The first run failed on timeouts only. From the verification machine, a round trip to Neon is about 360 ms and a new connection takes 3.7–5.6 s; locally both are under 1 ms. For the verification run only:
+- `tests/setup/neon-verify-worker.ts` raises `withTenant`'s limits to 60 s per transaction and 30 s to acquire one. `tx-budget.ts` enforces the bounds and refuses the change unless the process is running under Vitest with `TEAMHAPPI_NEON_VERIFY=approved`.
+- Vitest's test and hook limits are 10 and 15 minutes, and the 200-transaction test has its own 45-minute budget.
+
+**Diagnostics:**
+- Every failed test prints a `[verify-failure]` line, classified as connection-acquisition timeout, transaction timeout, statement timeout, test timeout, assertion failure or other.
+- The 200-transaction test records completed transactions, cross-tenant rows, empty results, leaked context, errors by category, and distinct backends, including backends that served both tenants.
+- All output is redacted and saved to `.verify-logs/` (gitignored).
+
+No row-level security, grant, context-validation, transaction-local setting or authorisation logic changed.
 
 **Optional safety step (free):** before step 3, create a Neon branch of the current state as a restore point. Neon Free allows this.
 

@@ -42,9 +42,13 @@ if (process.env.TEAMHAPPI_NEON_VERIFY === "approved") {
         "tests/neon-verify/**/*.test.ts",
       ],
       globalSetup: ["tests/setup/neon-verify-setup.ts"],
+      setupFiles: ["tests/setup/neon-verify-worker.ts"],
       fileParallelism: false,
-      testTimeout: 120_000,
-      hookTimeout: 120_000,
+      // Measured from the verification machine: ~360 ms per round trip and
+      // 3.7–5.6 s per new connection. The 200-transaction test sets its own
+      // 45-minute budget.
+      testTimeout: 10 * 60_000,
+      hookTimeout: 15 * 60_000,
     },
   });
 }

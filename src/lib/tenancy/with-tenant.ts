@@ -2,13 +2,9 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { DbClient } from "@/lib/db/create-client";
 
 import { isTenantContext, type TenantContext } from "./internal";
+import { txBudget } from "./tx-budget";
 
 export type TenantTx = Prisma.TransactionClient;
-
-export interface WithTenantOptions {
-  /** Maximum transaction duration in ms (default 10 s). */
-  timeoutMs?: number;
-}
 
 /**
  * The only way to run tenant-scoped queries.
@@ -21,6 +17,9 @@ export interface WithTenantOptions {
  * token matches the current transaction, so a session-level value can never
  * apply to a later transaction.
  *
+ * Time limits come from tx-budget.ts (10 s per transaction, 5 s to acquire one);
+ * callers cannot change them.
+ *
  * This is the only file allowed to call set_config (enforced by ESLint and by
  * tests/unit/static-guards.test.ts). Queries inside `fn` must use `tx`.
  */
@@ -28,7 +27,6 @@ export async function withTenant<T>(
   client: DbClient,
   ctx: TenantContext,
   fn: (tx: TenantTx) => Promise<T>,
-  options: WithTenantOptions = {},
 ): Promise<T> {
   if (!isTenantContext(ctx))
     throw new Error("withTenant requires a TenantContext");
@@ -39,6 +37,6 @@ export async function withTenant<T>(
                                 set_config('app.context_token', app.context_token(), true)`;
       return fn(tx);
     },
-    { maxWait: 5_000, timeout: options.timeoutMs ?? 10_000 },
+    { maxWait: txBudget().maxWaitMs, timeout: txBudget().timeoutMs },
   );
 }
