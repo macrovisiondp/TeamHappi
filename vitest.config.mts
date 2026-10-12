@@ -10,6 +10,16 @@ const projects: TestProjectInlineConfiguration[] = [
     test: { name: "unit", include: ["tests/unit/**/*.test.ts"] },
   },
   {
+    // React components in a simulated browser (jsdom).
+    extends: true,
+    test: {
+      name: "components",
+      environment: "jsdom",
+      include: ["tests/components/**/*.test.tsx"],
+      setupFiles: ["tests/setup/components.ts"],
+    },
+  },
+  {
     // Real PostgreSQL 18 (embedded locally, service container in CI).
     extends: true,
     test: {

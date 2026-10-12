@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
+import { AccountMenu } from "@/components/layout/header-controls";
 import { AppShell } from "@/components/layout/app-shell";
+import { Skeleton } from "@/components/ui/misc";
+import { DEMO_ORGANISATION } from "@/features/demo/fixtures";
 import { getCurrentUser } from "@/lib/auth";
 
 import Loading from "./loading";
@@ -14,13 +16,15 @@ export const instant = false;
 
 // Every route in this group requires a signed-in, verified user. The session is
 // validated on the server against the database on each request (no cache), so
-// sign-out and revocation apply immediately. Tenant context is added in M3.3.
+// sign-out and revocation apply immediately. Tenant context (the real
+// organisation) is added in M3.3; until then the organisation name is demo data.
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <AppShell
-      userMenu={
-        <Suspense>
-          <UserMenu />
+      organisation={DEMO_ORGANISATION.name}
+      accountMenu={
+        <Suspense fallback={<Skeleton className="h-11 w-24" />}>
+          <UserAccountMenu />
         </Suspense>
       }
     >
@@ -37,15 +41,8 @@ async function RequireUser({ children }: { children: ReactNode }) {
   return children;
 }
 
-async function UserMenu() {
+async function UserAccountMenu() {
   const user = await getCurrentUser();
   if (!user) return null;
-  return (
-    <div className="flex flex-col gap-2 text-sm">
-      <p className="truncate" title={user.email}>
-        Signed in as <span className="font-medium">{user.name}</span>
-      </p>
-      <SignOutButton />
-    </div>
-  );
+  return <AccountMenu name={user.name} email={user.email} />;
 }

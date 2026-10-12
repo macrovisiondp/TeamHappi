@@ -5,41 +5,54 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 aria-disabled:cursor-not-allowed aria-disabled:opacity-55 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        primary:
+          "bg-forest text-white shadow-sm hover:bg-forest-strong disabled:hover:bg-forest",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        outline: "border bg-card hover:bg-accent hover:text-accent-foreground",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-destructive text-white hover:bg-destructive/90",
+          "border border-line-strong/60 bg-surface text-ink shadow-sm hover:bg-surface-muted",
+        ghost: "text-ink hover:bg-sage",
+        danger: "bg-danger text-white shadow-sm hover:bg-danger/90",
+        link: "h-auto px-0 text-forest underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-11 px-4",
-        sm: "h-9 px-3",
-        lg: "h-12 px-6",
+        md: "h-11 px-4",
+        sm: "h-10 px-3",
+        lg: "h-12 px-6 text-base",
         icon: "size-11",
       },
     },
-    defaultVariants: { variant: "default", size: "default" },
+    defaultVariants: { variant: "primary", size: "md" },
   },
 );
+
+type ButtonProps = React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
+    /** Explains why a disabled action is unavailable (shown as a tooltip and to screen readers). */
+    disabledReason?: string;
+  };
 
 function Button({
   className,
   variant,
   size,
   asChild = false,
+  disabled,
+  disabledReason,
+  title,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot : "button";
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled}
+      title={disabled && disabledReason ? disabledReason : title}
+      aria-description={disabled && disabledReason ? disabledReason : undefined}
       {...props}
     />
   );
