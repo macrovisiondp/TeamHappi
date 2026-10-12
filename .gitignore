@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+
+# next.js / build
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# env (never commit secrets; .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# tests
+coverage/
+playwright-report/
+test-results/
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
+.vercel
+~$*.docx
+
+# generated Prisma client
+src/generated/
+
+# Neon verification logs (redacted, local only)
+.verify-logs/
+
+# local development database and synthetic demo credentials
+.data/

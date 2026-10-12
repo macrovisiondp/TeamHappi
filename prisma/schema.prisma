@@ -1,0 +1,365 @@
+// TeamHappi foundation schema (Milestone 2).
+//
+// Tenant isolation (ADR-0001):
+// - Every tenant-owned table has tenant_id, UNIQUE (tenant_id, id), and composite
+//   foreign keys (tenant_id, x_id) -> parent (tenant_id, id), so a row can never
+//   reference another tenant's row.
+// - RLS policies, grants and CHECK constraints are not expressible in Prisma.
+//   They live in the reviewed SQL of each migration (prisma/migrations/*).
+// - No cascading deletes on people or tenant data (data-model.md §4).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Global (not tenant-owned)
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  slug      String       @unique
+  legalName String       @map("legal_name")
+  status    TenantStatus @default(active)
+  timezone  String       @default("Europe/London")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  memberships TenantMembership[]
+  roles       Role[]
+  sites       Site[]
+  employees   Employee[]
+
+  @@map("tenant")
+}
+
+enum TenantStatus {
+  active
+  suspended
+  offboarding
+  closed
+
+  @@map("tenant_status")
+}
+
+// Identity. Column names follow Better Auth's core user model so Milestone 3
+// can adopt this table. At least one of email / phone_number is required (CHECK in SQL).
+model User {
+  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name          String
+  // Unique as Better Auth requires (M3.1). The case-insensitive index from M2
+  // (lower(email)) stays; emails are stored lower-cased.
+  email         String?  @unique
+  emailVerified Boolean  @default(false) @map("email_verified")
+  phoneNumber   String?  @map("phone_number")
+  image         String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  memberships TenantMembership[]
+  sessions    Session[]
+  accounts    Account[]
+
+  @@map("user")
+}
+
+// ---------------------------------------------------------------------------
+// Authentication (Milestone 3.1, ADR-0008). Global tables used ONLY by the
+// teamhappi_auth database role through Better Auth. The application role has no
+// grants on them (it never sees sessions, password hashes or tokens).
+// Field names follow Better Auth's core schema.
+// ---------------------------------------------------------------------------
+
+model Session {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+// Credentials. For email/password sign-in, providerId = "credential" and
+// password holds the library-managed hash.
+model Account {
+  id                    String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+// Email-verification (and later reset) tokens.
+model Verification {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// Database-backed authentication rate limiting (no Redis).
+model RateLimit {
+  id          String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt @map("last_request")
+
+  @@map("rate_limit")
+}
+
+// Permission catalogue, defined in code (src/lib/permissions). Read-only to the app.
+model Permission {
+  code        String @id
+  description String
+
+  rolePermissions RolePermission[]
+
+  @@map("permission")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant-owned
+// ---------------------------------------------------------------------------
+
+model TenantMembership {
+  id        String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  status    MembershipStatus @default(active)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  roleAssignments RoleAssignment[]
+  employee        Employee?
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("tenant_membership")
+}
+
+enum MembershipStatus {
+  invited
+  active
+  suspended
+  left
+
+  @@map("membership_status")
+}
+
+model Role {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String
+  name      String
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  permissions RolePermission[]
+  assignments RoleAssignment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, key])
+  @@map("role")
+}
+
+model RolePermission {
+  tenantId       String @map("tenant_id") @db.Uuid
+  roleId         String @map("role_id") @db.Uuid
+  permissionCode String @map("permission_code")
+
+  role       Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  permission Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, roleId, permissionCode])
+  @@map("role_permission")
+}
+
+// siteId null = tenant-wide; otherwise scoped to one site.
+model RoleAssignment {
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  membershipId String   @map("membership_id") @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  siteId       String?  @map("site_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  membership TenantMembership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  role       Role             @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  site       Site?            @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, membershipId])
+  @@map("role_assignment")
+}
+
+model Site {
+  id        String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String     @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  timezone  String     @default("Europe/London")
+  status    SiteStatus @default(active)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  teams           Team[]
+  roleAssignments RoleAssignment[]
+  primaryFor      Employee[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("site")
+}
+
+enum SiteStatus {
+  active
+  archived
+
+  @@map("site_status")
+}
+
+model Team {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  siteId    String   @map("site_id") @db.Uuid
+  name      String
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  site    Site         @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  members TeamMember[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, siteId, name])
+  @@map("team")
+}
+
+model TeamMember {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  teamId     String   @map("team_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  team     Team     @relation(fields: [tenantId, teamId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, teamId, employeeId])
+  @@index([tenantId, employeeId])
+  @@map("team_member")
+}
+
+// Core people record. A login (membership) is optional: some staff never sign in.
+model Employee {
+  id             String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  membershipId   String?          @map("membership_id") @db.Uuid
+  employeeNumber String           @map("employee_number")
+  givenName      String           @map("given_name")
+  familyName     String           @map("family_name")
+  preferredName  String?          @map("preferred_name")
+  email          String?
+  phoneNumber    String?          @map("phone_number")
+  status         EmploymentStatus @default(pending)
+  startDate      DateTime?        @map("start_date") @db.Date
+  endDate        DateTime?        @map("end_date") @db.Date
+  primarySiteId  String?          @map("primary_site_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  membership  TenantMembership? @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  primarySite Site?             @relation(fields: [tenantId, primarySiteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  teams       TeamMember[]
+  documents   Document[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeNumber])
+  @@unique([tenantId, membershipId])
+  @@map("employee")
+}
+
+enum EmploymentStatus {
+  pending
+  active
+  left
+
+  @@map("employment_status")
+}
+
+// Document metadata only. Storage adapters arrive in Milestone 4 (ADR-0007).
+// storage_key must sit under tenants/<tenant_id>/ (CHECK in SQL).
+model Document {
+  id              String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  ownerEmployeeId String              @map("owner_employee_id") @db.Uuid
+  docType         String              @map("doc_type")
+  sensitivity     DocumentSensitivity
+  storageKey      String              @map("storage_key")
+  mimeType        String              @map("mime_type")
+  sizeBytes       Int                 @map("size_bytes")
+  scanStatus      ScanStatus          @default(pending) @map("scan_status")
+  expiresOn       DateTime?           @map("expires_on") @db.Date
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  ownerEmployee Employee @relation(fields: [tenantId, ownerEmployeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([storageKey])
+  @@index([tenantId, ownerEmployeeId])
+  @@map("document")
+}
+
+enum DocumentSensitivity {
+  standard
+  confidential
+  restricted
+
+  @@map("document_sensitivity")
+}
+
+enum ScanStatus {
+  pending
+  clean
+  quarantined
+
+  @@map("scan_status")
+}
