@@ -12,6 +12,10 @@ export const serverEnvSchema = z.object({
     .default("info"),
   // Application role (teamhappi_app), pooled. Optional until a page needs the database.
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  // Authentication role (teamhappi_auth), pooled. Identity tables only (ADR-0008).
+  AUTH_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  // Signs session cookies and verification tokens. At least 32 characters.
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

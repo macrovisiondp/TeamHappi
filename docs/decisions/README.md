@@ -9,7 +9,9 @@
 | [0005](0005-client-application-approach.md) | Client application approach | Direction provisionally approved |
 | [0006](0006-background-jobs-and-outbox.md) | Background jobs and transactional outbox | Outbox proposed; Inngest not approved (free fallback) |
 | [0007](0007-document-storage.md) | Secure document storage | Proposed; AWS not approved (blocks real documents) |
-| 0008 | Rate-limiting store (Postgres-backed on free tier) | To be written (M3) |
+| [0008](0008-authentication-database-role.md) | Separate database role for authentication | Proposed (approved in principle 12 Oct 2026; SQL awaiting review) |
+| 0009 | Platform-console database role | To be written (M3.5) |
+| 0010 | Rate-limiting store | Decided within ADR-0008: Better Auth database storage (free) |
 | 0009 | Observability / log retention provider | To be written (M4) |
 
 Format: Status, Date, Requirements, Context, Decision, Alternatives, Consequences. An ADR becomes **Accepted** when the product owner approves it. A changed decision gets a new ADR that supersedes the old one. Never edit an accepted ADR's decision in place.

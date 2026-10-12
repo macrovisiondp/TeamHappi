@@ -48,7 +48,13 @@ const eslintConfig = defineConfig([
     // Platform operations (and the platform-staff actor) are not importable from
     // application code until Milestone 3 adds the session-backed issuer.
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/lib/db/**", "src/lib/tenancy/**", "src/platform/**"],
+    ignores: [
+      "src/lib/db/**",
+      "src/lib/tenancy/**",
+      "src/lib/auth/**",
+      "src/platform/**",
+      "src/app/api/auth/**",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -66,11 +72,16 @@ const eslintConfig = defineConfig([
                 "@/generated/*",
                 "@/lib/tenancy/internal",
                 "@/lib/tenancy/tx-budget",
+                "@/lib/auth/config",
+                "@/lib/auth/db",
+                "@/lib/auth/provision",
+                "@/lib/auth/session",
+                "@/lib/auth/mailer",
                 "@/platform/authz/*",
                 "@/platform/tenancy/*",
               ],
               message:
-                "Internal: use withTenant()/resolveTenantContext() from @/lib/tenancy. Platform operations are not reachable from application code until Milestone 3.",
+                "Internal module. Use withTenant()/resolveTenantContext() from @/lib/tenancy and getCurrentUser() from @/lib/auth. Platform operations are not reachable from application code until Milestone 3.",
             },
           ],
         },

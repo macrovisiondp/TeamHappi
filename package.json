@@ -25,12 +25,15 @@
     "db:status": "prisma migrate status",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
-    "verify:neon": "node scripts/verify-neon.mjs"
+    "verify:neon": "node scripts/verify-neon.mjs",
+    "dev:db": "node scripts/dev-db.mjs",
+    "dev:seed": "node scripts/dev-seed.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "@radix-ui/react-slot": "1.4.0",
+    "better-auth": "1.7.7",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.53.0",

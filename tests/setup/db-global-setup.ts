@@ -24,6 +24,8 @@ declare module "vitest" {
     db: {
       adminUrl: string;
       appUrl: string;
+      /** Connection as teamhappi_auth (Better Auth's role). */
+      authUrl: string;
       migratorUrl: string;
       migratorRole: string;
       /** True when the app URL goes through a connection pooler (Neon). */
@@ -100,6 +102,7 @@ export default async function setup(project: TestProject) {
 
   try {
     const appPassword = secret();
+    const authPassword = secret();
     const migratorPassword = secret();
 
     // Roles mirror Neon: neondb_owner (BYPASSRLS) -> teamhappi_migrator here.
@@ -107,10 +110,13 @@ export default async function setup(project: TestProject) {
     for (const statement of [
       `DROP DATABASE IF EXISTS ${DB} WITH (FORCE)`,
       `DROP ROLE IF EXISTS teamhappi_app`,
+      `DROP ROLE IF EXISTS teamhappi_auth`,
       `DROP ROLE IF EXISTS teamhappi_migrator`,
       `CREATE ROLE teamhappi_migrator WITH LOGIN PASSWORD '${migratorPassword}'
          NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS`,
       `CREATE ROLE teamhappi_app WITH LOGIN PASSWORD '${appPassword}'
+         NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION`,
+      `CREATE ROLE teamhappi_auth WITH LOGIN PASSWORD '${authPassword}'
          NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION`,
       `CREATE DATABASE ${DB} OWNER teamhappi_migrator`,
     ]) {
@@ -120,11 +126,21 @@ export default async function setup(project: TestProject) {
     const adminUrl = withDatabase(adminServerUrl, DB);
     // The same bootstrap SQL the product owner runs on Neon (steps 2–4).
     await run(adminUrl, readFileSync("prisma/bootstrap/neon-dev.sql", "utf8"));
+    await run(
+      adminUrl,
+      readFileSync("prisma/bootstrap/neon-dev-auth-role.sql", "utf8"),
+    );
 
     const migratorUrl = withCredentials(
       adminServerUrl,
       "teamhappi_migrator",
       migratorPassword,
+      DB,
+    );
+    const authUrl = withCredentials(
+      adminServerUrl,
+      "teamhappi_auth",
+      authPassword,
       DB,
     );
     const appUrl = withCredentials(
@@ -146,6 +162,7 @@ export default async function setup(project: TestProject) {
     project.provide("db", {
       adminUrl,
       appUrl,
+      authUrl,
       migratorUrl,
       migratorRole: "teamhappi_migrator",
       pooled: false,

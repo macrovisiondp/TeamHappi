@@ -165,16 +165,33 @@ describe("row-level security coverage", () => {
     }
   });
 
-  it("policies apply only to the application role (no PUBLIC policies)", async () => {
-    const roles = await admin(
+  it("every policy names exactly one known role (no PUBLIC policies)", async () => {
+    const rows = await admin(
       async (c) =>
         (
-          await c.query<{ roles: string }>(
-            `SELECT DISTINCT array_to_string(roles, ',') AS roles FROM pg_policies WHERE schemaname = 'public'`,
+          await c.query<{ table: string; roles: string }>(
+            `SELECT tablename AS table, array_to_string(roles, ',') AS roles
+             FROM pg_policies WHERE schemaname = 'public' ORDER BY 1, 2`,
           )
         ).rows,
     );
-    expect(roles).toEqual([{ roles: "teamhappi_app" }]);
+    const byRole: Record<string, string[]> = {};
+    for (const r of rows) (byRole[r.roles] ??= []).push(r.table);
+    // Tenant data and the tenant registry: application role only.
+    // Identity tables: auth role only. "user": both (app read-only, scoped).
+    expect(Object.keys(byRole).sort()).toEqual([
+      "teamhappi_app",
+      "teamhappi_auth",
+    ]);
+    expect(byRole.teamhappi_auth!.sort()).toEqual([
+      "account",
+      "rate_limit",
+      "session",
+      "user",
+      "verification",
+    ]);
+    expect(byRole.teamhappi_app).not.toContain("session");
+    expect(byRole.teamhappi_app).not.toContain("account");
   });
 });
 

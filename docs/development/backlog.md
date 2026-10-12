@@ -21,7 +21,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done.
 8. ☑ README, CLAUDE.md, AGENTS.md
 9. ☐ (Product owner, optional now) Connect the GitHub repo to Vercel Hobby (private development only, risk R-1)
 
-## M2 — Database and tenancy — ◐ prepared, awaiting review ([design](../architecture/m2-database-design.md))
+## M2 — Database and tenancy — ☑ accepted 12 Oct 2026 (merge pending) ([design](../architecture/m2-database-design.md))
 
 1. ☑ Neon Free project `teamhappi-dev` (London), database `teamhappi`, role `teamhappi_app` (NOBYPASSRLS, verified)
 2. ☑ Prisma 7.10 + adapter-pg; prisma.config; migration workflow (`db:migrate`, `db:status`)
@@ -32,6 +32,11 @@ Status key: ☐ not started · ◐ in progress · ☑ done.
 7. ☑ Isolation, context, connection-reuse and role-posture suites (53 database tests) + CI Postgres service
 8. ☐ **Product owner:** review; run bootstrap steps 2–4 on Neon; approve the migration
 9. ☐ Apply the migration to Neon dev and verify posture there (after approval)
+
+## M2 follow-ups (non-blocking, see [closure note](milestone-2-closure.md))
+
+- ☐ F-1: pass `--silent=false` in `scripts/verify-neon.mjs` so the pooled-reuse summary is logged
+- ☐ F-2: track the `pg` 9 deprecation warning from `@prisma/adapter-pg`; stay on `pg` 8 until resolved upstream
 
 ## M3 — Authentication and administration — *sign-off needs interim specs IS-03 and IS-07 approved*
 

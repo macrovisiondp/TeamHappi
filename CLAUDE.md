@@ -25,6 +25,10 @@ Development is **free-tier only** (docs/architecture/free-tier-limits.md). Use s
   - Cross-tenant access returns 404.
   - Tenant context is set **only** by `withTenant()` (`src/lib/tenancy/with-tenant.ts`), transaction-locally. Never `SET app.*` or `set_config` anywhere else (lint and static tests enforce this).
   - RLS doesn't defend against arbitrary SQL run as the app role (design doc §5a). Use parameterised SQL only, never `$queryRawUnsafe` or `Prisma.raw`.
+- **Authentication** (ADR-0008): only `src/lib/auth` touches Better Auth or the `teamhappi_auth` client. Everything else uses `getCurrentUser()` from `@/lib/auth`. New auth endpoints must be added to the allow-list in `src/lib/auth/route-guard.ts` with tests. Never log tokens, passwords or verification links outside the development mailer.
+- **Session-gated routes** (`src/app/(app)/**`): read the session inside `<Suspense>` and add `export const instant = false` to new pages (Next 16 Cache Components).
+- **Database time zone:** Prisma's pg adapter requires UTC sessions; every login role has `timezone = 'UTC'`.
+- **Remote database changes:** `prisma.config.ts` refuses migrate/db commands against non-local hosts unless `TEAMHAPPI_REMOTE_MIGRATION=approved` is set for an approved run.
 - **Platform operations** (tenant creation and similar) need a `PlatformStaffActor`. Application code can't import `@/platform/*` until Milestone 3 adds the session-backed issuer.
 - **Authorisation** happens on the server in the service or API layer. Hiding UI is never the control.
 - Modules touch other modules only through `src/modules/<m>/index.ts` or domain events (outbox). Never through another module's tables.

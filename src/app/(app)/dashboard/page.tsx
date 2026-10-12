@@ -4,6 +4,9 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
+// Session-gated (see (app)/layout.tsx): renders per request, not prefetch-validated.
+export const instant = false;
+
 export default function DashboardPage() {
   return (
     <div className="flex max-w-3xl flex-col gap-6">

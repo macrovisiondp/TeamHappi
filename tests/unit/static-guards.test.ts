@@ -84,6 +84,49 @@ describe("transaction time limits cannot be changed by application code", () => 
   });
 });
 
+describe("authentication internals stay inside src/lib/auth (ADR-0008)", () => {
+  it("only src/lib/auth creates the auth database client or the Better Auth instance", () => {
+    const offenders = files
+      .filter((f) => !f.path.startsWith("src/lib/auth/"))
+      .filter((f) => !f.path.startsWith("src/lib/env/")) // declares the variable
+      .filter((f) =>
+        /createAuthDbClient|createAuth\(|betterAuth\(|AUTH_DATABASE_URL/.test(
+          f.code,
+        ),
+      )
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("only src/lib/auth and the auth route import auth internals", () => {
+    const offenders = files
+      .filter(
+        (f) =>
+          !f.path.startsWith("src/lib/auth/") &&
+          !f.path.startsWith("src/app/api/auth/"),
+      )
+      .filter((f) =>
+        /from\s+["']@\/lib\/auth\/(config|db|provision|session|mailer|route-guard)["']/.test(
+          f.code,
+        ),
+      )
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("the application database client never touches authentication tables", () => {
+    const offenders = files
+      .filter((f) => !f.path.startsWith("src/lib/auth/"))
+      .filter((f) =>
+        /\.(session|account|verification|rateLimit)\.(find|create|update|delete|upsert|count)/.test(
+          f.code,
+        ),
+      )
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("platform operations are unreachable before Milestone 3", () => {
   const appCode = files.filter(
     (f) =>

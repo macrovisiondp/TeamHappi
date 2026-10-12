@@ -37,3 +37,26 @@ describe("parseServerEnv", () => {
     expect(() => parseServerEnv({ LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
   });
 });
+
+describe("authentication settings", () => {
+  it("accepts an auth database URL and a long secret", () => {
+    const env = parseServerEnv({
+      AUTH_DATABASE_URL:
+        "postgresql://teamhappi_auth:x@localhost:5432/teamhappi",
+      BETTER_AUTH_SECRET: "s".repeat(32),
+    });
+    expect(env.AUTH_DATABASE_URL).toContain("teamhappi_auth");
+  });
+
+  it("rejects a short auth secret without echoing it", () => {
+    const secret = "too-short-secret";
+    let message = "";
+    try {
+      parseServerEnv({ BETTER_AUTH_SECRET: secret });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain("BETTER_AUTH_SECRET");
+    expect(message).not.toContain(secret);
+  });
+});

@@ -9,16 +9,29 @@ test.describe("application shell", () => {
     ).toBeVisible();
   });
 
-  test("dashboard renders inside the app shell", async ({ page }) => {
+  test("signed-out visitors to the dashboard are sent to sign-in", async ({
+    page,
+  }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
-      "aria-current",
-      "page",
+    await expect(page).toHaveURL(/\/sign-in$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Sign in" }),
+    ).toBeVisible();
+    await expect(page.getByText("Nothing here yet")).toHaveCount(0);
+  });
+
+  test("sign-in form has labelled fields and no public sign-up link", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+    await expect(page.getByLabel("Email address")).toBeVisible();
+    await expect(page.getByLabel("Password")).toHaveAttribute(
+      "type",
+      "password",
     );
     await expect(
-      page.getByRole("heading", { level: 1, name: "Dashboard" }),
-    ).toBeVisible();
+      page.getByRole("link", { name: /sign up|register/i }),
+    ).toHaveCount(0);
   });
 
   test("unknown routes return a 404 page", async ({ page }) => {
@@ -30,14 +43,14 @@ test.describe("application shell", () => {
   });
 
   test("skip link moves focus to main content", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/sign-in");
     await page.keyboard.press("Tab");
     await expect(
       page.getByRole("link", { name: "Skip to main content" }),
     ).toBeFocused();
   });
 
-  for (const path of ["/", "/dashboard", "/does-not-exist"]) {
+  for (const path of ["/", "/sign-in", "/verify-email", "/does-not-exist"]) {
     test(`no automatically detectable accessibility violations on ${path}`, async ({
       page,
     }) => {
@@ -69,5 +82,17 @@ test.describe("API and headers", () => {
       "frame-ancestors 'none'",
     );
     expect(headers["x-powered-by"]).toBeUndefined();
+  });
+});
+
+test.describe("authentication endpoints", () => {
+  test("only the allow-listed endpoints exist", async ({ request }) => {
+    for (const path of [
+      "/api/auth/sign-up/email",
+      "/api/auth/reset-password",
+    ]) {
+      const res = await request.post(path, { data: {} });
+      expect(res.status(), path).toBe(404);
+    }
   });
 });

@@ -63,6 +63,8 @@ export default async function setup(project: TestProject) {
   project.provide("db", {
     adminUrl: ownerUrl,
     appUrl,
+    // The M2 verification suites do not use the auth role.
+    authUrl: process.env.AUTH_DATABASE_URL ?? "",
     migratorUrl: ownerUrl,
     migratorRole: decodeURIComponent(new URL(ownerUrl).username),
     pooled: true,

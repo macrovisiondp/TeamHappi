@@ -24,11 +24,12 @@ export default function HomePage() {
           restaurants and multi-site hospitality groups, all in one place.
         </p>
         <p className="w-fit rounded-md bg-secondary px-3 py-1 text-sm text-secondary-foreground">
-          In development. Sign-in is not available yet.
+          In development. Accounts are created by Macrovision; there is no
+          public sign-up.
         </p>
         <div>
-          <Button asChild variant="outline">
-            <Link href="/dashboard">Preview the application shell</Link>
+          <Button asChild>
+            <Link href="/sign-in">Sign in</Link>
           </Button>
         </div>
       </main>

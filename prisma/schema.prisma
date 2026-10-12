@@ -52,7 +52,9 @@ enum TenantStatus {
 model User {
   id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
   name          String
-  email         String?
+  // Unique as Better Auth requires (M3.1). The case-insensitive index from M2
+  // (lower(email)) stays; emails are stored lower-cased.
+  email         String?  @unique
   emailVerified Boolean  @default(false) @map("email_verified")
   phoneNumber   String?  @map("phone_number")
   image         String?
@@ -60,8 +62,81 @@ model User {
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   memberships TenantMembership[]
+  sessions    Session[]
+  accounts    Account[]
 
   @@map("user")
+}
+
+// ---------------------------------------------------------------------------
+// Authentication (Milestone 3.1, ADR-0008). Global tables used ONLY by the
+// teamhappi_auth database role through Better Auth. The application role has no
+// grants on them (it never sees sessions, password hashes or tokens).
+// Field names follow Better Auth's core schema.
+// ---------------------------------------------------------------------------
+
+model Session {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+// Credentials. For email/password sign-in, providerId = "credential" and
+// password holds the library-managed hash.
+model Account {
+  id                    String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+// Email-verification (and later reset) tokens.
+model Verification {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// Database-backed authentication rate limiting (no Redis).
+model RateLimit {
+  id          String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt @map("last_request")
+
+  @@map("rate_limit")
 }
 
 // Permission catalogue, defined in code (src/lib/permissions). Read-only to the app.
