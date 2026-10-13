@@ -4,24 +4,9 @@
 
 import { execFileSync } from "node:child_process";
 
+// deepmerge-ts and mysql2 (via prisma / better-auth) are fixed by exact
+// `overrides` in package.json; remove those once prisma ships patched versions.
 const ACCEPTED = {
-  // Pulled in only by the `prisma` CLI (migrations/codegen), never by the app runtime.
-  "GHSA-ggr8-5vv4-36mx": {
-    package: "deepmerge-ts",
-    reason:
-      "prisma CLI config merging of our own config file; no fixed prisma release yet",
-    reviewBy: "2027-01-31",
-  },
-  "GHSA-3f6p-5ww8-9rcr": {
-    package: "mysql2",
-    reason: "bundled by prisma CLI for MySQL; TeamHappi uses PostgreSQL only",
-    reviewBy: "2027-01-31",
-  },
-  "GHSA-rgwj-5xj2-c3m3": {
-    package: "mysql2",
-    reason: "bundled by prisma CLI for MySQL; TeamHappi uses PostgreSQL only",
-    reviewBy: "2027-01-31",
-  },
   // Dev-only lint tooling (eslint-config-next -> fast-glob); no fixed version exists.
   "GHSA-vfj7-8cjw-p6xm": {
     package: "braces",

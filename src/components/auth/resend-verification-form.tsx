@@ -39,7 +39,7 @@ export function ResendVerificationForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} method="post" className="flex flex-col gap-4">
       <FormField
         id="email"
         name="email"
