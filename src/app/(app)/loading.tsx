@@ -1,9 +1,16 @@
+import { Skeleton } from "@/components/ui/misc";
+
 export default function Loading() {
   return (
-    <div role="status" className="flex max-w-3xl flex-col gap-6">
+    <div role="status" className="flex flex-col gap-6">
       <span className="sr-only">Loading…</span>
-      <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
-      <div className="h-32 animate-pulse rounded-xl bg-muted" />
+      <Skeleton className="h-9 w-64" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-32 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="h-72 rounded-2xl" />
     </div>
   );
 }

@@ -100,6 +100,8 @@ writeFileSync(
     `DATABASE_URL=${url("teamhappi_app", state.appPassword)}`,
     `AUTH_DATABASE_URL=${url("teamhappi_auth", state.authPassword)}`,
     `BETTER_AUTH_SECRET=${state.authSecret}`,
+    // Read-only Platform Admin preview for the synthetic seed account only.
+    "PLATFORM_PREVIEW_STAFF_EMAILS=ada.verified@example.test",
     "",
   ].join("\n"),
 );

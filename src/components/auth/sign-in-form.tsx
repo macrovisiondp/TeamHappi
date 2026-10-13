@@ -74,7 +74,14 @@ export function SignInForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form
+      onSubmit={onSubmit}
+      // POST, never GET: if submitted before JavaScript loads, credentials must
+      // not end up in the URL, browser history or server logs.
+      method="post"
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <FormField
         id="email"
         name="email"

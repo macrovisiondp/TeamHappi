@@ -1,49 +1,109 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Design tokens (shadcn/ui convention). Brand accent: TeamHappi teal. */
+/*
+ * TeamHappi design tokens: "Warm Hospitality" (docs/architecture/m3-ui-design.md).
+ * Brand colours are for identity; status colours are a separate semantic set and
+ * are always paired with an icon and text, so status never depends on colour.
+ * Light theme only for now (WCAG 2.2 AA contrast checked against these values).
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.99 0.002 180);
-  --foreground: oklch(0.2 0.02 200);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 200);
-  --primary: oklch(0.45 0.09 185);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.95 0.01 185);
-  --secondary-foreground: oklch(0.25 0.03 200);
-  --muted: oklch(0.96 0.006 185);
-  --muted-foreground: oklch(0.45 0.02 200);
-  --accent: oklch(0.94 0.03 185);
-  --accent-foreground: oklch(0.25 0.03 200);
-  --destructive: oklch(0.55 0.2 27);
-  --border: oklch(0.9 0.01 200);
-  --input: oklch(0.9 0.01 200);
-  --ring: oklch(0.5 0.1 185);
-}
+  color-scheme: light;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.17 0.015 200);
-    --foreground: oklch(0.96 0.005 180);
-    --card: oklch(0.21 0.015 200);
-    --card-foreground: oklch(0.96 0.005 180);
-    --primary: oklch(0.75 0.1 185);
-    --primary-foreground: oklch(0.17 0.015 200);
-    --secondary: oklch(0.27 0.02 200);
-    --secondary-foreground: oklch(0.96 0.005 180);
-    --muted: oklch(0.25 0.015 200);
-    --muted-foreground: oklch(0.75 0.015 200);
-    --accent: oklch(0.3 0.03 190);
-    --accent-foreground: oklch(0.96 0.005 180);
-    --destructive: oklch(0.65 0.19 25);
-    --border: oklch(0.32 0.015 200);
-    --input: oklch(0.32 0.015 200);
-    --ring: oklch(0.72 0.1 185);
-  }
+  /* Brand */
+  --brand-forest: #205b4e;
+  --brand-forest-strong: #174438;
+  --brand-coral: #e87861;
+  --brand-honey: #f0b94b;
+
+  /* Surfaces and text */
+  --bg: #faf8f3;
+  --surface: #ffffff;
+  --surface-sage: #e7f0e8;
+  --surface-muted: #f3efe6;
+  --text: #292723;
+  --text-muted: #5d584f;
+  --border: #e2dccf;
+  --border-strong: #8f8879;
+
+  /* Actions and focus */
+  --action: var(--brand-forest);
+  --action-hover: var(--brand-forest-strong);
+  --on-action: #ffffff;
+  --focus: #205b4e;
+
+  /* Status (semantic) */
+  --success-fg: #1e6b3a;
+  --success-bg: #e3f2e7;
+  --success-border: #a9d5b5;
+  --warning-fg: #7a4a00;
+  --warning-bg: #fdf1d8;
+  --warning-border: #eccb85;
+  --danger-fg: #a3271b;
+  --danger-bg: #fce8e5;
+  --danger-border: #f1b3aa;
+  --info-fg: #1f4e79;
+  --info-bg: #e6eff8;
+  --info-border: #b5cde6;
+
+  /* Demo-data marker */
+  --demo-bg: #fbe7b8;
+  --demo-fg: #292723;
+  --demo-border: #f0b94b;
+
+  --radius: 0.625rem;
+  --shadow-card:
+    0 1px 2px rgb(41 39 35 / 0.06), 0 4px 12px -2px rgb(41 39 35 / 0.06);
+  --shadow-pop:
+    0 8px 24px -4px rgb(41 39 35 / 0.16), 0 2px 6px rgb(41 39 35 / 0.08);
+
+  /* Legacy names used by shadcn-style primitives */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --primary: var(--action);
+  --primary-foreground: var(--on-action);
+  --secondary: var(--surface-sage);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-muted);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-sage);
+  --accent-foreground: var(--text);
+  --destructive: var(--danger-fg);
+  --input: var(--border-strong);
+  --ring: var(--focus);
 }
 
 @theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sage: var(--surface-sage);
+  --color-surface-muted: var(--surface-muted);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-forest: var(--brand-forest);
+  --color-forest-strong: var(--brand-forest-strong);
+  --color-coral: var(--brand-coral);
+  --color-honey: var(--brand-honey);
+  --color-success: var(--success-fg);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-danger: var(--danger-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-info: var(--info-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-border: var(--info-border);
+  --color-demo: var(--demo-bg);
+  --color-demo-fg: var(--demo-fg);
+  --color-demo-border: var(--demo-border);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -60,21 +120,58 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  /* System fonts: no font download, fast on older phones. */
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading:
+    var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-line;
+  }
+  html {
+    background: var(--bg);
   }
   body {
-    @apply bg-background font-sans text-foreground antialiased;
+    @apply bg-bg font-sans text-ink antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  /* One visible focus style everywhere (WCAG 2.4.7 / 2.4.11). */
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--surface-sage);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

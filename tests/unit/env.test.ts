@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseServerEnv } from "@/lib/env/schema";
+import { parseServerEnv, resolveAppUrl } from "@/lib/env/schema";
 
 describe("parseServerEnv", () => {
   it("applies safe defaults when optional variables are absent", () => {
@@ -58,5 +58,32 @@ describe("authentication settings", () => {
     }
     expect(message).toContain("BETTER_AUTH_SECRET");
     expect(message).not.toContain(secret);
+  });
+});
+
+describe("APP_URL on Vercel", () => {
+  it("prefers an explicit APP_URL", () => {
+    expect(
+      resolveAppUrl({ APP_URL: "https://a.example", VERCEL_ENV: "production" }),
+    ).toBe("https://a.example");
+  });
+  it("uses the production domain in production and the branch alias in previews", () => {
+    expect(
+      resolveAppUrl({
+        VERCEL_ENV: "production",
+        VERCEL_PROJECT_PRODUCTION_URL: "th.vercel.app",
+      }),
+    ).toBe("https://th.vercel.app");
+    expect(
+      resolveAppUrl({
+        VERCEL_ENV: "preview",
+        VERCEL_BRANCH_URL: "th-git-x.vercel.app",
+        VERCEL_URL: "th-abc.vercel.app",
+      }),
+    ).toBe("https://th-git-x.vercel.app");
+  });
+  it("falls back to the local default off Vercel", () => {
+    expect(resolveAppUrl({})).toBeUndefined();
+    expect(parseServerEnv({}).APP_URL).toBe("http://localhost:3000");
   });
 });
