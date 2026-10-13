@@ -42,20 +42,96 @@ export function resolveAppUrl(
   return host ? `https://${host}` : undefined;
 }
 
+const SECRET_VARS = [
+  "DATABASE_URL",
+  "AUTH_DATABASE_URL",
+  "BETTER_AUTH_SECRET",
+] as const;
+const DATABASE_VARS = new Set(["DATABASE_URL", "AUTH_DATABASE_URL"]);
+
+/**
+ * Undoes common copy-paste damage in hosting dashboards: surrounding
+ * whitespace or quotes, a leading `NAME=`, line breaks inside a URL, and
+ * `<…>` left around a password. Values are never logged.
+ */
+export function cleanEnvValue(name: string, raw: string): string {
+  let value = raw.trim();
+  for (let i = 0; i < 3; i++) {
+    value = value.replace(/^[A-Z][A-Z0-9_]*\s*=\s*/, "").trim();
+    const quoted = value.match(/^(["'`])([\s\S]*)\1$/);
+    if (quoted) value = quoted[2]!.trim();
+  }
+  if (DATABASE_VARS.has(name))
+    value = repairDatabaseUrl(value.replace(/\s+/g, ""));
+  return value;
+}
+
+/**
+ * Percent-encodes a database password that contains URL-reserved characters
+ * (such as @ / : # ?), which would otherwise break the address.
+ */
+export function repairDatabaseUrl(value: string): string {
+  // The host never contains "@", so the LAST "@" before the path ends the password.
+  const m = value.match(
+    /^(postgres(?:ql)?:\/\/)([^:/@]+):(.*)@([^@/]+(?:\/.*)?)$/,
+  );
+  if (!m) return value;
+  const [, scheme, user, rawPassword, rest] = m;
+  let password = rawPassword!;
+  if (password.startsWith("<") && password.endsWith(">"))
+    password = password.slice(1, -1);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(password);
+  } catch {
+    decoded = password;
+  }
+  return `${scheme}${user}:${encodeURIComponent(decoded)}@${rest}`;
+}
+
+/** A safe description of a database URL for error messages: never the password. */
+export function describeDatabaseUrl(value: string): string {
+  const scheme = /^postgres(ql)?:\/\//.test(value)
+    ? "postgresql://"
+    : "(does not start with postgresql://)";
+  const at = value.lastIndexOf("@");
+  if (at < 0) return `${scheme} … (no "@" before the host)`;
+  const user = value.slice(value.indexOf("//") + 2, at).split(":")[0] || "?";
+  const afterAt = value.slice(at + 1);
+  const host = afterAt.split(/[/?]/)[0] || "?";
+  const database = afterAt.split("/")[1]?.split("?")[0] || "(no database name)";
+  return `${scheme}${user}:****@${host}/${database}`;
+}
+
 export function parseServerEnv(
   source: Record<string, string | undefined>,
 ): ServerEnv {
+  const cleaned: Record<string, string | undefined> = { ...source };
+  for (const name of SECRET_VARS) {
+    const raw = source[name];
+    if (raw !== undefined)
+      cleaned[name] = cleanEnvValue(name, raw) || undefined;
+  }
   const result = serverEnvSchema.safeParse({
-    ...source,
-    APP_URL: resolveAppUrl(source),
+    ...cleaned,
+    APP_URL: resolveAppUrl(cleaned),
   });
   if (!result.success) {
-    // Report variable names only — never echo values, which may be secrets.
+    // Never echo values, which may be secrets. Database URLs are described
+    // with the password masked so the shape problem is visible in the logs.
     const names = [
       ...new Set(result.error.issues.map((i) => i.path.join("."))),
     ];
+    const details = names.map((name) => {
+      const value = cleaned[name];
+      if (DATABASE_VARS.has(name) && value)
+        return `${name} (looks like ${describeDatabaseUrl(value)})`;
+      if (name === "BETTER_AUTH_SECRET" && value)
+        return `${name} (${value.length} characters; needs at least 32)`;
+      return name;
+    });
     throw new Error(
-      `Invalid server environment variables: ${names.join(", ")}`,
+      `Invalid server environment variables: ${details.join("; ")}`,
     );
   }
   return result.data;

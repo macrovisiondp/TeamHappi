@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseServerEnv, resolveAppUrl } from "@/lib/env/schema";
+import {
+  cleanEnvValue,
+  describeDatabaseUrl,
+  parseServerEnv,
+  resolveAppUrl,
+} from "@/lib/env/schema";
 
 describe("parseServerEnv", () => {
   it("applies safe defaults when optional variables are absent", () => {
@@ -85,5 +90,57 @@ describe("APP_URL on Vercel", () => {
   it("falls back to the local default off Vercel", () => {
     expect(resolveAppUrl({})).toBeUndefined();
     expect(parseServerEnv({}).APP_URL).toBe("http://localhost:3000");
+  });
+});
+
+describe("pasted environment values", () => {
+  const PW = ["p", "w", "1", "2", "3"].join("");
+  const good = `postgresql://teamhappi_auth:${PW}@ep-x-pooler.eu-west-2.aws.neon.tech/teamhappi?sslmode=verify-full`;
+
+  it("repairs quotes, whitespace, line breaks and a leading NAME=", () => {
+    for (const pasted of [
+      `"${good}"`,
+      `  ${good}\n`,
+      `AUTH_DATABASE_URL=${good}`,
+      `AUTH_DATABASE_URL="${good}"`,
+      good.replace("pooler.", "pooler.\n"),
+    ])
+      expect(cleanEnvValue("AUTH_DATABASE_URL", pasted)).toBe(good);
+  });
+
+  it("removes <> left around the password and encodes reserved characters", () => {
+    expect(
+      cleanEnvValue("AUTH_DATABASE_URL", good.replace(PW, `<${PW}>`)),
+    ).toBe(good);
+    const tricky = good.replace(PW, "a@b/c#d");
+    const repaired = cleanEnvValue("AUTH_DATABASE_URL", tricky);
+    expect(new URL(repaired).password).toBe(encodeURIComponent("a@b/c#d"));
+    expect(new URL(repaired).hostname).toBe(
+      "ep-x-pooler.eu-west-2.aws.neon.tech",
+    );
+  });
+
+  it("parses a damaged paste and never puts the password in errors", () => {
+    expect(
+      parseServerEnv({ AUTH_DATABASE_URL: `"AUTH_DATABASE_URL=${good}"` })
+        .AUTH_DATABASE_URL,
+    ).toBe(good);
+    let message = "";
+    try {
+      parseServerEnv({ AUTH_DATABASE_URL: `teamhappi_auth:${PW}@host/db` });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toMatch(/AUTH_DATABASE_URL \(looks like/);
+    expect(message).not.toContain(PW);
+    expect(describeDatabaseUrl(good)).toBe(
+      "postgresql://teamhappi_auth:****@ep-x-pooler.eu-west-2.aws.neon.tech/teamhappi",
+    );
+  });
+
+  it("explains a short auth secret without revealing it", () => {
+    expect(() =>
+      parseServerEnv({ BETTER_AUTH_SECRET: "x".repeat(20) }),
+    ).toThrow("BETTER_AUTH_SECRET (20 characters; needs at least 32)");
   });
 });
