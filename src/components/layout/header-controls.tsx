@@ -11,13 +11,14 @@ import { formatDate, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { Brand } from "./brand";
+import type { NavSet } from "./nav";
 import { SidebarNav } from "./sidebar-nav";
 import { useDisclosure } from "./use-disclosure";
 
 const iconButton =
   "relative grid size-11 place-items-center rounded-[10px] text-ink hover:bg-sage";
 
-export function MobileNavButton() {
+export function MobileNavButton({ navSet = "tenant" }: { navSet?: NavSet }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -37,7 +38,7 @@ export function MobileNavButton() {
       >
         <div className="flex flex-col gap-4">
           <Brand />
-          <SidebarNav onNavigate={() => setOpen(false)} />
+          <SidebarNav navSet={navSet} onNavigate={() => setOpen(false)} />
         </div>
       </Dialog>
     </>

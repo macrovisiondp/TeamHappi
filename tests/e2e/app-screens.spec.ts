@@ -30,6 +30,8 @@ const SCREENS = [
 
 async function signIn(page: Page) {
   await page.goto("/sign-in");
+  // Wait for hydration so the form is handled by the app, not the browser.
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Email address").fill(email!);
   await page.getByLabel("Password").fill(password!);
   await page.getByRole("button", { name: "Sign in" }).click();

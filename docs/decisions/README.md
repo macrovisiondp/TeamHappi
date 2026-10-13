@@ -12,7 +12,9 @@
 | [0008](0008-authentication-database-role.md) | Separate database role for authentication | Proposed (approved in principle 12 Oct 2026; SQL awaiting review) |
 | 0009 | Platform-console database role | To be written (M3.5) |
 | 0010 | Rate-limiting store | Decided within ADR-0008: Better Auth database storage (free) |
-| 0009 | Observability / log retention provider | To be written (M4) |
+| [0011](0011-secrets-management-and-rotation.md) | Secrets management and credential rotation | Proposed (13 Oct 2026) |
+| [0012](0012-provider-independent-integrations.md) | Provider-independent integrations | Proposed (13 Oct 2026) |
+| 0013 | Observability / log retention provider | To be written (M4); previously listed as a second "0009" |
 
 Format: Status, Date, Requirements, Context, Decision, Alternatives, Consequences. An ADR becomes **Accepted** when the product owner approves it. A changed decision gets a new ADR that supersedes the old one. Never edit an accepted ADR's decision in place.
 

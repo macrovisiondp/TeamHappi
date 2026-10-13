@@ -5,15 +5,21 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-import { isActive, NAV_ITEMS } from "./nav";
+import { isActive, NAV_SETS, type NavSet } from "./nav";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  navSet = "tenant",
+}: {
+  onNavigate?: () => void;
+  navSet?: NavSet;
+}) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Main">
+    <nav aria-label={navSet === "platform" ? "Platform" : "Main"}>
       <ul className="flex flex-col gap-1">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, stage }) => {
-          const active = isActive(pathname, href);
+        {NAV_SETS[navSet].map(({ href, label, icon: Icon, stage, exact }) => {
+          const active = isActive(pathname, href, exact);
           return (
             <li key={href}>
               <Link

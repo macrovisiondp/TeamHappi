@@ -36,7 +36,23 @@ const ACCOUNTS = [
     email: "ben.unverified@example.test",
     verified: false,
   },
+  // Signed-in user who is NOT platform staff (Platform Admin must 404 for her).
+  {
+    name: "Cara Colleague",
+    email: "cara.colleague@example.test",
+    verified: true,
+  },
 ];
+
+// Keep passwords recorded by earlier runs, so re-seeding never loses them.
+const previous = new Map(
+  existsSync(".data/dev-accounts.md")
+    ? readFileSync(".data/dev-accounts.md", "utf8")
+        .split("\n")
+        .filter((l) => l.startsWith("| ") && !l.includes("(unchanged"))
+        .map((l) => [l.split("|")[2]?.trim(), l])
+    : [],
+);
 
 const client = new pg.Client({ connectionString: authUrl });
 await client.connect();
@@ -54,7 +70,8 @@ try {
     );
     if (existing.rowCount) {
       lines.push(
-        `| ${a.name} | ${a.email} | ${a.verified} | (unchanged; already seeded) |`,
+        previous.get(a.email) ??
+          `| ${a.name} | ${a.email} | ${a.verified} | (unchanged; already seeded) |`,
       );
       continue;
     }

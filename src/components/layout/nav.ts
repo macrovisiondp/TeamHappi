@@ -1,9 +1,17 @@
 import {
+  Activity,
+  BrainCircuit,
   CalendarDays,
+  CreditCard,
+  HardDrive,
+  KeyRound,
+  Mail,
+  Plug,
   ClipboardCheck,
   Clock,
   GraduationCap,
   LayoutDashboard,
+  ScrollText,
   Settings,
   UserPlus,
   Users,
@@ -17,6 +25,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** "demo": synthetic data; "planned": overview only until the module ships. */
   stage: "demo" | "planned";
+  /** Match only this path, not its children. */
+  exact?: boolean;
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
@@ -50,6 +60,76 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings, stage: "planned" },
 ];
 
-export function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+/** Macrovision Platform Admin. Separate from any tenant's navigation. */
+export const PLATFORM_NAV_ITEMS: readonly NavItem[] = [
+  {
+    href: "/platform/dashboard",
+    label: "Overview",
+    icon: Activity,
+    stage: "demo",
+  },
+  {
+    href: "/platform/integrations",
+    label: "Integrations",
+    icon: Plug,
+    stage: "demo",
+    exact: true,
+  },
+  {
+    href: "/platform/integrations/email",
+    label: "Email",
+    icon: Mail,
+    stage: "demo",
+  },
+  {
+    href: "/platform/integrations/storage",
+    label: "Storage",
+    icon: HardDrive,
+    stage: "demo",
+  },
+  {
+    href: "/platform/integrations/payments",
+    label: "Payments",
+    icon: CreditCard,
+    stage: "demo",
+  },
+  {
+    href: "/platform/integrations/ai",
+    label: "AI",
+    icon: BrainCircuit,
+    stage: "demo",
+  },
+  {
+    href: "/platform/integrations/credentials",
+    label: "Credentials",
+    icon: KeyRound,
+    stage: "demo",
+  },
+  {
+    href: "/platform/integrations/audit",
+    label: "Audit log",
+    icon: ScrollText,
+    stage: "demo",
+  },
+  {
+    href: "/platform/settings",
+    label: "Settings",
+    icon: Settings,
+    stage: "demo",
+  },
+];
+
+export type NavSet = "tenant" | "platform";
+
+export const NAV_SETS: Record<NavSet, readonly NavItem[]> = {
+  tenant: NAV_ITEMS,
+  platform: PLATFORM_NAV_ITEMS,
+};
+
+export function isActive(
+  pathname: string,
+  href: string,
+  exact = false,
+): boolean {
+  return pathname === href || (!exact && pathname.startsWith(`${href}/`));
 }

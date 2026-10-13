@@ -16,6 +16,10 @@ export const serverEnvSchema = z.object({
   AUTH_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
   // Signs session cookies and verification tokens. At least 32 characters.
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  // Comma-separated SYNTHETIC accounts allowed to view the Platform Admin
+  // preview (read-only, synthetic data). Ignored in production. Replaced by
+  // the platform_staff register + MFA in M3.5.
+  PLATFORM_PREVIEW_STAFF_EMAILS: z.string().max(2000).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
