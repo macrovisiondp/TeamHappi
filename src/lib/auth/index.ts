@@ -8,6 +8,7 @@ import { serverEnv } from "@/lib/env";
 
 import { createAuth, type Auth } from "./config";
 import { createAuthDbClient, type AuthDbClient } from "./db";
+import * as invitation from "./invitation-account";
 import * as mfa from "./mfa";
 import { listPlatformEvents } from "./platform-audit";
 import * as staff from "./platform-staff";
@@ -191,3 +192,27 @@ async function withDeps<T>(fn: (deps: mfa.MfaDeps) => Promise<T>): Promise<T> {
   if (!deps) throw new Error("Authentication is not configured");
   return fn(deps);
 }
+
+// --- Accounts from invite links (M6) -----------------------------------------
+
+export type { InvitedAccountResult } from "./invitation-account";
+
+/**
+ * Account creation for a person opening a valid invite link. Callers (only
+ * src/lib/invitations) must first check the link is valid for `email`.
+ */
+export const invitedAccounts = {
+  async exists(email: string): Promise<boolean> {
+    const auth = getAuth();
+    return auth ? invitation.accountExistsFor(auth, email) : false;
+  },
+  async create(
+    email: string,
+    raw: { name: unknown; password: unknown },
+  ): Promise<invitation.InvitedAccountResult | null> {
+    const auth = getAuth();
+    const db = globalForAuth.teamhappiAuthDb;
+    if (!auth || !db) return null;
+    return invitation.createInvitedAccount(auth, db, email, raw);
+  },
+};

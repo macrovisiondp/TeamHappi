@@ -42,7 +42,12 @@ export function SignInForm() {
   const [notice, setNotice] = useState<Notice>(
     params.get("verified") === "1"
       ? { kind: "info", text: "Email verified. You can now sign in." }
-      : null,
+      : params.get("joined") === "1"
+        ? {
+            kind: "info",
+            text: "Your account is ready. Sign in with the email address you were invited with and your new password.",
+          }
+        : null,
   );
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {

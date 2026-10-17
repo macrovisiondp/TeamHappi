@@ -3,7 +3,7 @@
 // (open redirect) or to an unexpected route.
 
 const ALLOWED =
-  /^\/(platform|dashboard|people|settings|organisations|demo)(\/[A-Za-z0-9._~-]+)*\/?$/;
+  /^\/(platform|dashboard|people|settings|organisations|demo|invite)(\/[A-Za-z0-9._~-]+)*\/?$/;
 
 export function safeNext(raw: string | null | undefined): string | null {
   if (!raw) return null;
