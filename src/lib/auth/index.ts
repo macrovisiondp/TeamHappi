@@ -182,7 +182,8 @@ export const platformStaffAdmin = {
     withDeps((d) => mfa.resetMfa(d, actor, target)),
   regenerateRecoveryCodes: (userId: string) =>
     withDeps((d) => mfa.regenerateRecoveryCodes(d, userId)),
-  audit: (limit?: number) => withDeps((d) => listPlatformEvents(d.db, limit)),
+  audit: (limit?: number, target?: { type: string; id: string }) =>
+    withDeps((d) => listPlatformEvents(d.db, limit, target)),
 };
 
 async function withDeps<T>(fn: (deps: mfa.MfaDeps) => Promise<T>): Promise<T> {

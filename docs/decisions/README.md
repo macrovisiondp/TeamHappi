@@ -10,7 +10,7 @@
 | [0006](0006-background-jobs-and-outbox.md) | Background jobs and transactional outbox | Outbox proposed; Inngest not approved (free fallback) |
 | [0007](0007-document-storage.md) | Secure document storage | Proposed; AWS not approved (blocks real documents) |
 | [0008](0008-authentication-database-role.md) | Separate database role for authentication | Proposed (approved in principle 12 Oct 2026; SQL awaiting review) |
-| 0009 | Platform-console database role | To be written (M3.5) |
+| [0009](0009-platform-console-role.md) | Platform console database role | Proposed (21 Oct 2026) |
 | 0010 | Rate-limiting store | Decided within ADR-0008: Better Auth database storage (free) |
 | [0011](0011-secrets-management-and-rotation.md) | Secrets management and credential rotation | Proposed (13 Oct 2026) |
 | [0012](0012-provider-independent-integrations.md) | Provider-independent integrations | Proposed (13 Oct 2026) |

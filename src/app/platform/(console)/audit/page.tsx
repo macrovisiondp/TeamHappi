@@ -25,6 +25,8 @@ const ACTION_LABEL: Record<string, string> = {
   "staff.suspended": "Suspended staff access",
   "staff.reactivated": "Reactivated staff access",
   "staff.revoked": "Revoked staff access",
+  "tenant.suspended": "Suspended an organisation",
+  "tenant.reactivated": "Reactivated an organisation",
 };
 
 export default async function PlatformAuditPage() {
@@ -62,7 +64,18 @@ export default async function PlatformAuditPage() {
                   <p className="text-xs text-ink-muted">{e.action}</p>
                 </Td>
                 <Td className="break-all">{e.actor ?? "System"}</Td>
-                <Td className="break-all">{e.target ?? "—"}</Td>
+                <Td className="break-all">
+                  {e.targetType === "tenant" && e.targetId ? (
+                    <a
+                      href={`/platform/organisations/${e.targetId}`}
+                      className="font-semibold text-forest underline"
+                    >
+                      Organisation
+                    </a>
+                  ) : (
+                    (e.target ?? "—")
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>

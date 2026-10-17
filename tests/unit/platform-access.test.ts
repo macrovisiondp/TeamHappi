@@ -170,15 +170,42 @@ describe("platform and integration guards", () => {
     expect(issuer).toEqual([]);
   });
 
-  it("MFA and staff tables are reached only through src/lib/auth", () => {
-    const offenders = SRC.filter((f) => !f.path.startsWith("src/lib/auth/"))
-      .filter((f) =>
-        /\.(platformStaff|userMfa|mfaRecoveryCode|platformAuditEvent)\./.test(
-          f.text,
-        ),
+  it("the platform database client is used only by src/platform and platform-access", () => {
+    const offenders = SRC.filter((f) =>
+      /from\s+["']@\/platform\/(db|tenants)/.test(f.text),
+    )
+      .filter(
+        (f) =>
+          !f.path.startsWith("src/platform/") &&
+          !f.path.startsWith("src/lib/platform-access/"),
       )
       .map((f) => f.path);
     expect(offenders).toEqual([]);
+    const creators = SRC.filter((f) => /createPlatformDbClient\(/.test(f.text))
+      .filter(
+        (f) =>
+          !f.path.startsWith("src/platform/") &&
+          !f.path.startsWith("src/lib/platform-access/"),
+      )
+      .map((f) => f.path);
+    expect(creators).toEqual([]);
+  });
+
+  it("MFA and staff tables are reached only through src/lib/auth", () => {
+    const offenders = SRC.filter((f) => !f.path.startsWith("src/lib/auth/"))
+      .filter((f) => /\.(platformStaff|userMfa|mfaRecoveryCode)\./.test(f.text))
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+    // The platform role writes audit events in the same transaction as an
+    // organisation status change (ADR-0009); nothing else outside auth does.
+    const audit = SRC.filter((f) => /\.platformAuditEvent\./.test(f.text))
+      .filter(
+        (f) =>
+          !f.path.startsWith("src/lib/auth/") &&
+          f.path !== "src/platform/tenants/organisations.ts",
+      )
+      .map((f) => f.path);
+    expect(audit).toEqual([]);
   });
 
   it("the console layout enforces MFA for every console page", () => {

@@ -22,13 +22,17 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id        String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  slug      String       @unique
-  legalName String       @map("legal_name")
-  status    TenantStatus @default(active)
-  timezone  String       @default("Europe/London")
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  slug               String             @unique
+  legalName          String             @map("legal_name")
+  status             TenantStatus       @default(active)
+  timezone           String             @default("Europe/London")
+  // Subscription and trial (M5.2): display only until billing is built.
+  subscriptionStatus SubscriptionStatus @default(trial) @map("subscription_status")
+  trialEndsAt        DateTime?          @map("trial_ends_at") @db.Timestamptz
+  plan               String?
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   memberships TenantMembership[]
   roles       Role[]
@@ -36,6 +40,15 @@ model Tenant {
   employees   Employee[]
 
   @@map("tenant")
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  past_due
+  cancelled
+
+  @@map("subscription_status")
 }
 
 enum TenantStatus {

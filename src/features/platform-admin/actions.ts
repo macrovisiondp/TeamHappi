@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { platformMfa } from "@/lib/auth";
 import {
   getPlatformAccess,
+  organisationAdmin,
   regenerateMyRecoveryCodes,
   staffAdmin,
   type PlatformAccess,
@@ -188,4 +189,29 @@ export async function updateStaffMember(
     }),
     "Permissions saved.",
   );
+}
+
+// --- Client organisations (M5.2) --------------------------------------------
+
+export async function changeOrganisationStatus(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  if (!(await requireStaff()))
+    return { status: "error", message: "Platform access is required." };
+  const next = form.get("next") === "active" ? "active" : "suspended";
+  const r = await organisationAdmin.setStatus(
+    String(form.get("tenantId") ?? ""),
+    next,
+    String(form.get("reason") ?? ""),
+  );
+  return r.ok
+    ? {
+        status: "ok",
+        message:
+          next === "suspended"
+            ? "Organisation suspended. Its members lose access on their next page load."
+            : "Organisation reactivated.",
+      }
+    : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
 }
