@@ -226,11 +226,19 @@ describe("row-level security coverage", () => {
     ]);
     expect(byRole.teamhappi_auth!.sort()).toEqual([
       "account",
+      "mfa_recovery_code",
+      // Two policies: insert-only and read-only (no update/delete policy).
+      "platform_audit_event",
+      "platform_audit_event",
+      "platform_staff",
       "rate_limit",
       "session",
       "user",
+      "user_mfa",
       "verification",
     ]);
+    expect(byRole.teamhappi_app).not.toContain("platform_staff");
+    expect(byRole.teamhappi_app).not.toContain("user_mfa");
     expect(byRole.teamhappi_app).not.toContain("session");
     expect(byRole.teamhappi_app).not.toContain("account");
   });

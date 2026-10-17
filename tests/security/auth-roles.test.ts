@@ -169,9 +169,14 @@ describe("authentication role posture", () => {
       Object.fromEntries(grants.map((g) => [g.table_name, g.privileges])),
     ).toEqual({
       account: "INSERT,SELECT,UPDATE",
+      // M5.1: MFA and platform staff (no DELETE); audit is insert/read only.
+      mfa_recovery_code: "INSERT,SELECT,UPDATE",
+      platform_audit_event: "INSERT,SELECT",
+      platform_staff: "INSERT,SELECT,UPDATE",
       rate_limit: "DELETE,INSERT,SELECT,UPDATE",
       session: "DELETE,INSERT,SELECT,UPDATE",
       user: "INSERT,SELECT,UPDATE",
+      user_mfa: "INSERT,SELECT,UPDATE",
       verification: "DELETE,INSERT,SELECT,UPDATE",
     });
   });

@@ -34,26 +34,26 @@ export default async function PlatformSettingsPage() {
               <dt className="text-ink-muted">Access level</dt>
               <dd>
                 <Badge tone="info">
-                  {access.kind === "preview" ? "Preview (read-only)" : "None"}
+                  {access.kind === "staff" ? "Platform staff" : "None"}
                 </Badge>
               </dd>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <dt className="text-ink-muted">Multi-factor authentication</dt>
               <dd>
-                <Badge tone="warning">Not available yet</Badge>
+                <Badge tone="success">On</Badge>
               </dd>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <dt className="text-ink-muted">Privileged actions</dt>
+              <dt className="text-ink-muted">Integration changes</dt>
               <dd>
-                <Badge tone="neutral">Switched off</Badge>
+                <Badge tone="neutral">Awaiting approval (M5.3)</Badge>
               </dd>
             </div>
           </dl>
           <CardDescription>
-            Full platform staff access needs the staff register and MFA
-            (Milestone 3.4–3.5). Preview access is never granted in production.
+            Your permissions and MFA are on the Security page. Sensitive changes
+            need an MFA check within the last 15 minutes.
           </CardDescription>
         </Card>
         <Card aria-labelledby="env-heading">

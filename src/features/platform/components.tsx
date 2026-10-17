@@ -64,10 +64,10 @@ export function when(iso: string | null): string {
 
 export function PreviewNotice() {
   return (
-    <Alert tone="demo" title="Platform Admin preview: synthetic configuration">
-      You can look around, but nothing here is connected to a real provider.
-      Changing providers, credentials or AI settings is switched off until
-      platform staff access with MFA is built and live connections are approved.
+    <Alert tone="demo" title="Integration settings: synthetic configuration">
+      Nothing here is connected to a real provider yet. Changing providers,
+      credentials or AI settings stays switched off until live connections are
+      approved (Milestone 5.3).
     </Alert>
   );
 }

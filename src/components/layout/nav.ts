@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   ScrollText,
   Settings,
+  ShieldCheck,
   UserPlus,
   Users,
   type LucideIcon,
@@ -106,10 +107,22 @@ export const PLATFORM_NAV_ITEMS: readonly NavItem[] = [
     stage: "demo",
   },
   {
-    href: "/platform/integrations/audit",
+    href: "/platform/staff",
+    label: "Staff",
+    icon: Users,
+    stage: "live",
+  },
+  {
+    href: "/platform/security",
+    label: "Security",
+    icon: ShieldCheck,
+    stage: "live",
+  },
+  {
+    href: "/platform/audit",
     label: "Audit log",
     icon: ScrollText,
-    stage: "demo",
+    stage: "live",
   },
   {
     href: "/platform/settings",

@@ -15,8 +15,9 @@ export const instant = false;
 
 // Macrovision Platform Admin. Separate from every tenant's area: its own
 // navigation, no tenant selector and no tenant data. Access is decided on the
-// server for every request; anyone without platform access gets a 404, so the
-// console's existence is not confirmed to them.
+// server for every request from the platform_staff register (never an email
+// address); anyone who isn't active platform staff gets a 404, so the console's
+// existence is not confirmed to them. MFA is enforced by (console)/layout.tsx.
 export default function PlatformLayout({ children }: LayoutProps<"/platform">) {
   return (
     <AppShell
@@ -29,13 +30,13 @@ export default function PlatformLayout({ children }: LayoutProps<"/platform">) {
       }
     >
       <Suspense fallback={<Loading />}>
-        <RequirePlatformAccess>{children}</RequirePlatformAccess>
+        <RequirePlatformStaff>{children}</RequirePlatformStaff>
       </Suspense>
     </AppShell>
   );
 }
 
-async function RequirePlatformAccess({ children }: { children: ReactNode }) {
+async function RequirePlatformStaff({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
   const access = await getPlatformAccess();
