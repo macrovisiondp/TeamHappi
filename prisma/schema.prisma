@@ -230,14 +230,18 @@ model RoleAssignment {
 }
 
 model Site {
-  id        String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId  String     @map("tenant_id") @db.Uuid
-  code      String
-  name      String
-  timezone  String     @default("Europe/London")
-  status    SiteStatus @default(active)
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String     @map("tenant_id") @db.Uuid
+  code        String
+  name        String
+  timezone    String     @default("Europe/London")
+  status      SiteStatus @default(active)
+  // Business location (M4.2). No personal data.
+  addressLine String?    @map("address_line")
+  town        String?
+  postcode    String?
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   teams           Team[]
@@ -298,6 +302,7 @@ model Employee {
   preferredName  String?          @map("preferred_name")
   email          String?
   phoneNumber    String?          @map("phone_number")
+  jobTitle       String?          @map("job_title")
   status         EmploymentStatus @default(pending)
   startDate      DateTime?        @map("start_date") @db.Date
   endDate        DateTime?        @map("end_date") @db.Date

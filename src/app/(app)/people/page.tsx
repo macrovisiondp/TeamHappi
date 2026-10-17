@@ -1,5 +1,6 @@
 import { UserPlus, Users } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -33,10 +34,14 @@ export default async function PeoplePage() {
         title="People"
         description={`Employee records at ${ws.tenant.name}.`}
         actions={
-          <Button disabled disabledReason="Invitations arrive in Milestone 3.6">
-            <UserPlus aria-hidden="true" />
-            Invite person
-          </Button>
+          ws.grants.has("employee.manage") ? (
+            <Button asChild>
+              <Link href="/people/new">
+                <UserPlus aria-hidden="true" />
+                Add person
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
       {result.people.length ? (
@@ -48,7 +53,20 @@ export default async function PeoplePage() {
           caption={`Staff directory, ${ws.tenant.name}`}
         />
       ) : (
-        <EmptyState icon={Users} title="No people yet">
+        <EmptyState
+          icon={Users}
+          title="No people yet"
+          action={
+            ws.grants.has("employee.manage") ? (
+              <Button asChild>
+                <Link href="/people/new">
+                  <UserPlus aria-hidden="true" />
+                  Add your first person
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        >
           Employee records you can see will appear here once they&apos;re added.
         </EmptyState>
       )}

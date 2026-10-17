@@ -1,9 +1,10 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/misc";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
-import { getPerson } from "@/lib/workspace";
+import { can, getPerson } from "@/lib/workspace";
 import {
   NoOrganisation,
   requireWorkspace,
@@ -37,7 +38,12 @@ export default async function EmployeePage({
 
   const name = fullName(person);
   const status = EMPLOYMENT_STATUSES[person.status]!;
+  const canEdit =
+    person.primarySiteId === null
+      ? ws.grants.get("employee.manage") === "all"
+      : can(ws.grants, "employee.manage", person.primarySiteId);
   const rows: [string, string][] = [
+    ["Job title", person.jobTitle ?? "Not set"],
     ["Employee number", person.employeeNumber],
     ["Primary site", person.primarySite?.name ?? "Not set"],
     ["Teams", person.teams.map((t) => t.team.name).join(", ") || "None"],
@@ -60,6 +66,14 @@ export default async function EmployeePage({
           <h1 className="text-2xl font-bold md:text-3xl">{name}</h1>
           <Badge tone={status.tone}>{status.label}</Badge>
         </div>
+        {canEdit ? (
+          <Button asChild variant="secondary" className="ml-auto">
+            <Link href={`/people/${person.id}/edit`}>
+              <Pencil aria-hidden="true" />
+              Edit
+            </Link>
+          </Button>
+        ) : null}
       </header>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card aria-labelledby="employment-heading">

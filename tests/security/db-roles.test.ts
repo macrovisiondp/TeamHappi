@@ -109,7 +109,8 @@ describe("application role posture", () => {
       Object.fromEntries(grants.map((g) => [g.table_name, g.privileges])),
     ).toEqual({
       document: "INSERT,SELECT,UPDATE",
-      employee: "INSERT,SELECT,UPDATE",
+      // UPDATE is column-level since M4.2 (see the next test).
+      employee: "INSERT,SELECT",
       permission: "SELECT",
       role: "INSERT,SELECT,UPDATE",
       role_assignment: "DELETE,INSERT,SELECT",
@@ -117,9 +118,49 @@ describe("application role posture", () => {
       site: "INSERT,SELECT,UPDATE",
       team: "INSERT,SELECT,UPDATE",
       team_member: "DELETE,INSERT,SELECT",
-      tenant: "INSERT,SELECT,UPDATE",
+      tenant: "INSERT,SELECT",
       tenant_membership: "INSERT,SELECT,UPDATE",
       user: "SELECT",
+    });
+  });
+});
+
+describe("column-level UPDATE privileges (M4.2)", () => {
+  it("the app may update only the reviewed columns of tenant and employee", async () => {
+    const rows = await admin(
+      async (c) =>
+        (
+          await c.query<{ table_name: string; columns: string }>(
+            `SELECT table_name, string_agg(column_name, ',' ORDER BY column_name) AS columns
+             FROM information_schema.column_privileges
+             WHERE grantee = 'teamhappi_app' AND privilege_type = 'UPDATE'
+               AND table_name IN ('tenant', 'employee')
+               AND NOT EXISTS (
+                 SELECT 1 FROM information_schema.role_table_grants g
+                 WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
+                   AND g.privilege_type = 'UPDATE')
+             GROUP BY table_name ORDER BY table_name`,
+          )
+        ).rows,
+    );
+    expect(
+      Object.fromEntries(rows.map((r) => [r.table_name, r.columns.split(",")])),
+    ).toEqual({
+      employee: [
+        "email",
+        "employee_number",
+        "end_date",
+        "family_name",
+        "given_name",
+        "job_title",
+        "phone_number",
+        "preferred_name",
+        "primary_site_id",
+        "start_date",
+        "status",
+        "updated_at",
+      ],
+      tenant: ["legal_name", "timezone", "updated_at"],
     });
   });
 });

@@ -57,7 +57,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { href: "/rota", label: "Rota", icon: CalendarDays, stage: "planned" },
   { href: "/attendance", label: "Attendance", icon: Clock, stage: "planned" },
-  { href: "/settings", label: "Settings", icon: Settings, stage: "planned" },
+  { href: "/settings", label: "Settings", icon: Settings, stage: "live" },
 ];
 
 /** Macrovision Platform Admin. Separate from any tenant's navigation. */

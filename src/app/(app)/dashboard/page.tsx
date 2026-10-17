@@ -67,12 +67,29 @@ export default async function DashboardPage() {
       </div>
 
       {empty ? (
-        <EmptyState icon={Building2} title="Your workspace is ready">
-          <p>
-            Add your first site and your team to see staffing here. Site and
-            people management arrive in the next releases; until then your
-            TeamHappi contact can load them for you.
-          </p>
+        <EmptyState
+          icon={Building2}
+          title="Your workspace is ready"
+          action={
+            <div className="flex flex-wrap justify-center gap-3">
+              {ws.grants.get("site.manage") === "all" ? (
+                <Button asChild>
+                  <Link href="/settings/sites/new">Add your first site</Link>
+                </Button>
+              ) : null}
+              {ws.grants.has("employee.manage") ? (
+                <Button asChild variant="secondary">
+                  <Link href="/people/new">Add people</Link>
+                </Button>
+              ) : null}
+            </div>
+          }
+        >
+          <ol className="mx-auto max-w-md list-decimal pl-5 text-left">
+            <li>Add your sites (each restaurant, kitchen or venue).</li>
+            <li>Add teams at each site, such as Kitchen or Front of house.</li>
+            <li>Add the people who work there.</li>
+          </ol>
         </EmptyState>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

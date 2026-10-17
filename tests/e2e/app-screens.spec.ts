@@ -26,7 +26,7 @@ const SCREENS = [
   { path: "/demo/people", heading: "People" },
   { path: "/demo/people/emp-006", heading: "Kwame Mensah" },
   { path: "/rota", heading: "Rota" },
-  { path: "/settings", heading: "Settings" },
+  { path: "/settings", heading: "Organisation" },
   { path: "/access-denied", heading: "You don't have access to this" },
 ];
 
