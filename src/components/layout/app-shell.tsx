@@ -1,11 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
 import { Brand } from "./brand";
-import {
-  MobileNavButton,
-  NotificationsMenu,
-  OrganisationSelector,
-} from "./header-controls";
+import { MobileNavButton, NotificationsMenu } from "./header-controls";
 import type { NavSet } from "./nav";
 import { SidebarNav } from "./sidebar-nav";
 
@@ -21,7 +17,8 @@ export function AppShell({
 }: {
   children: ReactNode;
   accountMenu?: ReactNode;
-  organisation: string;
+  /** The platform name, or the organisation switcher rendered by the layout. */
+  organisation: ReactNode;
   navSet?: NavSet;
 }) {
   const platform = navSet === "platform";
@@ -53,13 +50,9 @@ export function AppShell({
                   {organisation}
                 </p>
               ) : (
-                <>
-                  <div className="hidden sm:block">
-                    <OrganisationSelector organisation={organisation} />
-                  </div>
-                  <NotificationsMenu />
-                </>
+                <div className="min-w-0">{organisation}</div>
               )}
+              {navSet === "demo" ? <NotificationsMenu /> : null}
               {accountMenu}
             </div>
           </div>

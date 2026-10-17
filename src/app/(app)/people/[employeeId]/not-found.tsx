@@ -15,7 +15,7 @@ export default function EmployeeNotFound() {
         </Button>
       }
     >
-      They may have been removed, or the link may be wrong.
+      They may have been removed, or they may be outside the sites you can see.
     </EmptyState>
   );
 }

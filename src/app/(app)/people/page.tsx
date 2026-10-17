@@ -1,24 +1,37 @@
-import { UserPlus } from "lucide-react";
+import { UserPlus, Users } from "lucide-react";
 import type { Metadata } from "next";
 
-import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
-import { DEMO_EMPLOYEES, DEMO_SITES } from "@/features/demo/fixtures";
+import { PermissionDenied } from "@/components/states/states";
+import { EMPLOYMENT_STATUSES } from "@/features/people/directory";
 import { PeopleDirectory } from "@/features/people/people-directory";
+import { listPeople } from "@/lib/workspace";
+import {
+  NoOrganisation,
+  requireWorkspace,
+} from "@/features/workspace/components";
 
 export const metadata: Metadata = { title: "People" };
 
 // Session-gated (see (app)/layout.tsx): renders per request, not prefetch-validated.
 export const instant = false;
 
-export default function PeoplePage() {
+export default async function PeoplePage() {
+  const ws = await requireWorkspace();
+  if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const result = await listPeople(ws);
+  if (!result)
+    return (
+      <PermissionDenied message="Your role doesn't include viewing employee records. Ask an administrator in your organisation if you need access." />
+    );
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="People"
-        demo
-        description="Everyone across your sites: roles, status and where they work."
+        description={`Employee records at ${ws.tenant.name}.`}
         actions={
           <Button disabled disabledReason="Invitations arrive in Milestone 3.6">
             <UserPlus aria-hidden="true" />
@@ -26,12 +39,19 @@ export default function PeoplePage() {
           </Button>
         }
       />
-      <Alert tone="demo" title="Demo staff directory">
-        These people are fictional. The live directory will show your
-        organisation&apos;s employee records once the People module is connected
-        (Milestone 3.7).
-      </Alert>
-      <PeopleDirectory employees={DEMO_EMPLOYEES} sites={DEMO_SITES} />
+      {result.people.length ? (
+        <PeopleDirectory
+          employees={result.people}
+          sites={result.sites}
+          statuses={EMPLOYMENT_STATUSES}
+          hrefBase="/people"
+          caption={`Staff directory, ${ws.tenant.name}`}
+        />
+      ) : (
+        <EmptyState icon={Users} title="No people yet">
+          Employee records you can see will appear here once they&apos;re added.
+        </EmptyState>
+      )}
     </div>
   );
 }

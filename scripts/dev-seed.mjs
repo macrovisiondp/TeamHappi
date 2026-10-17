@@ -37,11 +37,14 @@ const ACCOUNTS = [
     verified: false,
   },
   // Signed-in user who is NOT platform staff (Platform Admin must 404 for her).
+  // In the workspace seed she is a "worker" with no staff permissions.
   {
     name: "Cara Colleague",
     email: "cara.colleague@example.test",
     verified: true,
   },
+  // Verified, but a member of no organisation (M4.1 "no organisation" state).
+  { name: "Dan Newcomer", email: "dan.newcomer@example.test", verified: true },
 ];
 
 // Keep passwords recorded by earlier runs, so re-seeding never loses them.
@@ -94,6 +97,159 @@ try {
   await client.end();
 }
 writeFileSync(".data/dev-accounts.md", `${lines.join("\n")}\n`);
+
+// --- Synthetic organisations (M4.1) -----------------------------------------
+// Written with the local superuser (from .data/dev-db.json) because tenant
+// tables are RLS-protected. The host check above guarantees this is local.
+const state = JSON.parse(readFileSync(".data/dev-db.json", "utf8"));
+const adminUrl = new URL(authUrl);
+adminUrl.username = "postgres";
+adminUrl.password = state.superPassword;
+await seedOrganisations(adminUrl.toString());
+
+async function seedOrganisations(url) {
+  const ROLE_PERMISSIONS = {
+    owner: [
+      "tenant.settings.manage",
+      "site.view",
+      "site.manage",
+      "team.manage",
+      "member.invite",
+      "role.assign",
+      "role.manage",
+      "employee.view",
+      "employee.manage",
+    ],
+    site_manager: ["site.view", "team.manage", "employee.view"],
+    worker: [],
+  };
+  const ROLE_NAMES = {
+    owner: "Tenant owner",
+    site_manager: "Site manager",
+    worker: "Worker",
+  };
+  const ORGS = [
+    {
+      slug: "harbour-hearth-synthetic",
+      name: "Harbour & Hearth Group (synthetic)",
+      sites: [
+        ["QUAY", "The Quayside Kitchen"],
+        ["MILL", "Millstone Brasserie"],
+      ],
+      people: [
+        ["Kwame", "Mensah", "QUAY", "active", "2024-03-04"],
+        ["Aisha", "Rahman", "QUAY", "active", "2023-06-12"],
+        ["Luca", "Bianchi", "MILL", "active", "2025-01-20"],
+        ["Maya", "Patel", "MILL", "pending", "+7"],
+        ["Tom", "Fletcher", "QUAY", "pending", "+19"],
+        ["Grace", "O'Neill", "MILL", "left", "2022-09-01"],
+      ],
+      members: [
+        ["ada.verified@example.test", "owner", null],
+        ["cara.colleague@example.test", "worker", null],
+      ],
+    },
+    {
+      slug: "northern-larder-synthetic",
+      name: "Northern Larder Ltd (synthetic)",
+      sites: [
+        ["LEEDS", "Larder Leeds"],
+        ["YORK", "Larder York"],
+      ],
+      people: [
+        ["Priya", "Shah", "LEEDS", "active", "2024-11-02"],
+        ["Owen", "Hughes", "LEEDS", "pending", "+3"],
+        ["Zoe", "Clarke", "YORK", "active", "2023-02-14"],
+      ],
+      // Ada is a site manager here, scoped to Leeds only.
+      members: [["ada.verified@example.test", "site_manager", "LEEDS"]],
+    },
+  ];
+  const date = (v) => {
+    if (!v.startsWith("+")) return v;
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + Number(v.slice(1)));
+    return d.toISOString().slice(0, 10);
+  };
+  const c = new pg.Client({ connectionString: url });
+  await c.connect();
+  const one = async (sql, params) => (await c.query(sql, params)).rows[0].id;
+  try {
+    for (const org of ORGS) {
+      const exists = await c.query(`SELECT 1 FROM tenant WHERE slug = $1`, [
+        org.slug,
+      ]);
+      if (exists.rowCount) continue;
+      await c.query("BEGIN");
+      const t = await one(
+        `INSERT INTO tenant (slug, legal_name) VALUES ($1, $2) RETURNING id`,
+        [org.slug, org.name],
+      );
+      const roles = {};
+      for (const [key, perms] of Object.entries(ROLE_PERMISSIONS)) {
+        roles[key] = await one(
+          `INSERT INTO role (tenant_id, key, name, is_system) VALUES ($1, $2, $3, true) RETURNING id`,
+          [t, key, ROLE_NAMES[key]],
+        );
+        for (const code of perms)
+          await c.query(
+            `INSERT INTO role_permission (tenant_id, role_id, permission_code) VALUES ($1, $2, $3)`,
+            [t, roles[key], code],
+          );
+      }
+      const sites = {};
+      for (const [code, name] of org.sites)
+        sites[code] = await one(
+          `INSERT INTO site (tenant_id, code, name) VALUES ($1, $2, $3) RETURNING id`,
+          [t, code, name],
+        );
+      let n = 1;
+      for (const [given, family, site, status, start] of org.people) {
+        const email = `${given}.${family}`
+          .toLowerCase()
+          .replace(/[^a-z.]/g, "");
+        await c.query(
+          `INSERT INTO employee (tenant_id, employee_number, given_name, family_name, status, start_date, primary_site_id, email)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            t,
+            `E${String(n++).padStart(3, "0")}`,
+            given,
+            family,
+            status,
+            date(start),
+            sites[site],
+            `${email}@example.test`,
+          ],
+        );
+      }
+      for (const [email, roleKey, siteCode] of org.members) {
+        const u = (
+          await c.query(`SELECT id FROM "user" WHERE email = $1`, [email])
+        ).rows[0];
+        if (!u) continue;
+        const m = await one(
+          `INSERT INTO tenant_membership (tenant_id, user_id, status) VALUES ($1, $2, 'active') RETURNING id`,
+          [t, u.id],
+        );
+        await c.query(
+          `INSERT INTO role_assignment (tenant_id, membership_id, role_id, site_id) VALUES ($1, $2, $3, $4)`,
+          [t, m, roles[roleKey], siteCode ? sites[siteCode] : null],
+        );
+      }
+      await c.query("COMMIT");
+    }
+  } catch (e) {
+    await c.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    await c.end();
+  }
+  console.log(
+    `Synthetic organisations ready: ${ORGS.map((o) => o.name).join(", ")}.`,
+  );
+}
+
 console.log(
   `Seeded ${ACCOUNTS.length} synthetic accounts. Credentials: .data/dev-accounts.md (local only).`,
 );

@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field";
 import { DemoBadge, PageHeader } from "@/components/ui/misc";
 import { Progress } from "@/components/ui/progress";
 import { DEMO_EMPLOYEES, DEMO_SITES } from "@/features/demo/fixtures";
+import { DEMO_STATUSES } from "@/features/people/directory";
 import { PeopleDirectory } from "@/features/people/people-directory";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/people/emp-001" }));
@@ -93,7 +94,15 @@ describe("Progress", () => {
 describe("PeopleDirectory", () => {
   it("filters as you type and announces the result count", async () => {
     const user = userEvent.setup();
-    render(<PeopleDirectory employees={DEMO_EMPLOYEES} sites={DEMO_SITES} />);
+    render(
+      <PeopleDirectory
+        employees={DEMO_EMPLOYEES}
+        sites={DEMO_SITES}
+        statuses={DEMO_STATUSES}
+        hrefBase="/demo/people"
+        caption="Staff directory (demo data)"
+      />,
+    );
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent(
       `Showing ${DEMO_EMPLOYEES.length} of ${DEMO_EMPLOYEES.length} people`,
@@ -109,7 +118,15 @@ describe("PeopleDirectory", () => {
 
   it("shows a helpful empty state when nothing matches", async () => {
     const user = userEvent.setup();
-    render(<PeopleDirectory employees={DEMO_EMPLOYEES} sites={DEMO_SITES} />);
+    render(
+      <PeopleDirectory
+        employees={DEMO_EMPLOYEES}
+        sites={DEMO_SITES}
+        statuses={DEMO_STATUSES}
+        hrefBase="/demo/people"
+        caption="Staff directory (demo data)"
+      />,
+    );
     await user.type(screen.getByLabelText("Search"), "no such person zzz");
     expect(
       screen.getByRole("heading", { name: "No one matches these filters" }),
@@ -119,7 +136,15 @@ describe("PeopleDirectory", () => {
 
   it("filters by site with a labelled select", async () => {
     const user = userEvent.setup();
-    render(<PeopleDirectory employees={DEMO_EMPLOYEES} sites={DEMO_SITES} />);
+    render(
+      <PeopleDirectory
+        employees={DEMO_EMPLOYEES}
+        sites={DEMO_SITES}
+        statuses={DEMO_STATUSES}
+        hrefBase="/demo/people"
+        caption="Staff directory (demo data)"
+      />,
+    );
     await user.selectOptions(screen.getByLabelText("Site"), "site-mill");
     const expected = DEMO_EMPLOYEES.filter(
       (e) => e.siteId === "site-mill",
