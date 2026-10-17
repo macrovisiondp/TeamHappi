@@ -83,6 +83,7 @@ const eslintConfig = defineConfig([
                 "@/platform/authz/*",
                 "@/platform/tenancy/*",
                 "@/platform/tenants/*",
+                "@/platform/integrations/*",
                 "@/platform/db",
               ],
               message:

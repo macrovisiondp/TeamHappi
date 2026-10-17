@@ -1,9 +1,9 @@
-import { KeyRound, Power, Send, ShieldCheck, Wrench } from "lucide-react";
+import { KeyRound, Power, ShieldCheck } from "lucide-react";
 import type * as React from "react";
 
+import { PermissionDenied } from "@/components/states/states";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type Tone } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -11,20 +11,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
+import { ProviderControls } from "@/features/platform-admin/integrations";
 import type {
+  DeploymentEnvironment,
   HealthStatus,
   ProviderReadiness,
   ServiceCategory,
 } from "@/integrations/core/types";
-import { providersFor, type ProviderDefinition } from "@/integrations/registry";
+import { PROVIDER_FIELDS } from "@/integrations/fields";
+import { getProvider, type ProviderDefinition } from "@/integrations/registry";
 import { formatDate, formatTime } from "@/lib/format";
-import { PRIVILEGED_DISABLED_REASON } from "@/lib/platform-access/policy";
-
 import {
-  CATEGORY_DESCRIPTION,
-  CATEGORY_LABEL,
-  PROVIDER_STATE,
-} from "./fixtures";
+  getPlatformAccess,
+  hasGrant,
+  integrationAdmin,
+  type IntegrationCategoryState,
+} from "@/lib/platform-access";
+
+import { CATEGORY_DESCRIPTION, CATEGORY_LABEL } from "./labels";
 
 const HEALTH: Record<HealthStatus, { tone: Tone; label: string }> = {
   healthy: { tone: "success", label: "Healthy" },
@@ -40,8 +44,8 @@ export function HealthBadge({ status }: { status: HealthStatus }) {
 }
 
 const READINESS: Record<ProviderReadiness, { tone: Tone; label: string }> = {
-  synthetic: { tone: "info", label: "Synthetic adapter" },
-  "adapter-ready": { tone: "neutral", label: "Awaiting approval" },
+  synthetic: { tone: "info", label: "Test adapter" },
+  "adapter-ready": { tone: "neutral", label: "Needs live approval" },
   planned: { tone: "neutral", label: "Planned" },
 };
 
@@ -58,23 +62,58 @@ export function ReadinessBadge({
   );
 }
 
-export function when(iso: string | null): string {
+export function when(iso: string | Date | null): string {
   return iso ? `${formatDate(iso)}, ${formatTime(iso)}` : "Never";
 }
 
+export const ENVIRONMENT_LABEL: Record<DeploymentEnvironment, string> = {
+  local: "Local development",
+  preview: "Preview deployment",
+  production: "Production",
+};
+
 export function PreviewNotice() {
   return (
-    <Alert tone="demo" title="Integration settings: synthetic configuration">
-      Nothing here is connected to a real provider yet. Changing providers,
-      credentials or AI settings stays switched off until live connections are
-      approved (Milestone 5.3).
+    <Alert tone="info" title="Live providers stay switched off">
+      Settings are saved and audited, and the built-in test adapters can be
+      switched on outside production. Connecting a real provider (sending real
+      email, storing real files, taking payments or calling an AI model) needs
+      your separate approval first.
     </Alert>
   );
 }
 
-function ProviderCard({ provider }: { provider: ProviderDefinition }) {
-  const state = PROVIDER_STATE[provider.id];
+export function NotConfiguredNotice() {
+  return (
+    <Alert tone="warning" title="Integration settings aren't configured here">
+      This deployment has no platform database connection
+      (PLATFORM_DATABASE_URL), so integration settings can&rsquo;t be read or
+      saved.
+    </Alert>
+  );
+}
+
+function display(value: unknown): string {
+  return Array.isArray(value) ? value.join(", ") : String(value);
+}
+
+function ProviderCard({
+  provider,
+  state,
+  canManage,
+  returnTo,
+}: {
+  provider: ProviderDefinition;
+  state: IntegrationCategoryState["providers"][number];
+  canManage: boolean;
+  returnTo: string;
+}) {
   const headingId = `provider-${provider.id}`;
+  const fields = PROVIDER_FIELDS[provider.id] ?? [];
+  const settings = state.latest?.settings ?? {};
+  const values = Object.fromEntries(
+    Object.entries(settings).map(([k, v]) => [k, display(v)]),
+  );
   return (
     <Card aria-labelledby={headingId}>
       <CardHeader>
@@ -83,7 +122,7 @@ function ProviderCard({ provider }: { provider: ProviderDefinition }) {
           <CardDescription>{provider.summary}</CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
-          {state?.active ? (
+          {state.active ? (
             <Badge tone="success" icon={Power}>
               Active
             </Badge>
@@ -94,35 +133,41 @@ function ProviderCard({ provider }: { provider: ProviderDefinition }) {
 
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <div className="flex flex-col gap-0.5">
-          <dt className="text-ink-muted">Health</dt>
+          <dt className="text-ink-muted">Settings</dt>
           <dd>
-            <HealthBadge status={state?.health ?? "not-configured"} />
+            {state.latest
+              ? `Version ${state.latest.version}, saved ${when(state.latest.createdAt)}`
+              : "Not saved yet"}
           </dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-ink-muted">Last validated</dt>
-          <dd>{when(state?.lastValidatedAt ?? null)}</dd>
+          <dt className="text-ink-muted">Last successful test</dt>
+          <dd>{when(state.latest?.validatedAt ?? null)}</dd>
         </div>
-        {state?.latencyMs !== null && state?.latencyMs !== undefined ? (
-          <div className="flex flex-col gap-0.5">
-            <dt className="text-ink-muted">Latency / errors (24 h)</dt>
-            <dd className="tabular-nums">
-              {state.latencyMs} ms / {state.errors24h}
-            </dd>
-          </div>
-        ) : null}
-        {Object.entries(state?.config ?? {}).map(([label, value]) => (
-          <div key={label} className="flex flex-col gap-0.5">
-            <dt className="text-ink-muted">{label}</dt>
-            <dd className="break-words">{value}</dd>
-          </div>
-        ))}
-        {provider.secretFields.length ? (
-          <div className="flex flex-col gap-0.5">
-            <dt className="text-ink-muted">Credentials</dt>
-            <dd className="flex items-center gap-1.5">
-              <KeyRound aria-hidden="true" className="size-4 text-ink-muted" />
-              Write-only. Never shown after saving.
+        {fields
+          .filter((f) => settings[f.name] !== undefined)
+          .map((f) => (
+            <div key={f.name} className="flex flex-col gap-0.5">
+              <dt className="text-ink-muted">{f.label}</dt>
+              <dd className="break-words">{display(settings[f.name])}</dd>
+            </div>
+          ))}
+        {state.credentials.length ? (
+          <div className="flex flex-col gap-0.5 sm:col-span-2">
+            <dt className="flex items-center gap-1.5 text-ink-muted">
+              <KeyRound aria-hidden="true" className="size-4" />
+              Credentials in this deployment (values are never shown)
+            </dt>
+            <dd>
+              <ul className="flex flex-wrap gap-2">
+                {state.credentials.map((c) => (
+                  <li key={c.name}>
+                    <Badge tone={c.present ? "success" : "neutral"}>
+                      {c.name}: {c.present ? "set" : "not set"}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
             </dd>
           </div>
         ) : null}
@@ -142,74 +187,86 @@ function ProviderCard({ provider }: { provider: ProviderDefinition }) {
         </ul>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled
-          disabledReason={PRIVILEGED_DISABLED_REASON}
-        >
-          <Wrench aria-hidden="true" />
-          Configure
-          <span className="sr-only"> {provider.name}</span>
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled
-          disabledReason={PRIVILEGED_DISABLED_REASON}
-        >
-          <Send aria-hidden="true" />
-          Test connection
-          <span className="sr-only"> for {provider.name}</span>
-        </Button>
-        {!state?.active ? (
-          <Button
-            size="sm"
-            disabled
-            disabledReason={PRIVILEGED_DISABLED_REASON}
-          >
-            <Power aria-hidden="true" />
-            Make active
-            <span className="sr-only"> {provider.name}</span>
-          </Button>
-        ) : null}
-      </div>
+      {canManage ? (
+        <ProviderControls
+          providerId={provider.id}
+          name={provider.name}
+          fields={fields}
+          values={values}
+          active={state.active}
+          available={provider.readiness !== "planned"}
+          returnTo={returnTo}
+        />
+      ) : null}
     </Card>
   );
 }
 
 /** Shared layout for /platform/integrations/{email,storage,payments,ai}. */
-export function CategoryPage({
+export async function CategoryPage({
   category,
   children,
 }: {
   category: ServiceCategory;
   children?: React.ReactNode;
 }) {
-  const providers = providersFor(category);
+  const [read, access] = await Promise.all([
+    integrationAdmin.category(category),
+    getPlatformAccess(),
+  ]);
+  if (read.kind === "forbidden") return <PermissionDenied />;
+  const canManage = hasGrant(access, "integrations.manage");
+  const returnTo = `/platform/integrations/${category}`;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title={CATEGORY_LABEL[category]}
-        demo
         description={CATEGORY_DESCRIPTION[category]}
       />
       <PreviewNotice />
+      {read.kind === "not_configured" ? (
+        <NotConfiguredNotice />
+      ) : (
+        <p className="text-sm text-ink-muted">
+          Environment: {ENVIRONMENT_LABEL[read.data.environment]}. Active
+          provider:{" "}
+          <strong className="text-ink">
+            {read.data.activeProviderId
+              ? (getProvider(read.data.activeProviderId)?.name ??
+                read.data.activeProviderId)
+              : "none"}
+          </strong>
+          .{" "}
+          {canManage
+            ? "Changes need an authenticator check within the last 15 minutes."
+            : "Changing providers needs the “Manage integrations” permission."}
+        </p>
+      )}
       {children}
-      <section
-        aria-labelledby="providers-heading"
-        className="flex flex-col gap-3"
-      >
-        <h2 id="providers-heading" className="text-lg font-semibold">
-          Providers
-        </h2>
-        <div className="grid gap-4 xl:grid-cols-2">
-          {providers.map((p) => (
-            <ProviderCard key={p.id} provider={p} />
-          ))}
-        </div>
-      </section>
+      {read.kind === "ok" ? (
+        <section
+          aria-labelledby="providers-heading"
+          className="flex flex-col gap-3"
+        >
+          <h2 id="providers-heading" className="text-lg font-semibold">
+            Providers
+          </h2>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {read.data.providers.map((state) => {
+              const provider = getProvider(state.providerId)!;
+              return (
+                <ProviderCard
+                  key={provider.id}
+                  provider={provider}
+                  state={state}
+                  canManage={canManage}
+                  returnTo={returnTo}
+                />
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

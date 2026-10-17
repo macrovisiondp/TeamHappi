@@ -226,10 +226,14 @@ describe("row-level security coverage", () => {
       "teamhappi_platform",
     ]);
     // Platform console role (ADR-0009): the tenant registry (read + status)
-    // and the platform audit trail only. No client data tables.
+    // and the platform audit trail, plus integration settings (M5.3). No
+    // client data tables.
     expect(byRole.teamhappi_platform!.sort()).toEqual([
+      "integration_active",
+      "integration_config",
       "platform_audit_event",
       "platform_audit_event",
+      "platform_setting",
       "tenant",
       "tenant",
     ]);

@@ -84,12 +84,47 @@ Events record the actor, the target user, a time and non-secret detail. They nev
 - **Subscription fields** (`subscription_status`, `trial_ends_at`, `plan`) are display-only until billing exists.
 - **Approval:** `docs/operations/m5.2-neon-approval.md`.
 
-## 4. M5.3: Platform integrations (planned)
+## 4. M5.3: Platform integrations (implemented, awaiting approval)
 
-Connect the existing integration screens to stored, versioned configuration (ADR-0011 stage 1 or 2, ADR-0012) with `integrations.manage` and MFA step-up. Live credentials, paid API use and production data processing each stay behind separate approvals.
+The integration screens (email, storage, payments, AI, credentials, overview) now read and write stored configuration instead of synthetic fixtures. This follows ADR-0011 **stage 1** (credentials in Vercel environment variables) and ADR-0012.
+
+### Data (migration `20261023120000_integration_config`; platform role only; RLS ENABLE and FORCE)
+
+| Table | Holds | Platform role can |
+|---|---|---|
+| `integration_config` | Numbered versions of each provider's **non-secret** settings per environment, and when each version last passed a test | SELECT, INSERT, UPDATE of `validated_at` only. No DELETE. Old versions are never changed. |
+| `integration_active` | The one active provider per service and environment, and which validated version it uses | SELECT, INSERT, UPDATE. No DELETE. |
+| `platform_setting` | Platform-wide settings. Today only `ai.controls`: kill switch, enabled features, monthly request, token and spend limits (spend in whole pence) | SELECT, INSERT, UPDATE. No DELETE. |
+
+The application and sign-in roles have no access to any of them.
+
+### Credentials
+
+- Secret values are never stored in the database, sent to the browser or written to the audit log. The registry rejects secret field names in submitted settings.
+- Each provider's keys live in named Vercel environment variables (`src/integrations/fields.ts`, `CREDENTIAL_ENV`). Platform Admin shows only whether each variable is **set** in this deployment.
+- Rotation: replace the variable in Vercel, redeploy, test the connection in Platform Admin, then revoke the old key with the provider.
+
+### Rules (server-side, `src/platform/integrations/store.ts`)
+
+| Action | Who | Rule |
+|---|---|---|
+| View | Any active platform staff with MFA | |
+| Save settings | `integrations.manage`, MFA within 15 minutes | Validated against the provider's schema; saved as a new version; audited (`integration.configured`, version only) |
+| Test connection | Same | Test adapters only. Real providers are refused and **no request is sent**, until a live adapter is separately approved. Audited (`integration.validated`). |
+| Make active | Same | Planned providers: never. Test adapters: never in production. Real providers: only if listed in `APPROVED_LIVE_PROVIDERS`, all their credentials are set, and the latest version passed a test. Audited (`integration.activated`, with the previous provider). |
+| AI controls | Same | Validated (whole numbers, known features); audited (`ai.controls_changed`). Default: switched off, no features, zero budgets. |
+
+The environment (local, preview or production) comes from the deployment (`VERCEL_ENV`), never from the browser.
+
+### Still behind separate approvals
+
+- Accepting ADR-0011 stage 1 (it is still marked proposed).
+- Each live provider: adding its keys in Vercel, listing it in `APPROVED_LIVE_PROVIDERS`, and the live adapter code that makes network calls (none exists yet, and a static test enforces that).
+- Paid API use, and any processing of real client data by a provider.
 
 ## 5. Approvals
 
 1. M5.1 migration on Neon. Additive; reviewed SQL in the PR.
 2. **Separately:** the first platform administrator. An exact, reviewed procedure (`docs/operations/m5.1-first-platform-admin.md`) for `joseph@macrovisionproperty.co.uk`. It's not automatic, and it needs your approval of that procedure.
 3. M5.2: the `teamhappi_platform` role (you create it, as before) and its migration.
+4. M5.3: the integration settings migration (`docs/operations/m5.3-neon-approval.md`). Live providers each need their own approval later.

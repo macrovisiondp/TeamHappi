@@ -70,6 +70,10 @@ test.beforeAll(async () => {
       [cara.email],
     );
     await c.query(`UPDATE session SET mfa_verified_at = NULL`);
+    // Integration settings (M5.3) start empty on every run (local only).
+    await c.query(`DELETE FROM integration_active WHERE environment = 'local'`);
+    await c.query(`DELETE FROM integration_config WHERE environment = 'local'`);
+    await c.query(`DELETE FROM platform_setting WHERE key = 'ai.controls'`);
   });
 });
 
@@ -154,6 +158,9 @@ test("people who aren't platform staff get a 404", async ({
 test("staff must set up MFA, then manage staff with an audit trail", async ({
   browser,
 }, info) => {
+  // One long journey through the console (MFA, staff, organisations,
+  // integrations), so it gets more than the default 30 seconds.
+  test.setTimeout(300_000);
   // Signed out, open Platform Admin directly: after signing in, staff land in
   // Platform Admin (MFA set-up first), not the client dashboard.
   const context = await browser.newContext({ ...info.project.use });
@@ -275,6 +282,104 @@ test("staff must set up MFA, then manage staff with an audit trail", async ({
   await expect(
     page.getByText("Reactivated an organisation").first(),
   ).toBeVisible();
+
+  // Integrations (M5.3): settings are versioned, real providers can't be
+  // switched on without approval, test adapters can, AI changes need a
+  // recent authenticator check, and keys are shown by name only.
+  await page.goto("/platform/integrations/email", SLOW);
+  const resendCard = page.getByRole("region", { name: "Resend" });
+  await resendCard.getByRole("button", { name: "Configure Resend" }).click();
+  const configure = page.getByRole("dialog", { name: "Configure Resend" });
+  await configure.getByLabel("Sender name").fill("TeamHappi (synthetic)");
+  await configure.getByLabel("Sender address").fill("noreply@example.test");
+  await configure.getByLabel("Sending domain").fill("example.test");
+  await axe(page, "configure dialog");
+  await configure.getByRole("button", { name: "Save settings" }).click();
+  await expect(
+    page.getByText("Settings saved as a new version").first(),
+  ).toBeVisible(SLOW);
+  await expect(resendCard.getByText(/Version 1, saved/)).toBeVisible(SLOW);
+  await expect(resendCard.getByText("RESEND_API_KEY: not set")).toBeVisible();
+  await resendCard.getByRole("button", { name: "Make active" }).click();
+  await expect(
+    resendCard.getByText(/needs your separate approval/).first(),
+  ).toBeVisible(SLOW);
+  await resendCard.getByRole("button", { name: "Test connection" }).click();
+  await expect(resendCard.getByText(/No request was sent/).first()).toBeVisible(
+    SLOW,
+  );
+  const devMailer = page.getByRole("region", { name: "Development mailer" });
+  await devMailer.getByRole("button", { name: "Test connection" }).click();
+  await expect(
+    devMailer.getByText("Connection test passed.").first(),
+  ).toBeVisible(SLOW);
+  // The page reloads after a change; wait for the refreshed card.
+  await expect(devMailer.getByText(/Version 1, saved/)).toBeVisible(SLOW);
+  await devMailer.getByRole("button", { name: "Make active" }).click();
+  await expect(devMailer.getByText("Active", { exact: true })).toBeVisible(
+    SLOW,
+  );
+  await axe(page, "email integrations");
+  await shot(page, info, "integrations-email");
+  await page.goto("/platform/integrations", SLOW);
+  await expect(
+    page
+      .getByRole("region", { name: "Email" })
+      .getByText("Development mailer", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/platform/integrations/credentials", SLOW);
+  await expect(
+    page.getByRole("cell", { name: "RESEND_API_KEY" }),
+  ).toBeVisible();
+  await expect(page.getByText("Not set").first()).toBeVisible();
+
+  // AI: a stale authenticator check is refused (step-up), a fresh one works.
+  await localAdmin((c) =>
+    c.query(
+      `UPDATE session SET mfa_verified_at = now() - interval '20 minutes'
+       WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`,
+      [ada.email],
+    ),
+  );
+  await page.goto("/platform/integrations/ai", SLOW);
+  await expect(page.getByText("Switched off").first()).toBeVisible();
+  await page
+    .getByLabel("Allow AI requests (turning this off is the kill switch)")
+    .check();
+  await page.getByRole("button", { name: "Save AI controls" }).click();
+  await expect(
+    page.getByText("confirm it's you with your authenticator").first(),
+  ).toBeVisible(SLOW);
+  await localAdmin((c) =>
+    c.query(
+      `UPDATE session SET mfa_verified_at = now()
+       WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`,
+      [ada.email],
+    ),
+  );
+  await page.reload();
+  await page.getByLabel("Spend cap per month (£)").fill("12.505");
+  await page.getByRole("button", { name: "Save AI controls" }).click();
+  await expect(page.getByText("Enter an amount in pounds").first()).toBeVisible(
+    SLOW,
+  );
+  await page.getByLabel("Spend cap per month (£)").fill("12.50");
+  await page.getByRole("button", { name: "Save AI controls" }).click();
+  await expect(page.getByText("AI controls saved.").first()).toBeVisible(SLOW);
+  await expect(page.getByLabel("Spend cap per month (£)")).toHaveValue(
+    "12.50",
+    SLOW,
+  );
+  await axe(page, "ai controls");
+  await shot(page, info, "integrations-ai");
+  await page.goto("/platform/audit", SLOW);
+  for (const label of [
+    "Saved integration settings",
+    "Tested an integration",
+    "Made an integration active",
+    "Changed AI controls",
+  ])
+    await expect(page.getByText(label).first()).toBeVisible();
 
   // Replay: the set-up code can't be used again; a recovery code works once.
   await page.goto("/platform/mfa/verify?next=/platform/security", SLOW);

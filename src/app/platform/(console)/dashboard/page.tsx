@@ -10,58 +10,61 @@ import {
 } from "@/components/ui/card";
 import { PageHeader, StatCard } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
+import { PreviewNotice, when } from "@/features/platform/components";
+import { CATEGORY_LABEL } from "@/features/platform/labels";
+import { getProvider } from "@/integrations/registry";
 import {
-  HealthBadge,
-  PreviewNotice,
-  when,
-} from "@/features/platform/components";
-import {
-  CATEGORY_LABEL,
-  PLATFORM_STATS,
-  PROVIDER_STATE,
-} from "@/features/platform/fixtures";
-import { SERVICE_CATEGORIES } from "@/integrations/core/types";
-import { providersFor } from "@/integrations/registry";
-import { platformAudit } from "@/lib/platform-access";
+  integrationAdmin,
+  organisationAdmin,
+  platformAudit,
+} from "@/lib/platform-access";
 
 export const metadata: Metadata = { title: "Platform overview" };
 export const instant = false;
 
 export default async function PlatformDashboardPage() {
-  const recent = await platformAudit(5);
+  const [recent, orgs, integrations] = await Promise.all([
+    platformAudit(5),
+    organisationAdmin.list(),
+    integrationAdmin.overview(),
+  ]);
+  const categories = integrations.kind === "ok" ? integrations.data : [];
+  const credentials = categories.flatMap((c) =>
+    c.providers.flatMap((p) => p.credentials),
+  );
+  const notSet = "Not available";
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Platform overview"
-        demo
-        description="Health of the services every TeamHappi organisation depends on."
+        description="Client organisations and the services every TeamHappi organisation depends on."
       />
       <PreviewNotice />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Organisations"
-          value={PLATFORM_STATS.organisations}
-          detail="Synthetic tenants"
+          value={orgs.kind === "ok" ? orgs.data.length : "–"}
+          detail={orgs.kind === "ok" ? "Client workspaces" : notSet}
           icon={Building2}
         />
         <StatCard
           label="Active integrations"
-          value={PLATFORM_STATS.activeIntegrations}
-          detail="All synthetic adapters"
+          value={categories.filter((c) => c.activeProviderId).length}
+          detail={`Of ${categories.length || 4} services`}
           icon={Plug}
         />
         <StatCard
-          label="Needs attention"
-          value={PLATFORM_STATS.needsAttention}
-          detail="Payment webhook retries"
+          label="Services without a provider"
+          value={categories.filter((c) => !c.activeProviderId).length}
+          detail="Nothing is sent for these"
           icon={AlertTriangle}
           tone="attention"
         />
         <StatCard
-          label="Credentials expiring"
-          value={PLATFORM_STATS.expiringCredentials}
-          detail="In the next 30 days"
+          label="Credentials set"
+          value={`${credentials.filter((c) => c.present).length} / ${credentials.length}`}
+          detail="In this deployment"
           icon={KeyRound}
         />
       </div>
@@ -76,42 +79,34 @@ export default async function PlatformDashboardPage() {
               </CardDescription>
             </div>
           </CardHeader>
-          <Table caption="Active provider and health for each service">
+          <Table caption="Active provider for each service">
             <thead>
               <tr>
                 <Th>Service</Th>
                 <Th>Provider</Th>
-                <Th>Health</Th>
+                <Th>Since</Th>
               </tr>
             </thead>
             <tbody>
-              {SERVICE_CATEGORIES.map((category) => {
-                const active = providersFor(category).find(
-                  (p) => PROVIDER_STATE[p.id]?.active,
-                );
-                return (
-                  <tr key={category}>
-                    <Td>
-                      <Link
-                        href={`/platform/integrations/${category}`}
-                        className="font-semibold text-forest underline-offset-4 hover:underline"
-                      >
-                        {CATEGORY_LABEL[category]}
-                      </Link>
-                    </Td>
-                    <Td>{active?.name ?? "None"}</Td>
-                    <Td>
-                      <HealthBadge
-                        status={
-                          active
-                            ? (PROVIDER_STATE[active.id]?.health ?? "unknown")
-                            : "not-configured"
-                        }
-                      />
-                    </Td>
-                  </tr>
-                );
-              })}
+              {categories.map((c) => (
+                <tr key={c.category}>
+                  <Td>
+                    <Link
+                      href={`/platform/integrations/${c.category}`}
+                      className="font-semibold text-forest underline-offset-4 hover:underline"
+                    >
+                      {CATEGORY_LABEL[c.category]}
+                    </Link>
+                  </Td>
+                  <Td>
+                    {c.activeProviderId
+                      ? (getProvider(c.activeProviderId)?.name ??
+                        c.activeProviderId)
+                      : "None"}
+                  </Td>
+                  <Td>{c.activeProviderId ? when(c.activatedAt) : "–"}</Td>
+                </tr>
+              ))}
             </tbody>
           </Table>
         </Card>

@@ -461,3 +461,48 @@ model PlatformAuditEvent {
   @@index([targetUserId])
   @@map("platform_audit_event")
 }
+
+// ---------------------------------------------------------------------------
+// Platform integrations (M5.3, ADR-0011 stage 1, ADR-0012). teamhappi_platform
+// only. NON-SECRET settings; credential values are never stored here.
+// ---------------------------------------------------------------------------
+
+model IntegrationConfig {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  category    String
+  providerId  String    @map("provider_id")
+  environment String
+  version     Int
+  settings    Json      @default("{}")
+  validatedAt DateTime? @map("validated_at") @db.Timestamptz
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  activeFor IntegrationActive[]
+
+  @@unique([category, providerId, environment, version], map: "integration_config_version_key")
+  @@map("integration_config")
+}
+
+model IntegrationActive {
+  category    String
+  environment String
+  providerId  String   @map("provider_id")
+  configId    String?  @map("config_id") @db.Uuid
+  activatedBy String?  @map("activated_by") @db.Uuid
+  activatedAt DateTime @default(now()) @map("activated_at") @db.Timestamptz
+
+  config IntegrationConfig? @relation(fields: [configId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([category, environment])
+  @@map("integration_active")
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("platform_setting")
+}
