@@ -16,18 +16,19 @@ import {
   when,
 } from "@/features/platform/components";
 import {
-  AUDIT_EVENTS,
   CATEGORY_LABEL,
   PLATFORM_STATS,
   PROVIDER_STATE,
 } from "@/features/platform/fixtures";
 import { SERVICE_CATEGORIES } from "@/integrations/core/types";
 import { providersFor } from "@/integrations/registry";
+import { platformAudit } from "@/lib/platform-access";
 
 export const metadata: Metadata = { title: "Platform overview" };
 export const instant = false;
 
-export default function PlatformDashboardPage() {
+export default async function PlatformDashboardPage() {
+  const recent = await platformAudit(5);
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -118,17 +119,25 @@ export default function PlatformDashboardPage() {
         <Card aria-labelledby="recent-heading">
           <CardTitle id="recent-heading">Recent platform activity</CardTitle>
           <ul className="flex flex-col divide-y divide-line text-sm">
-            {AUDIT_EVENTS.slice(0, 4).map((e) => (
+            {(recent ?? []).map((e) => (
               <li key={e.id} className="flex flex-col gap-0.5 py-2.5">
-                <span>{e.detail}</span>
-                <span className="text-xs text-ink-muted">
-                  {when(e.at)} · {e.actor}
+                <span>{e.action}</span>
+                <span className="text-xs break-all text-ink-muted">
+                  {when(e.occurredAt.toISOString())} · {e.actor ?? "System"}
                 </span>
               </li>
             ))}
+            {recent && recent.length === 0 ? (
+              <li className="py-2.5 text-ink-muted">No events yet.</li>
+            ) : null}
+            {recent === null ? (
+              <li className="py-2.5 text-ink-muted">
+                Your role doesn&apos;t include the audit log.
+              </li>
+            ) : null}
           </ul>
           <Link
-            href="/platform/integrations/audit"
+            href="/platform/audit"
             className="text-sm font-semibold text-forest underline-offset-4 hover:underline"
           >
             View the full audit log

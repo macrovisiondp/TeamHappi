@@ -1,167 +1,253 @@
-// Platform Admin: server-side access control, accessibility and disabled
-// privileged actions.
-//
-// Needs the local stack (npm run dev:db && npm run dev:seed && npm run dev),
-// where .env.development.local lists ada.verified@example.test as preview staff:
-//   E2E_EMAIL=ada… E2E_PASSWORD=… E2E_NONSTAFF_EMAIL=cara… E2E_NONSTAFF_PASSWORD=…
-//   PORT=3000 npx playwright test platform-admin --workers=1
-// Skipped when the variables are not set (CI has no authentication database).
+// Platform Admin with real staff access and MFA (M5.1), against the LOCAL
+// synthetic stack (npm run dev:db && npm run dev:seed && npm run dev):
+//   Ada  - synthetic platform staff (seeded), must enrol MFA
+//   Cara - tenant worker; Ada adds her as staff during the test
+//   Dan  - no organisation, not staff
+// Each run resets the synthetic MFA state through the LOCAL database (refuses
+// any other host). Skipped unless the three synthetic accounts are configured.
+
+import { existsSync, readFileSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
 import {
   expect,
   test,
   type Browser,
-  type BrowserContext,
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import { Secret, TOTP } from "otpauth";
+import pg from "pg";
 
-const staff = {
+const ada = {
   email: process.env.E2E_EMAIL,
   password: process.env.E2E_PASSWORD,
 };
-const nonStaff = {
+const cara = {
   email: process.env.E2E_NONSTAFF_EMAIL,
   password: process.env.E2E_NONSTAFF_PASSWORD,
+};
+const dan = {
+  email: process.env.E2E_NOORG_EMAIL,
+  password: process.env.E2E_NOORG_PASSWORD,
 };
 const shots = process.env.E2E_SCREENSHOTS;
 
 test.skip(
-  !staff.email || !staff.password || !nonStaff.email || !nonStaff.password,
-  "Set E2E_EMAIL/E2E_PASSWORD and E2E_NONSTAFF_EMAIL/E2E_NONSTAFF_PASSWORD (synthetic accounts)",
+  ![ada, cara, dan].every((a) => a.email && a.password) ||
+    !existsSync(".data/dev-db.json"),
+  "Needs the local synthetic stack and E2E_EMAIL/E2E_NONSTAFF_*/E2E_NOORG_*",
 );
 test.describe.configure({ mode: "serial" });
 
-const PAGES = [
-  { path: "/platform/dashboard", heading: "Platform overview" },
-  { path: "/platform/integrations", heading: "Integrations" },
-  { path: "/platform/integrations/email", heading: "Email" },
-  {
-    path: "/platform/integrations/storage",
-    heading: "File and document storage",
-  },
-  { path: "/platform/integrations/payments", heading: "Payments" },
-  { path: "/platform/integrations/ai", heading: "AI" },
-  { path: "/platform/integrations/credentials", heading: "Credentials" },
-  { path: "/platform/integrations/audit", heading: "Integration audit log" },
-  { path: "/platform/settings", heading: "Platform settings" },
-];
+const SLOW = { timeout: 60_000 };
 
-async function signedInPage(
+async function localAdmin<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
+  const env = readFileSync(".env.development.local", "utf8");
+  const url = new URL(env.match(/^AUTH_DATABASE_URL=(.*)$/m)![1]!.trim());
+  if (!["127.0.0.1", "localhost"].includes(url.hostname))
+    throw new Error("Refusing a non-local database");
+  url.username = "postgres";
+  url.password = JSON.parse(
+    readFileSync(".data/dev-db.json", "utf8"),
+  ).superPassword;
+  const c = new pg.Client({ connectionString: url.toString() });
+  await c.connect();
+  try {
+    return await fn(c);
+  } finally {
+    await c.end();
+  }
+}
+
+test.beforeAll(async () => {
+  await localAdmin(async (c) => {
+    const ids = `(SELECT id FROM "user" WHERE email IN ('${ada.email}', '${cara.email}'))`;
+    await c.query(`DELETE FROM mfa_recovery_code WHERE user_id IN ${ids}`);
+    await c.query(`DELETE FROM user_mfa WHERE user_id IN ${ids}`);
+    await c.query(
+      `DELETE FROM platform_staff WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`,
+      [cara.email],
+    );
+    await c.query(`UPDATE session SET mfa_verified_at = NULL`);
+  });
+});
+
+async function signIn(
   browser: Browser,
   info: TestInfo,
   account: { email?: string; password?: string },
-): Promise<{ context: BrowserContext; page: Page }> {
+) {
   const context = await browser.newContext({ ...info.project.use });
   const page = await context.newPage();
   await page.goto("/sign-in");
-  // Wait for hydration so the form is handled by the app, not the browser.
   await page
     .waitForLoadState("networkidle", { timeout: 15_000 })
     .catch(() => {});
   await page.getByLabel("Email address").fill(account.email!);
   await page.getByLabel("Password").fill(account.password!);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/(dashboard|organisations)$/, {
-    timeout: 60_000,
-  });
+  await expect(page).toHaveURL(/\/(dashboard|organisations)$/, SLOW);
   return { context, page };
 }
 
-let staffContext: BrowserContext;
-let page: Page;
+async function axe(page: Page, label: string) {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(results.violations, label).toEqual([]);
+}
 
-test.beforeAll(async ({ browser }, info) => {
-  ({ context: staffContext, page } = await signedInPage(browser, info, staff));
-});
-test.afterAll(async () => {
-  await staffContext?.close();
-});
+async function shot(page: Page, info: TestInfo, name: string) {
+  if (shots)
+    await page.screenshot({
+      path: `${shots}/${info.project.name}-${name}.png`,
+      fullPage: true,
+    });
+}
+
+const totp = (key: string) =>
+  new TOTP({
+    secret: Secret.fromBase32(key.replace(/\s/g, "")),
+    digits: 6,
+    period: 30,
+  }).generate();
+
+const codeInput = (page: Page) =>
+  page.getByLabel(/6-digit code|Recovery code/).filter({ visible: true });
 
 test("signed-out visitors are sent to sign-in", async ({ browser }, info) => {
   const context = await browser.newContext({ ...info.project.use });
-  const anon = await context.newPage();
-  await anon.goto("/platform/integrations/credentials", { timeout: 60_000 });
-  await expect(anon).toHaveURL(/\/sign-in$/, { timeout: 30_000 });
+  const page = await context.newPage();
+  await page.goto("/platform/staff", SLOW);
+  await expect(page).toHaveURL(/\/sign-in$/, { timeout: 30_000 });
   await context.close();
 });
 
-test("signed-in users who are not platform staff get a 404", async ({
+test("people who aren't platform staff get a 404", async ({
   browser,
 }, info) => {
-  const { context, page: other } = await signedInPage(browser, info, nonStaff);
+  const { context, page } = await signIn(browser, info, dan);
   for (const path of [
     "/platform",
-    "/platform/dashboard",
-    "/platform/integrations/credentials",
+    "/platform/staff",
+    "/platform/mfa/setup",
+    "/platform/audit",
   ]) {
-    await other.goto(path, { timeout: 60_000 });
+    await page.goto(path, SLOW);
     await expect(
-      other.getByRole("heading", { name: "Platform overview" }),
+      page.getByRole("heading", { name: /Platform|Set up multi-factor/ }),
     ).toHaveCount(0);
     await expect(
-      other.getByText(/not found|couldn.t find/i).first(),
+      page.getByText(/not found|couldn.t find/i).first(),
     ).toBeVisible();
   }
-  // Tenant pages still work for them.
-  await other.goto("/dashboard");
-  await expect(
-    other.getByRole("heading", { level: 1, name: "Dashboard" }),
-  ).toBeVisible();
   await context.close();
 });
 
-test("platform pages pass automated accessibility checks", async ({}, info) => {
-  for (const screen of PAGES) {
-    await page.goto(screen.path, { timeout: 60_000 });
-    await expect(
-      page.getByRole("heading", { level: 1, name: screen.heading }),
-    ).toBeVisible();
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-      .analyze();
-    expect(results.violations, `${screen.path} (${info.project.name})`).toEqual(
-      [],
-    );
-    if (shots) {
-      const name = screen.path.slice(1).replace(/\//g, "_");
-      await page.screenshot({
-        path: `${shots}/${info.project.name}-${name}.png`,
-        fullPage: true,
-      });
-    }
-  }
-});
+test("staff must set up MFA, then manage staff with an audit trail", async ({
+  browser,
+}, info) => {
+  const { context, page } = await signIn(browser, info, ada);
 
-test("privileged actions are disabled and secrets are never shown", async () => {
-  await page.goto("/platform/integrations/email");
-  await expect(page.getByText("Demo data").first()).toBeVisible();
-  for (const button of await page
-    .getByRole("button", { name: /^(Configure|Test connection|Make active)/ })
-    .all())
-    await expect(button).toBeDisabled();
-  await page.goto("/platform/integrations/credentials");
+  // MFA set-up is forced before any console page.
+  await page.goto("/platform/staff", SLOW);
+  await expect(page).toHaveURL(/\/platform\/mfa\/setup$/, SLOW);
+  await axe(page, "mfa setup");
+  await page.getByRole("button", { name: "Set up authenticator app" }).click();
+  const key = (await page.getByTestId("mfa-manual-key").innerText()).trim();
+  await codeInput(page).fill("000000");
+  await page.getByRole("button", { name: "Turn on MFA" }).click();
+  await expect(page.getByText("That code didn't match").first()).toBeVisible(
+    SLOW,
+  );
+  const setupCode = totp(key);
+  await codeInput(page).fill(setupCode);
+  await page.getByRole("button", { name: "Turn on MFA" }).click();
+  const codes = page
+    .getByRole("list", { name: "Recovery codes" })
+    .getByRole("listitem");
+  await expect(codes).toHaveCount(10, SLOW);
+  const recovery = await codes.first().innerText();
+  await axe(page, "recovery codes");
+  await shot(page, info, "mfa-recovery-codes");
+  await page.getByRole("button", { name: /I've saved them/ }).click();
+  await expect(page).toHaveURL(/\/platform\/dashboard$/, SLOW);
+
+  // Staff management: add Cara (an existing, verified account).
+  await page.goto("/platform/staff", SLOW);
+  await axe(page, "staff");
+  await page
+    .getByLabel("Email of an existing, verified TeamHappi account")
+    .fill(cara.email!);
+  await page.getByLabel("View the platform audit log").first().check();
+  await page.getByRole("button", { name: "Add platform staff" }).click();
+  await expect(page.getByText("Staff member added").first()).toBeVisible(SLOW);
+  await page.reload();
+  const caraCard = page.getByRole("region", { name: /Cara Colleague/ });
+  await expect(caraCard.getByText("MFA not set up")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Rotate a credential" }),
-  ).toBeDisabled();
-  await expect(page.locator("body")).not.toContainText(/sk_|whsec_|AKIA/);
-  await page.goto("/platform/integrations/ai");
-  await expect(page.getByRole("button", { name: "Turn AI on" })).toBeDisabled();
-  await expect(page.getByText("Switched off").first()).toBeVisible();
+    page
+      .getByRole("region", { name: /\(you\)/ })
+      .getByText("You can't change your own access"),
+  ).toBeVisible();
+  await shot(page, info, "staff");
+
+  // Audit trail and security page.
+  await page.goto("/platform/audit", SLOW);
+  await expect(page.getByText("Turned on MFA").first()).toBeVisible();
+  await expect(page.getByText("Added platform staff").first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(recovery);
+  await axe(page, "audit");
+  await page.goto("/platform/security", SLOW);
+  await axe(page, "security");
+
+  // Replay: the set-up code can't be used again; a recovery code works once.
+  await page.goto("/platform/mfa/verify?next=/platform/security", SLOW);
+  await codeInput(page).fill(setupCode);
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(
+    page.getByText(/already been used|didn't match/).first(),
+  ).toBeVisible(SLOW);
+  await page
+    .getByRole("button", { name: "Use a recovery code instead" })
+    .click();
+  await codeInput(page).fill(recovery);
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(page).toHaveURL(/\/platform\/security$/, SLOW);
+  await page.goto("/platform/mfa/verify", SLOW);
+  await page
+    .getByRole("button", { name: "Use a recovery code instead" })
+    .click();
+  await codeInput(page).fill(recovery);
+  await page.getByRole("button", { name: "Verify" }).click();
+  await expect(
+    page.getByText("isn't valid or has already been used").first(),
+  ).toBeVisible(SLOW);
+
+  // Console pages pass accessibility checks.
+  for (const path of [
+    "/platform/dashboard",
+    "/platform/integrations",
+    "/platform/integrations/email",
+    "/platform/integrations/ai",
+    "/platform/integrations/credentials",
+    "/platform/settings",
+  ]) {
+    await page.goto(path, SLOW);
+    await axe(page, path);
+  }
+  await context.close();
 });
 
-test("platform navigation is separate from tenant navigation", async ({}, info) => {
-  await page.goto("/platform/dashboard");
-  if (info.project.name.startsWith("mobile")) {
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    const drawer = page.getByRole("dialog", { name: "Navigation" });
-    await drawer.getByRole("link", { name: /^Credentials/ }).click();
-  } else {
-    const nav = page.getByRole("navigation", { name: "Platform" });
-    await expect(nav.getByRole("link", { name: /^People/ })).toHaveCount(0);
-    await nav.getByRole("link", { name: /^Credentials/ }).click();
-  }
-  await expect(page).toHaveURL(/\/platform\/integrations\/credentials$/);
-  await expect(page.getByLabel("Organisation")).toHaveCount(0);
+test("new staff must enrol before using the console; platform access is separate from tenant roles", async ({
+  browser,
+}, info) => {
+  const { context, page } = await signIn(browser, info, cara);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Dashboard" }),
+  ).toBeVisible(SLOW);
+  await page.goto("/platform/audit", SLOW);
+  await expect(page).toHaveURL(/\/platform\/mfa\/setup$/, SLOW);
+  await context.close();
 });

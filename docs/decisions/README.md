@@ -14,7 +14,8 @@
 | 0010 | Rate-limiting store | Decided within ADR-0008: Better Auth database storage (free) |
 | [0011](0011-secrets-management-and-rotation.md) | Secrets management and credential rotation | Proposed (13 Oct 2026) |
 | [0012](0012-provider-independent-integrations.md) | Provider-independent integrations | Proposed (13 Oct 2026) |
-| 0013 | Observability / log retention provider | To be written (M4); previously listed as a second "0009" |
+| [0013](0013-platform-staff-and-mfa.md) | Platform staff register and MFA in the identity boundary | Proposed (17 Oct 2026) |
+| 0014 | Observability / log retention provider | To be written; previously listed as a second "0009" |
 
 Format: Status, Date, Requirements, Context, Decision, Alternatives, Consequences. An ADR becomes **Accepted** when the product owner approves it. A changed decision gets a new ADR that supersedes the old one. Never edit an accepted ADR's decision in place.
 

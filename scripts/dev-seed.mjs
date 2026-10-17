@@ -106,6 +106,25 @@ const adminUrl = new URL(authUrl);
 adminUrl.username = "postgres";
 adminUrl.password = state.superPassword;
 await seedOrganisations(adminUrl.toString());
+await seedPlatformStaff(adminUrl.toString());
+
+// Local only: Ada is synthetic platform staff with every grant (M5.1). She must
+// still set up MFA in the app. Production staff are added only through the
+// approved procedure (docs/operations/m5.1-first-platform-admin.md).
+async function seedPlatformStaff(url) {
+  const c = new pg.Client({ connectionString: url });
+  await c.connect();
+  try {
+    await c.query(
+      `INSERT INTO platform_staff (user_id, grants)
+       SELECT id, ARRAY['staff.manage','tenant.view','tenant.suspend','tenant.create','integrations.manage','audit.view']
+       FROM "user" WHERE email = 'ada.verified@example.test'
+       ON CONFLICT (user_id) DO NOTHING`,
+    );
+  } finally {
+    await c.end();
+  }
+}
 
 async function seedOrganisations(url) {
   const ROLE_PERMISSIONS = {

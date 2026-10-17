@@ -92,6 +92,41 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // M5.1: the platform access layer is the one place outside src/platform
+    // that may issue a PlatformStaffActor (after staff + MFA checks). It gets
+    // no other new imports.
+    files: ["src/lib/platform-access/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/*/*"],
+              message: "Import a module only through its public API.",
+            },
+            {
+              group: [
+                "@/lib/db",
+                "@/lib/db/*",
+                "@/generated/*",
+                "@/lib/tenancy/internal",
+                "@/lib/tenancy/tx-budget",
+                "@/lib/auth/config",
+                "@/lib/auth/db",
+                "@/lib/auth/provision",
+                "@/lib/auth/session",
+                "@/lib/auth/mailer",
+                "@/platform/tenancy/*",
+              ],
+              message: "Internal module.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Tenant context may only be set transaction-locally, in one place.
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/lib/tenancy/with-tenant.ts", "src/generated/**"],

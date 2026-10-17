@@ -65,6 +65,12 @@ model User {
   sessions    Session[]
   accounts    Account[]
 
+  // M5.1 (ADR-0013): platform staff and MFA, managed only by teamhappi_auth.
+  platformStaff PlatformStaff?    @relation("PlatformStaffUser")
+  staffGranted  PlatformStaff[]   @relation("PlatformStaffGrantedBy")
+  mfa           UserMfa?
+  recoveryCodes MfaRecoveryCode[]
+
   @@map("user")
 }
 
@@ -76,14 +82,16 @@ model User {
 // ---------------------------------------------------------------------------
 
 model Session {
-  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  token     String   @unique
-  expiresAt DateTime @map("expires_at") @db.Timestamptz
-  ipAddress String?  @map("ip_address")
-  userAgent String?  @map("user_agent")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  token         String    @unique
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  // When this session last passed MFA (M5.1). Elevation ends with the session.
+  mfaVerifiedAt DateTime? @map("mfa_verified_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
@@ -367,4 +375,76 @@ enum ScanStatus {
   quarantined
 
   @@map("scan_status")
+}
+
+// ---------------------------------------------------------------------------
+// Platform staff, MFA and platform audit (M5.1, ADR-0013). Global tables used
+// ONLY by teamhappi_auth. Platform staff status is never a tenant membership.
+// ---------------------------------------------------------------------------
+
+model PlatformStaff {
+  userId    String              @id @map("user_id") @db.Uuid
+  status    PlatformStaffStatus @default(active)
+  grants    String[]            @default([])
+  grantedBy String?             @map("granted_by") @db.Uuid
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user    User  @relation("PlatformStaffUser", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  granter User? @relation("PlatformStaffGrantedBy", fields: [grantedBy], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("platform_staff")
+}
+
+enum PlatformStaffStatus {
+  active
+  suspended
+  revoked
+
+  @@map("platform_staff_status")
+}
+
+model UserMfa {
+  userId           String    @id @map("user_id") @db.Uuid
+  secretCiphertext String    @map("secret_ciphertext")
+  enabledAt        DateTime? @map("enabled_at") @db.Timestamptz
+  lastUsedStep     BigInt?   @map("last_used_step")
+  failedAttempts   Int       @default(0) @map("failed_attempts")
+  lockedUntil      DateTime? @map("locked_until") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("user_mfa")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @unique @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId])
+  @@map("mfa_recovery_code")
+}
+
+// Append-only: a trigger rejects UPDATE, DELETE and TRUNCATE.
+model PlatformAuditEvent {
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  action       String
+  targetUserId String?  @map("target_user_id") @db.Uuid
+  targetType   String?  @map("target_type")
+  targetId     String?  @map("target_id")
+  detail       Json     @default("{}")
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([targetUserId])
+  @@map("platform_audit_event")
 }
