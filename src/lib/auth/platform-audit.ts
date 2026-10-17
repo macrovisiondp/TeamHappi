@@ -19,7 +19,9 @@ export type PlatformAuditAction =
   | "staff.updated"
   | "staff.suspended"
   | "staff.reactivated"
-  | "staff.revoked";
+  | "staff.revoked"
+  | "tenant.suspended"
+  | "tenant.reactivated";
 
 export interface PlatformAuditInput {
   action: PlatformAuditAction;
@@ -53,6 +55,8 @@ export interface PlatformAuditRow {
   action: string;
   actor: string | null;
   target: string | null;
+  targetType: string | null;
+  targetId: string | null;
   detail: Record<string, unknown>;
 }
 
@@ -60,8 +64,12 @@ export interface PlatformAuditRow {
 export async function listPlatformEvents(
   db: AuthDbClient,
   limit = 100,
+  target?: { type: string; id: string },
 ): Promise<PlatformAuditRow[]> {
   const events = await db.platformAuditEvent.findMany({
+    where: target
+      ? { targetType: target.type, targetId: target.id }
+      : undefined,
     orderBy: { occurredAt: "desc" },
     take: Math.min(Math.max(limit, 1), 500),
   });
@@ -87,6 +95,8 @@ export async function listPlatformEvents(
     action: e.action,
     actor: label(e.actorUserId),
     target: label(e.targetUserId),
+    targetType: e.targetType,
+    targetId: e.targetId,
     detail: (e.detail ?? {}) as Record<string, unknown>,
   }));
 }

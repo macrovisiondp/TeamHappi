@@ -11,7 +11,13 @@ import {
   type StaffStatus,
 } from "@/lib/auth";
 import { knownGrants } from "@/lib/permissions/platform";
-import { issuePlatformStaffActor } from "@/platform/authz/internal";
+import {
+  issuePlatformStaffActor,
+  type PlatformStaffActor,
+} from "@/platform/authz/internal";
+import { createPlatformDbClient, type PlatformDbClient } from "@/platform/db";
+import * as organisations from "@/platform/tenants/organisations";
+import { serverEnv } from "@/lib/env";
 
 import {
   checkPrivilege,
@@ -71,7 +77,7 @@ const MESSAGES = {
 /** Grant + recent MFA, then the real PlatformStaffActor (which re-checks MFA). */
 async function privileged<T>(
   grant: Parameters<typeof checkPrivilege>[1],
-  fn: (actorUserId: string) => Promise<T>,
+  fn: (actorUserId: string, actor: PlatformStaffActor) => Promise<T>,
 ): Promise<PrivilegedResult<T>> {
   const access = await getPlatformAccess();
   const now = new Date();
@@ -86,7 +92,7 @@ async function privileged<T>(
     mfaVerifiedAt: access.mfaVerifiedAt,
     now,
   });
-  return { ok: true, data: await fn(actor.userId) };
+  return { ok: true, data: await fn(actor.userId, actor) };
 }
 
 function fromStaffResult(
@@ -160,3 +166,68 @@ export async function platformAudit(
     ? platformStaffAdmin.audit(limit)
     : null;
 }
+
+// --- Client organisations (M5.2, ADR-0009) ----------------------------------
+
+const globalForPlatform = globalThis as unknown as {
+  teamhappiPlatformDb?: PlatformDbClient | null;
+};
+
+/** The teamhappi_platform client, or null when PLATFORM_DATABASE_URL is unset. */
+function platformDb(): PlatformDbClient | null {
+  if (globalForPlatform.teamhappiPlatformDb !== undefined)
+    return globalForPlatform.teamhappiPlatformDb;
+  const url = serverEnv().PLATFORM_DATABASE_URL;
+  globalForPlatform.teamhappiPlatformDb = url
+    ? createPlatformDbClient(url)
+    : null;
+  return globalForPlatform.teamhappiPlatformDb;
+}
+
+export type OrganisationSummary = organisations.OrganisationSummary;
+
+export type OrganisationRead<T> =
+  { kind: "ok"; data: T } | { kind: "forbidden" } | { kind: "not_configured" };
+
+async function viewOrganisations<T>(
+  fn: (db: PlatformDbClient) => Promise<T>,
+): Promise<OrganisationRead<T>> {
+  const access = await getPlatformAccess();
+  if (!hasGrant(access, "tenant.view")) return { kind: "forbidden" };
+  const db = platformDb();
+  if (!db) return { kind: "not_configured" };
+  return { kind: "ok", data: await fn(db) };
+}
+
+/** Client organisation management (view: tenant.view; changes: tenant.suspend + MFA within 15 minutes). */
+export const organisationAdmin = {
+  list: (query?: string) =>
+    viewOrganisations((db) => organisations.listOrganisations(db, query)),
+  get: (tenantId: string) =>
+    viewOrganisations((db) => organisations.getOrganisation(db, tenantId)),
+  async history(tenantId: string): Promise<PlatformAuditRow[] | null> {
+    const access = await getPlatformAccess();
+    if (!hasGrant(access, "tenant.view")) return null;
+    return platformStaffAdmin.audit(100, { type: "tenant", id: tenantId });
+  },
+  async setStatus(
+    tenantId: string,
+    next: "active" | "suspended",
+    reason: string,
+  ): Promise<PrivilegedResult<null>> {
+    const db = platformDb();
+    if (!db)
+      return {
+        ok: false,
+        reason: "rejected",
+        message: "Organisation management isn't configured on this deployment.",
+      };
+    const r = await privileged("tenant.suspend", (_id, actor) =>
+      organisations.setOrganisationStatus(db, actor, tenantId, next, reason),
+    );
+    if (!r.ok) return r;
+    return r.data.ok
+      ? { ok: true, data: null }
+      : { ok: false, reason: "rejected", message: r.data.message };
+  },
+};

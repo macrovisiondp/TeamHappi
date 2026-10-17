@@ -82,9 +82,11 @@ const eslintConfig = defineConfig([
                 "@/lib/auth/mailer",
                 "@/platform/authz/*",
                 "@/platform/tenancy/*",
+                "@/platform/tenants/*",
+                "@/platform/db",
               ],
               message:
-                "Internal module. Use withTenant()/resolveTenantContext() from @/lib/tenancy and getCurrentUser() from @/lib/auth. Platform operations are not reachable from application code until Milestone 3.",
+                "Internal module. Use withTenant()/resolveTenantContext() from @/lib/tenancy, getCurrentUser() from @/lib/auth and Platform Admin through @/lib/platform-access.",
             },
           ],
         },

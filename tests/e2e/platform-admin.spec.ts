@@ -216,6 +216,66 @@ test("staff must set up MFA, then manage staff with an audit trail", async ({
   await page.goto("/platform/security", SLOW);
   await axe(page, "security");
 
+  // Client organisations (M5.2): directory, detail (counts only), suspend and
+  // reactivate with a reason, audited.
+  const HARBOUR = "Harbour & Hearth Group (synthetic)";
+  await page.goto("/platform/organisations", SLOW);
+  await expect(page.getByRole("link", { name: HARBOUR })).toBeVisible();
+  await axe(page, "organisations");
+  await shot(page, info, "organisations");
+  await page.getByLabel("Search by name").fill("larder");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(
+    page.getByRole("link", { name: "Northern Larder Ltd (synthetic)" }),
+  ).toBeVisible(SLOW);
+  await expect(page.getByRole("link", { name: HARBOUR })).toHaveCount(0);
+  await page.goto("/platform/organisations", SLOW);
+  await page.getByRole("link", { name: HARBOUR }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: HARBOUR }),
+  ).toBeVisible(SLOW);
+  await expect(page.locator("main")).not.toContainText(
+    /Kwame|Mensah|Aisha|Quayside/,
+  );
+  await axe(page, "organisation detail");
+  await page.getByRole("button", { name: "Suspend organisation" }).click();
+  const dialog = page.getByRole("dialog", { name: `Suspend ${HARBOUR}?` });
+  await dialog
+    .getByLabel("Reason (recorded in the audit log)")
+    .fill("Synthetic test: payment overdue");
+  await axe(page, "suspend dialog");
+  await dialog.getByRole("button", { name: "Suspend" }).click();
+  // After the change the page reloads: badge, controls and history all agree.
+  await expect(
+    page.getByRole("button", { name: "Reactivate organisation" }),
+  ).toBeVisible(SLOW);
+  await expect(
+    page.getByText("Suspended", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Synthetic test: payment overdue").first(),
+  ).toBeVisible();
+  await shot(page, info, "organisation-suspended");
+  await page.getByRole("button", { name: "Reactivate organisation" }).click();
+  await page
+    .getByRole("dialog", { name: `Reactivate ${HARBOUR}?` })
+    .getByRole("button", { name: "Reactivate" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Suspend organisation" }),
+  ).toBeVisible(SLOW);
+  await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText("Reactivated", { exact: true }).first(),
+  ).toBeVisible();
+  await page.goto("/platform/audit", SLOW);
+  await expect(
+    page.getByText("Suspended an organisation").first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Reactivated an organisation").first(),
+  ).toBeVisible();
+
   // Replay: the set-up code can't be used again; a recovery code works once.
   await page.goto("/platform/mfa/verify?next=/platform/security", SLOW);
   await codeInput(page).fill(setupCode);

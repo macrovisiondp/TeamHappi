@@ -65,11 +65,24 @@ Guards: no changes to your own access, and the last active `staff.manage` holder
 
 Events record the actor, the target user, a time and non-secret detail. They never contain codes, secrets or session tokens.
 
-## 3. M5.2: Client organisation management (planned)
+## 3. M5.2: Client organisation management (implemented)
 
-- **ADR-0009 role** `teamhappi_platform`: reads the tenant registry and counts across organisations, and can update `tenant.status` only. No employee data.
-- **Screens:** organisation directory and detail (status, sites and membership **counts**, trial and subscription status), suspend and reactivate (privileged; MFA within 15 minutes; audited), audit history.
-- **New columns** for trial and plan information on `tenant`, or a `subscription` table. Reviewed SQL, separate approval.
+- **The `teamhappi_platform` role (ADR-0009):**
+  - reads the tenant registry, and can update `status` only;
+  - reads and writes the platform audit trail;
+  - runs `app.platform_tenant_summaries()`, which returns counts plus owner contacts.
+
+  It has no access to sites, teams, employees, documents, memberships, sessions or MFA data.
+- **Screens:**
+  - `/platform/organisations`: a directory with search, status, subscription and trial, and site, member and people counts;
+  - `/platform/organisations/[id]`: the detail view, owners, the administration history, and suspend/reactivate.
+- **Suspend and reactivate:**
+  - only between active and suspended, and suspending needs a reason (5–300 characters);
+  - needs `tenant.suspend` and MFA within 15 minutes (the `PlatformStaffActor`);
+  - the status change and its audit event are written in one transaction;
+  - members lose or regain access on their next request.
+- **Subscription fields** (`subscription_status`, `trial_ends_at`, `plan`) are display-only until billing exists.
+- **Approval:** `docs/operations/m5.2-neon-approval.md`.
 
 ## 4. M5.3: Platform integrations (planned)
 

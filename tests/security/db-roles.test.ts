@@ -223,6 +223,15 @@ describe("row-level security coverage", () => {
     expect(Object.keys(byRole).sort()).toEqual([
       "teamhappi_app",
       "teamhappi_auth",
+      "teamhappi_platform",
+    ]);
+    // Platform console role (ADR-0009): the tenant registry (read + status)
+    // and the platform audit trail only. No client data tables.
+    expect(byRole.teamhappi_platform!.sort()).toEqual([
+      "platform_audit_event",
+      "platform_audit_event",
+      "tenant",
+      "tenant",
     ]);
     expect(byRole.teamhappi_auth!.sort()).toEqual([
       "account",

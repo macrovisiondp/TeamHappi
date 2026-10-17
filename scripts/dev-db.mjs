@@ -34,7 +34,11 @@ const state = firstRun
       authSecret: secret(32),
     }
   : JSON.parse(readFileSync(STATE, "utf8"));
-if (firstRun) writeFileSync(STATE, JSON.stringify(state, null, 2));
+// Roles added after a local database was first created (M5.2).
+const addedState = !state.platformPassword;
+state.platformPassword ??= secret();
+if (firstRun || addedState)
+  writeFileSync(STATE, JSON.stringify(state, null, 2));
 
 const url = (user, password, db = DB) =>
   `postgresql://${user}:${encodeURIComponent(password)}@127.0.0.1:${PORT}/${db}`;
@@ -80,6 +84,25 @@ if (firstRun) {
   );
 }
 
+// Platform console role (M5.2, ADR-0009): created on any local database that
+// doesn't have it yet, then the same bootstrap steps as on Neon.
+{
+  const adminDb = url("postgres", state.superPassword);
+  await run(
+    adminDb,
+    `DO $$ BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'teamhappi_platform') THEN
+         CREATE ROLE teamhappi_platform WITH LOGIN PASSWORD '${state.platformPassword}'
+           NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION;
+       END IF;
+     END $$`,
+  );
+  await run(
+    adminDb,
+    readFileSync("prisma/bootstrap/neon-dev-platform-role.sql", "utf8"),
+  );
+}
+
 execFileSync(
   process.execPath,
   ["node_modules/prisma/build/index.js", "migrate", "deploy"],
@@ -100,6 +123,7 @@ writeFileSync(
     `DATABASE_URL=${url("teamhappi_app", state.appPassword)}`,
     `AUTH_DATABASE_URL=${url("teamhappi_auth", state.authPassword)}`,
     `BETTER_AUTH_SECRET=${state.authSecret}`,
+    `PLATFORM_DATABASE_URL=${url("teamhappi_platform", state.platformPassword)}`,
     "",
   ].join("\n"),
 );

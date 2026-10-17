@@ -1,6 +1,7 @@
 import {
   Activity,
   BrainCircuit,
+  Building2,
   CalendarDays,
   CreditCard,
   HardDrive,
@@ -68,6 +69,12 @@ export const PLATFORM_NAV_ITEMS: readonly NavItem[] = [
     label: "Overview",
     icon: Activity,
     stage: "demo",
+  },
+  {
+    href: "/platform/organisations",
+    label: "Organisations",
+    icon: Building2,
+    stage: "live",
   },
   {
     href: "/platform/integrations",

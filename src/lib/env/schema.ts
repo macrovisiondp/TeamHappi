@@ -14,6 +14,9 @@ export const serverEnvSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
   // Authentication role (teamhappi_auth), pooled. Identity tables only (ADR-0008).
   AUTH_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  // Platform console role (teamhappi_platform, ADR-0009), pooled. Optional:
+  // without it the Platform Admin organisation pages say they're not configured.
+  PLATFORM_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
   // Signs session cookies and verification tokens. At least 32 characters.
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
 });
@@ -41,9 +44,14 @@ export function resolveAppUrl(
 const SECRET_VARS = [
   "DATABASE_URL",
   "AUTH_DATABASE_URL",
+  "PLATFORM_DATABASE_URL",
   "BETTER_AUTH_SECRET",
 ] as const;
-const DATABASE_VARS = new Set(["DATABASE_URL", "AUTH_DATABASE_URL"]);
+const DATABASE_VARS = new Set([
+  "DATABASE_URL",
+  "AUTH_DATABASE_URL",
+  "PLATFORM_DATABASE_URL",
+]);
 
 /**
  * Undoes common copy-paste damage in hosting dashboards: surrounding
