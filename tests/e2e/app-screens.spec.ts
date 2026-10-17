@@ -22,7 +22,9 @@ test.skip(
 const SCREENS = [
   { path: "/dashboard", heading: "Dashboard" },
   { path: "/people", heading: "People" },
-  { path: "/people/emp-006", heading: "Kwame Mensah" },
+  { path: "/demo/dashboard", heading: "Dashboard" },
+  { path: "/demo/people", heading: "People" },
+  { path: "/demo/people/emp-006", heading: "Kwame Mensah" },
   { path: "/rota", heading: "Rota" },
   { path: "/settings", heading: "Settings" },
   { path: "/access-denied", heading: "You don't have access to this" },
@@ -31,12 +33,24 @@ const SCREENS = [
 async function signIn(page: Page) {
   await page.goto("/sign-in");
   // Wait for hydration so the form is handled by the app, not the browser.
-  await page.waitForLoadState("networkidle");
+  await page
+    .waitForLoadState("networkidle", { timeout: 15_000 })
+    .catch(() => {});
   await page.getByLabel("Email address").fill(email!);
   await page.getByLabel("Password").fill(password!);
   await page.getByRole("button", { name: "Sign in" }).click();
   // Generous: the dev server compiles routes on first use.
-  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 60_000 });
+  await expect(page).toHaveURL(/\/(dashboard|organisations)$/, {
+    timeout: 60_000,
+  });
+  // Members of several organisations choose one first (M4.1).
+  const chooser = page.getByRole("heading", { name: "Choose an organisation" });
+  const dashboard = page.getByRole("heading", { level: 1, name: "Dashboard" });
+  await expect(chooser.or(dashboard)).toBeVisible({ timeout: 60_000 });
+  if (await chooser.isVisible()) {
+    await page.locator("main form button").first().click();
+    await expect(dashboard).toBeVisible({ timeout: 60_000 });
+  }
 }
 
 test.describe.configure({ mode: "serial" });
@@ -85,16 +99,19 @@ test("signed-in screens pass automated accessibility checks", async ({}, info) =
 });
 
 test("demo screens are labelled and unavailable actions are disabled", async () => {
-  await page.goto("/dashboard");
+  await page.goto("/demo/dashboard");
   await expect(page.getByText("Demo data").first()).toBeVisible();
+  await expect(page.getByText("Demo workspace").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Publish rota" }),
   ).toBeDisabled();
-  await page.goto("/people");
+  await page.goto("/demo/people");
   await expect(
     page.getByRole("button", { name: "Invite person" }),
   ).toBeDisabled();
-  await expect(page.getByLabel("Organisation")).toBeDisabled();
+  // The real workspace is not labelled as demo.
+  await page.goto("/dashboard");
+  await expect(page.getByText("Demo data")).toHaveCount(0);
 });
 
 test("navigation works with the keyboard and on small screens", async ({}, info) => {

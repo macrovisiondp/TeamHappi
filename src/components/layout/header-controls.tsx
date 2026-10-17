@@ -45,33 +45,6 @@ export function MobileNavButton({ navSet = "tenant" }: { navSet?: NavSet }) {
   );
 }
 
-/**
- * Display-only until M3.3: the active organisation will come from the server
- * session (validated membership). The browser never chooses a tenant.
- */
-export function OrganisationSelector({
-  organisation,
-}: {
-  organisation: string;
-}) {
-  const id = useId();
-  return (
-    <div className="flex min-w-0 items-center gap-2">
-      <label htmlFor={id} className="sr-only">
-        Organisation
-      </label>
-      <select
-        id={id}
-        disabled
-        title="Switching organisation arrives with organisation sign-in (Milestone 3.3)"
-        className="h-11 max-w-[16rem] min-w-0 truncate rounded-[10px] border border-line bg-surface px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-100"
-      >
-        <option>{organisation}</option>
-      </select>
-    </div>
-  );
-}
-
 export function NotificationsMenu() {
   const { open, toggle, containerRef, triggerRef } = useDisclosure();
   const panelId = useId();

@@ -52,6 +52,9 @@ const eslintConfig = defineConfig([
       "src/lib/db/**",
       "src/lib/tenancy/**",
       "src/lib/auth/**",
+      // Workspace layer (M4.1): resolves the organisation from the session and
+      // is the only route from pages to withTenant().
+      "src/lib/workspace/**",
       "src/platform/**",
       "src/app/api/auth/**",
     ],

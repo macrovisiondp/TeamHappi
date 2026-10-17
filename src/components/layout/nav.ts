@@ -23,8 +23,8 @@ export interface NavItem {
   href: Route;
   label: string;
   icon: LucideIcon;
-  /** "demo": synthetic data; "planned": overview only until the module ships. */
-  stage: "demo" | "planned";
+  /** "live": real data; "demo": synthetic data; "planned": overview only. */
+  stage: "live" | "demo" | "planned";
   /** Match only this path, not its children. */
   exact?: boolean;
 }
@@ -34,9 +34,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    stage: "demo",
+    stage: "live",
   },
-  { href: "/people", label: "People", icon: Users, stage: "demo" },
+  { href: "/people", label: "People", icon: Users, stage: "live" },
   {
     href: "/recruitment",
     label: "Recruitment",
@@ -119,10 +119,20 @@ export const PLATFORM_NAV_ITEMS: readonly NavItem[] = [
   },
 ];
 
-export type NavSet = "tenant" | "platform";
+/** The labelled demo workspace: same modules, synthetic Dashboard and People. */
+export const DEMO_NAV_ITEMS: readonly NavItem[] = NAV_ITEMS.map((item) =>
+  item.href === "/dashboard"
+    ? { ...item, href: "/demo/dashboard", stage: "demo" }
+    : item.href === "/people"
+      ? { ...item, href: "/demo/people", stage: "demo" }
+      : item,
+);
+
+export type NavSet = "tenant" | "demo" | "platform";
 
 export const NAV_SETS: Record<NavSet, readonly NavItem[]> = {
   tenant: NAV_ITEMS,
+  demo: DEMO_NAV_ITEMS,
   platform: PLATFORM_NAV_ITEMS,
 };
 

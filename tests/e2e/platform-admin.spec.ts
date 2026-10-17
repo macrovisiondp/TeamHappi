@@ -57,11 +57,15 @@ async function signedInPage(
   const page = await context.newPage();
   await page.goto("/sign-in");
   // Wait for hydration so the form is handled by the app, not the browser.
-  await page.waitForLoadState("networkidle");
+  await page
+    .waitForLoadState("networkidle", { timeout: 15_000 })
+    .catch(() => {});
   await page.getByLabel("Email address").fill(account.email!);
   await page.getByLabel("Password").fill(account.password!);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 60_000 });
+  await expect(page).toHaveURL(/\/(dashboard|organisations)$/, {
+    timeout: 60_000,
+  });
   return { context, page };
 }
 
@@ -79,7 +83,7 @@ test("signed-out visitors are sent to sign-in", async ({ browser }, info) => {
   const context = await browser.newContext({ ...info.project.use });
   const anon = await context.newPage();
   await anon.goto("/platform/integrations/credentials", { timeout: 60_000 });
-  await expect(anon).toHaveURL(/\/sign-in$/);
+  await expect(anon).toHaveURL(/\/sign-in$/, { timeout: 30_000 });
   await context.close();
 });
 

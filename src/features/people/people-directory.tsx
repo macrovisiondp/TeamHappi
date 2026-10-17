@@ -9,31 +9,43 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Avatar } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
-import type { DemoEmployee, DemoSite } from "@/features/demo/fixtures";
 import { formatDate } from "@/lib/format";
 
 import {
   DEFAULT_FILTERS,
   filterEmployees,
   fullName,
-  STATUS_LABEL,
-  STATUS_TONE,
   type DirectoryFilters,
+  type DirectoryPerson,
+  type StatusStyles,
 } from "./directory";
 
 export function PeopleDirectory({
   employees,
   sites,
+  statuses,
+  hrefBase,
+  caption,
 }: {
-  employees: readonly DemoEmployee[];
-  sites: readonly DemoSite[];
+  employees: readonly DirectoryPerson[];
+  sites: readonly { id: string; name: string }[];
+  statuses: StatusStyles;
+  /** "/people" for the real workspace, "/demo/people" for the demo. */
+  hrefBase: "/people" | "/demo/people";
+  caption: string;
 }) {
   const [filters, setFilters] = useState<DirectoryFilters>(DEFAULT_FILTERS);
   const results = useMemo(
     () => filterEmployees(employees, filters),
     [employees, filters],
   );
-  const siteName = (id: string) => sites.find((s) => s.id === id)?.name ?? "";
+  const siteName = (id: string | null) =>
+    sites.find((s) => s.id === id)?.name ?? "No site";
+  const status = (key: string) =>
+    statuses[key] ?? { label: key, tone: "neutral" as const };
+  const href = (id: string) => `${hrefBase}/${id}` as const;
+  // Real records have no job title yet (added with Onboarding); hide the column.
+  const showRole = employees.some((e) => e.role);
   const set = (patch: Partial<DirectoryFilters>) =>
     setFilters((f) => ({ ...f, ...patch }));
 
@@ -79,12 +91,10 @@ export function PeopleDirectory({
           <Select
             id="people-status"
             value={filters.status}
-            onChange={(e) =>
-              set({ status: e.target.value as DirectoryFilters["status"] })
-            }
+            onChange={(e) => set({ status: e.target.value })}
           >
             <option value="all">All statuses</option>
-            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+            {Object.entries(statuses).map(([value, { label }]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -104,14 +114,11 @@ export function PeopleDirectory({
       ) : (
         <>
           {/* Desktop and tablet: table */}
-          <Table
-            caption="Staff directory (demo data)"
-            className="hidden md:block"
-          >
+          <Table caption={caption} className="hidden md:block">
             <thead>
               <tr>
                 <Th>Name</Th>
-                <Th>Role</Th>
+                {showRole ? <Th>Role</Th> : null}
                 <Th>Site</Th>
                 <Th>Status</Th>
                 <Th>Start date</Th>
@@ -125,7 +132,7 @@ export function PeopleDirectory({
                       <Avatar name={fullName(e)} size="sm" />
                       <div>
                         <Link
-                          href={`/people/${e.id}`}
+                          href={href(e.id)}
                           className="font-semibold underline-offset-4 hover:underline"
                         >
                           {fullName(e)}
@@ -136,17 +143,21 @@ export function PeopleDirectory({
                       </div>
                     </div>
                   </Td>
-                  <Td>
-                    {e.role}
-                    <p className="text-xs text-ink-muted">{e.team}</p>
-                  </Td>
+                  {showRole ? (
+                    <Td>
+                      {e.role}
+                      {e.team ? (
+                        <p className="text-xs text-ink-muted">{e.team}</p>
+                      ) : null}
+                    </Td>
+                  ) : null}
                   <Td>{siteName(e.siteId)}</Td>
                   <Td>
-                    <Badge tone={STATUS_TONE[e.status]}>
-                      {STATUS_LABEL[e.status]}
+                    <Badge tone={status(e.status).tone}>
+                      {status(e.status).label}
                     </Badge>
                   </Td>
-                  <Td>{formatDate(e.startDate)}</Td>
+                  <Td>{e.startDate ? formatDate(e.startDate) : "Not set"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -157,17 +168,18 @@ export function PeopleDirectory({
             {results.map((e) => (
               <li key={e.id}>
                 <Link
-                  href={`/people/${e.id}`}
+                  href={href(e.id)}
                   className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card"
                 >
                   <Avatar name={fullName(e)} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{fullName(e)}</p>
                     <p className="truncate text-sm text-ink-muted">
-                      {e.role} · {siteName(e.siteId)}
+                      {e.role ? `${e.role} · ` : ""}
+                      {siteName(e.siteId)}
                     </p>
-                    <Badge tone={STATUS_TONE[e.status]} className="mt-1.5">
-                      {STATUS_LABEL[e.status]}
+                    <Badge tone={status(e.status).tone} className="mt-1.5">
+                      {status(e.status).label}
                     </Badge>
                   </div>
                   <ChevronRight

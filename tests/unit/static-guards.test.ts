@@ -150,3 +150,36 @@ describe("platform operations are unreachable before Milestone 3", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("pages reach tenant data only through the workspace layer (M4.1)", () => {
+  const pageCode = files.filter(
+    (f) => f.path.startsWith("src/app/") || f.path.startsWith("src/features/"),
+  );
+
+  it("routes and features never open tenant transactions or the raw client", () => {
+    const offenders = pageCode
+      .filter((f) =>
+        /\bwithTenant\b|\bwithUserContext\b|from\s+["']@\/lib\/db["']|resolveTenantContext/.test(
+          f.code,
+        ),
+      )
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("client components never import the workspace layer", () => {
+    const offenders = files
+      .filter((f) => /^["']use client["']/m.test(f.text))
+      .filter((f) => /from\s+["']@\/lib\/workspace/.test(f.code))
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("only with-tenant.ts and the workspace layer call app.my_memberships()", () => {
+    const offenders = files
+      .filter((f) => f.path !== "src/lib/workspace/resolve.ts")
+      .filter((f) => /my_memberships/.test(f.code))
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+});
