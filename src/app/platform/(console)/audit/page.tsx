@@ -27,6 +27,10 @@ const ACTION_LABEL: Record<string, string> = {
   "staff.revoked": "Revoked staff access",
   "tenant.suspended": "Suspended an organisation",
   "tenant.reactivated": "Reactivated an organisation",
+  "integration.configured": "Saved integration settings",
+  "integration.validated": "Tested an integration",
+  "integration.activated": "Made an integration active",
+  "ai.controls_changed": "Changed AI controls",
 };
 
 export default async function PlatformAuditPage() {

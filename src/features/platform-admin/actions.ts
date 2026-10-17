@@ -3,8 +3,11 @@
 import QRCode from "qrcode";
 
 import { platformMfa } from "@/lib/auth";
+import { formToConfig } from "@/integrations/fields";
 import {
+  AI_FEATURES,
   getPlatformAccess,
+  integrationAdmin,
   organisationAdmin,
   regenerateMyRecoveryCodes,
   staffAdmin,
@@ -19,7 +22,12 @@ import {
 export type ActionState =
   | { status: "idle" }
   | { status: "ok"; message?: string; href?: string; codes?: string[] }
-  | { status: "error"; message: string; stepUp?: boolean };
+  | {
+      status: "error";
+      message: string;
+      stepUp?: boolean;
+      fieldErrors?: Record<string, string>;
+    };
 
 const SAFE_NEXT = /^\/platform(\/[a-z0-9-]+)*$/;
 
@@ -214,4 +222,113 @@ export async function changeOrganisationStatus(
             : "Organisation reactivated.",
       }
     : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
+}
+
+// --- Integrations (M5.3) -----------------------------------------------------
+// The provider id comes from the form, but every rule (grant, MFA within 15
+// minutes, readiness, approval, credentials, environment) is checked again on
+// the server. The environment is never taken from the browser.
+
+const fromIntegration = (
+  r: Awaited<ReturnType<typeof integrationAdmin.configure>>,
+  message: string,
+): ActionState =>
+  r.ok
+    ? { status: "ok", message }
+    : {
+        status: "error",
+        message: r.message,
+        stepUp: r.reason === "step_up",
+        fieldErrors: "fieldErrors" in r ? r.fieldErrors : undefined,
+      };
+
+export async function configureIntegration(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  if (!(await requireStaff()))
+    return { status: "error", message: "Platform access is required." };
+  const providerId = String(form.get("providerId") ?? "");
+  const values: Record<string, string> = {};
+  for (const [key, value] of form.entries())
+    if (typeof value === "string" && key !== "providerId") values[key] = value;
+  return fromIntegration(
+    await integrationAdmin.configure(
+      providerId,
+      formToConfig(providerId, values),
+    ),
+    "Settings saved as a new version. Test the connection before making it active.",
+  );
+}
+
+export async function integrationCommand(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  if (!(await requireStaff()))
+    return { status: "error", message: "Platform access is required." };
+  const providerId = String(form.get("providerId") ?? "");
+  if (form.get("intent") === "activate")
+    return fromIntegration(
+      await integrationAdmin.activate(providerId),
+      "Provider is now active for this environment.",
+    );
+  return fromIntegration(
+    await integrationAdmin.test(providerId),
+    "Connection test passed.",
+  );
+}
+
+/** "12.50" → 1250. Whole pence from a decimal string, never floating point. */
+function poundsToPence(raw: string): number | null {
+  const m = raw
+    .trim()
+    .replace(/^£/, "")
+    .match(/^(\d{1,6})(?:\.(\d{1,2}))?$/);
+  if (!m) return null;
+  return Number(m[1]) * 100 + Number((m[2] ?? "0").padEnd(2, "0"));
+}
+
+function wholeNumber(raw: string): number | null {
+  const v = raw.trim().replace(/,/g, "");
+  return /^\d{1,9}$/.test(v) ? Number(v) : null;
+}
+
+export async function saveAiControls(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  if (!(await requireStaff()))
+    return { status: "error", message: "Platform access is required." };
+  const fieldErrors: Record<string, string> = {};
+  const requestLimit = wholeNumber(String(form.get("requestLimit") ?? ""));
+  const tokenLimit = wholeNumber(String(form.get("tokenLimit") ?? ""));
+  const spendLimitPence = poundsToPence(String(form.get("spendLimit") ?? ""));
+  if (requestLimit === null) fieldErrors.requestLimit = "Enter a whole number.";
+  if (tokenLimit === null) fieldErrors.tokenLimit = "Enter a whole number.";
+  if (spendLimitPence === null)
+    fieldErrors.spendLimitPence =
+      "Enter an amount in pounds, for example 25.00.";
+  if (Object.keys(fieldErrors).length)
+    return {
+      status: "error",
+      message: "Check the highlighted fields.",
+      fieldErrors,
+    };
+  const features = form
+    .getAll("features")
+    .map(String)
+    .filter((f): f is (typeof AI_FEATURES)[number] =>
+      (AI_FEATURES as readonly string[]).includes(f),
+    );
+  return fromIntegration(
+    await integrationAdmin.saveAi({
+      killSwitch: form.get("aiEnabled") !== "on",
+      features,
+      requestLimit,
+      tokenLimit,
+      spendLimitPence,
+    }),
+    "AI controls saved.",
+  );
 }

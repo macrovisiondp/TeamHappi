@@ -21,7 +21,11 @@ export type PlatformAuditAction =
   | "staff.reactivated"
   | "staff.revoked"
   | "tenant.suspended"
-  | "tenant.reactivated";
+  | "tenant.reactivated"
+  | "integration.configured"
+  | "integration.validated"
+  | "integration.activated"
+  | "ai.controls_changed";
 
 export interface PlatformAuditInput {
   action: PlatformAuditAction;

@@ -4,7 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { AccountMenu } from "@/components/layout/header-controls";
 import { Skeleton } from "@/components/ui/misc";
-import { PLATFORM_ORGANISATION } from "@/features/platform/fixtures";
+import { PLATFORM_ORGANISATION } from "@/features/platform/labels";
 import { getCurrentUser } from "@/lib/auth";
 import { getPlatformAccess } from "@/lib/platform-access";
 

@@ -17,6 +17,10 @@ export const serverEnvSchema = z.object({
   // Platform console role (teamhappi_platform, ADR-0009), pooled. Optional:
   // without it the Platform Admin organisation pages say they're not configured.
   PLATFORM_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  // Providers the product owner has approved for live use (M5.3), comma
+  // separated, for example "resend". Empty means none: only the synthetic
+  // test adapters can be switched on, and only outside production.
+  APPROVED_LIVE_PROVIDERS: z.string().max(500).optional(),
   // Signs session cookies and verification tokens. At least 32 characters.
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
 });

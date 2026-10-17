@@ -16,7 +16,13 @@ import {
   type PlatformStaffActor,
 } from "@/platform/authz/internal";
 import { createPlatformDbClient, type PlatformDbClient } from "@/platform/db";
+import * as integrationStore from "@/platform/integrations/store";
 import * as organisations from "@/platform/tenants/organisations";
+import { deploymentEnvironment } from "@/integrations/core/environment";
+import {
+  SERVICE_CATEGORIES,
+  type ServiceCategory,
+} from "@/integrations/core/types";
 import { serverEnv } from "@/lib/env";
 
 import {
@@ -230,4 +236,105 @@ export const organisationAdmin = {
       ? { ok: true, data: null }
       : { ok: false, reason: "rejected", message: r.data.message };
   },
+};
+
+// --- Integrations (M5.3, ADR-0011 stage 1) -----------------------------------
+
+export type IntegrationCategoryState = integrationStore.CategoryState;
+export type AiControls = integrationStore.AiControls;
+export { AI_FEATURES } from "@/platform/integrations/store";
+
+/** Any active platform staff member may view; changes need integrations.manage. */
+async function viewIntegrations<T>(
+  fn: (db: PlatformDbClient) => Promise<T>,
+): Promise<OrganisationRead<T>> {
+  const access = await getPlatformAccess();
+  if (access.kind !== "staff") return { kind: "forbidden" };
+  const db = platformDb();
+  if (!db) return { kind: "not_configured" };
+  return { kind: "ok", data: await fn(db) };
+}
+
+const NOT_CONFIGURED = {
+  ok: false,
+  reason: "rejected",
+  message: "Integration settings aren't configured on this deployment.",
+} as const;
+
+async function changeIntegrations(
+  fn: (
+    db: PlatformDbClient,
+    actor: PlatformStaffActor,
+  ) => Promise<integrationStore.StoreResult>,
+): Promise<PrivilegedResult<null> & { fieldErrors?: Record<string, string> }> {
+  const db = platformDb();
+  if (!db) return NOT_CONFIGURED;
+  const r = await privileged("integrations.manage", (_id, actor) =>
+    fn(db, actor),
+  );
+  if (!r.ok) return r;
+  return r.data.ok
+    ? { ok: true, data: null }
+    : {
+        ok: false,
+        reason: "rejected",
+        message: r.data.message,
+        fieldErrors: r.data.fieldErrors,
+      };
+}
+
+const approvedLive = () =>
+  integrationStore.approvedLiveProviders(serverEnv().APPROVED_LIVE_PROVIDERS);
+
+/** The environment is decided by the deployment, never by the browser. */
+export const integrationEnvironment = () => deploymentEnvironment();
+
+export const integrationAdmin = {
+  category: (category: ServiceCategory) =>
+    viewIntegrations((db) =>
+      integrationStore.categoryState(db, category, deploymentEnvironment()),
+    ),
+  overview: () =>
+    viewIntegrations((db) =>
+      Promise.all(
+        SERVICE_CATEGORIES.map((c) =>
+          integrationStore.categoryState(db, c, deploymentEnvironment()),
+        ),
+      ),
+    ),
+  ai: () => viewIntegrations((db) => integrationStore.getAiControls(db)),
+  approvedLive: () => [...approvedLive()],
+  configure: (providerId: string, settings: Record<string, unknown>) =>
+    changeIntegrations((db, actor) =>
+      integrationStore.saveProviderConfig(
+        db,
+        actor,
+        providerId,
+        deploymentEnvironment(),
+        settings,
+      ),
+    ),
+  test: (providerId: string) =>
+    changeIntegrations((db, actor) =>
+      integrationStore.validateLatestConfig(
+        db,
+        actor,
+        providerId,
+        deploymentEnvironment(),
+      ),
+    ),
+  activate: (providerId: string) =>
+    changeIntegrations((db, actor) =>
+      integrationStore.activateProvider(
+        db,
+        actor,
+        providerId,
+        deploymentEnvironment(),
+        approvedLive(),
+      ),
+    ),
+  saveAi: (input: unknown) =>
+    changeIntegrations((db, actor) =>
+      integrationStore.saveAiControls(db, actor, input),
+    ),
 };
