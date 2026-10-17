@@ -54,13 +54,15 @@ const visibleIds = (ctx: TenantContext) =>
   );
 
 describe("user_visible policy", () => {
-  it("shows active members of the current tenant", async () => {
+  it("shows active and suspended members of the current tenant", async () => {
     const ids = await visibleIds(ctxA);
     expect(ids).toContain(A.ownerUserId);
     expect(ids).toContain(members.active);
+    // M6: admins need to see who is suspended in order to restore them.
+    expect(ids).toContain(members.suspended);
   });
 
-  it.each(["invited", "suspended", "left"])(
+  it.each(["invited", "left"])(
     "hides %s members' user records",
     async (status) => {
       expect(await visibleIds(ctxA)).not.toContain(members[status]);
@@ -83,7 +85,7 @@ describe("user_visible policy", () => {
     expect(await visibleIds(ctxA)).not.toContain(B.ownerUserId);
   });
 
-  it("a member whose membership becomes suspended disappears from view", async () => {
+  it("a member who leaves disappears from view", async () => {
     const user = await createUser("vis-transition");
     await admin((c) =>
       c.query(
@@ -95,6 +97,13 @@ describe("user_visible policy", () => {
     await admin((c) =>
       c.query(
         `UPDATE tenant_membership SET status = 'suspended' WHERE tenant_id = $1 AND user_id = $2`,
+        [A.tenantId, user],
+      ),
+    );
+    expect(await visibleIds(ctxA)).toContain(user);
+    await admin((c) =>
+      c.query(
+        `UPDATE tenant_membership SET status = 'left' WHERE tenant_id = $1 AND user_id = $2`,
         [A.tenantId, user],
       ),
     );

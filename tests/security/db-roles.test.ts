@@ -108,9 +108,13 @@ describe("application role posture", () => {
     expect(
       Object.fromEntries(grants.map((g) => [g.table_name, g.privileges])),
     ).toEqual({
+      // M6: append-only tenant audit trail.
+      audit_event: "INSERT,SELECT",
       document: "INSERT,SELECT,UPDATE",
       // UPDATE is column-level since M4.2 (see the next test).
       employee: "INSERT,SELECT",
+      // M6: UPDATE is column-level (link and status only; see below). No DELETE.
+      invitation: "INSERT,SELECT",
       permission: "SELECT",
       role: "INSERT,SELECT,UPDATE",
       role_assignment: "DELETE,INSERT,SELECT",
@@ -126,7 +130,7 @@ describe("application role posture", () => {
 });
 
 describe("column-level UPDATE privileges (M4.2)", () => {
-  it("the app may update only the reviewed columns of tenant and employee", async () => {
+  it("the app may update only the reviewed columns of tenant, employee and invitation", async () => {
     const rows = await admin(
       async (c) =>
         (
@@ -134,7 +138,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
             `SELECT table_name, string_agg(column_name, ',' ORDER BY column_name) AS columns
              FROM information_schema.column_privileges
              WHERE grantee = 'teamhappi_app' AND privilege_type = 'UPDATE'
-               AND table_name IN ('tenant', 'employee')
+               AND table_name IN ('tenant', 'employee', 'invitation')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -158,6 +162,13 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "primary_site_id",
         "start_date",
         "status",
+        "updated_at",
+      ],
+      invitation: [
+        "expires_at",
+        "revoked_at",
+        "status",
+        "token_hash",
         "updated_at",
       ],
       tenant: ["legal_name", "timezone", "updated_at"],
@@ -188,8 +199,10 @@ describe("row-level security coverage", () => {
         ).rows,
     );
     expect(rows.map((r) => r.table)).toEqual([
+      "audit_event",
       "document",
       "employee",
+      "invitation",
       "role",
       "role_assignment",
       "role_permission",

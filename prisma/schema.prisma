@@ -38,6 +38,8 @@ model Tenant {
   roles       Role[]
   sites       Site[]
   employees   Employee[]
+  invitations Invitation[]
+  auditEvents AuditEvent[]
 
   @@map("tenant")
 }
@@ -63,16 +65,18 @@ enum TenantStatus {
 // Identity. Column names follow Better Auth's core user model so Milestone 3
 // can adopt this table. At least one of email / phone_number is required (CHECK in SQL).
 model User {
-  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  name          String
+  id               String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name             String
   // Unique as Better Auth requires (M3.1). The case-insensitive index from M2
   // (lower(email)) stays; emails are stored lower-cased.
-  email         String?  @unique
-  emailVerified Boolean  @default(false) @map("email_verified")
-  phoneNumber   String?  @map("phone_number")
-  image         String?
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  email            String?  @unique
+  emailVerified    Boolean  @default(false) @map("email_verified")
+  // M6: how the address was confirmed ("email" or "invitation" link).
+  emailVerifiedVia String?  @map("email_verified_via")
+  phoneNumber      String?  @map("phone_number")
+  image            String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   memberships TenantMembership[]
   sessions    Session[]
@@ -214,6 +218,7 @@ model Role {
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   permissions RolePermission[]
   assignments RoleAssignment[]
+  invitations Invitation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, key])
@@ -268,6 +273,7 @@ model Site {
   teams           Team[]
   roleAssignments RoleAssignment[]
   primaryFor      Employee[]
+  invitations     Invitation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -505,4 +511,59 @@ model PlatformSetting {
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("platform_setting")
+}
+
+// ---------------------------------------------------------------------------
+// M6: invitations and the tenant audit trail
+// (migration 20261024120000_invitations_members).
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+
+  @@map("invitation_status")
+}
+
+// One-time invite link. Only the SHA-256 hash of the token is stored.
+model Invitation {
+  id         String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String           @map("tenant_id") @db.Uuid
+  email      String
+  roleId     String           @map("role_id") @db.Uuid
+  siteId     String?          @map("site_id") @db.Uuid
+  tokenHash  String           @unique @map("token_hash")
+  status     InvitationStatus @default(pending)
+  expiresAt  DateTime         @map("expires_at") @db.Timestamptz
+  invitedBy  String           @map("invited_by") @db.Uuid
+  acceptedBy String?          @map("accepted_by") @db.Uuid
+  acceptedAt DateTime?        @map("accepted_at") @db.Timestamptz
+  revokedAt  DateTime?        @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_role_fkey")
+  site   Site?  @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_site_fkey")
+
+  @@unique([tenantId, id])
+  @@map("invitation")
+}
+
+// Append-only (trigger). Ids and role keys only; never names or addresses.
+model AuditEvent {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String?  @map("target_id") @db.Uuid
+  detail      Json     @default("{}")
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, occurredAt(sort: Desc)], map: "audit_event_tenant_time")
+  @@map("audit_event")
 }

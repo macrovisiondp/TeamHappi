@@ -9,6 +9,7 @@ const TABS = [
   { href: "/settings", label: "Organisation", exact: true },
   { href: "/settings/sites", label: "Sites", exact: false },
   { href: "/settings/teams", label: "Teams", exact: false },
+  { href: "/settings/members", label: "Members", exact: false },
 ] as const;
 
 export function SettingsTabs() {

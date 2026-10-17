@@ -3,13 +3,18 @@ import "server-only";
 import { cookies } from "next/headers";
 import { cache } from "react";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, invitedAccounts } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { serverEnv } from "@/lib/env";
 import { withTenant, type TenantTx } from "@/lib/tenancy";
 
+import { invitationLink } from "@/lib/invitations/token";
+
+import * as invites from "./invitations";
+import * as members from "./members";
 import * as mutations from "./mutations";
 import * as queries from "./queries";
+import type { InvitationPreview } from "./invitations";
 import { listMemberships, resolveWorkspace, type Workspace } from "./resolve";
 
 type Ready = Extract<Workspace, { kind: "ready" }>;
@@ -115,4 +120,112 @@ export const mutate = {
     mutations.createEmployee(db(), ws, raw),
   updateEmployee: (ws: Ready, id: string, raw: unknown) =>
     mutations.updateEmployee(db(), ws, id, raw),
+};
+
+// --- Members and invitations (M6) ----------------------------------------------
+
+export type {
+  AuditRow,
+  InvitationRow,
+  MemberRow,
+  MembersPage,
+} from "./members";
+export type {
+  AcceptOutcome,
+  InvitationPreview,
+  InvitationState,
+} from "./invitations";
+
+export const membersPage = (ws: Ready) => members.membersPage(db(), ws);
+export const memberActivity = (ws: Ready) => members.memberActivity(db(), ws);
+
+/** Member and invitation changes. Each checks permissions and rules itself. */
+export const manageMembers = {
+  invite: (ws: Ready, raw: unknown) => members.createInvitation(db(), ws, raw),
+  renewInvitation: (ws: Ready, id: string) =>
+    members.renewInvitation(db(), ws, id),
+  revokeInvitation: (ws: Ready, id: string) =>
+    members.revokeInvitation(db(), ws, id),
+  changeRole: (
+    ws: Ready,
+    membershipId: string,
+    raw: { roleId?: unknown; siteId?: unknown },
+  ) => members.changeMemberRole(db(), ws, membershipId, raw),
+  setStatus: (
+    ws: Ready,
+    membershipId: string,
+    next: "active" | "suspended" | "left",
+  ) => members.setMemberStatus(db(), ws, membershipId, next),
+};
+
+/** The full link for a token: shown once, never stored. */
+export const invitationLinkFor = (token: string) =>
+  invitationLink(serverEnv().APP_URL, token);
+
+/** The public invite page (signed in or not). */
+export const invitations = {
+  preview: async (token: string): Promise<InvitationPreview> =>
+    serverEnv().DATABASE_URL
+      ? invites.previewInvitation(db(), token)
+      : {
+          state: "invalid",
+          email: null,
+          organisation: null,
+          role: null,
+          site: null,
+        },
+  /** Joins the SIGNED-IN user. */
+  async acceptAsCurrentUser(token: string) {
+    const user = await getCurrentUser();
+    if (!user) return { outcome: "invalid" as const, tenantId: null };
+    return invites.acceptInvitation(db(), user.userId, token);
+  },
+  /**
+   * New people: create the account for the invited address (the link counts
+   * as confirming it; see docs/architecture/m6-invitations-members.md), then
+   * join. Refused if the person is signed in or the address already has an
+   * account (they sign in instead, so a link can never take over an account).
+   */
+  async createAccountAndJoin(
+    token: string,
+    raw: { name: unknown; password: unknown },
+  ): Promise<
+    | { ok: true; email: string }
+    | { ok: false; message: string; fieldErrors?: Record<string, string> }
+  > {
+    if (await getCurrentUser())
+      return {
+        ok: false,
+        message: "Sign out first, or accept as the signed-in account.",
+      };
+    const preview = await invitations.preview(token);
+    if (preview.state !== "valid" || !preview.email)
+      return {
+        ok: false,
+        message: "This invitation link isn't valid any more.",
+      };
+    const created = await invitedAccounts.create(preview.email, raw);
+    if (!created)
+      return { ok: false, message: "Accounts can't be created right now." };
+    if (!created.ok)
+      return created.reason === "exists"
+        ? {
+            ok: false,
+            message:
+              "This address already has a TeamHappi account. Sign in to accept.",
+          }
+        : {
+            ok: false,
+            message: "Check the highlighted fields.",
+            fieldErrors: created.fieldErrors,
+          };
+    const joined = await invites.acceptInvitation(db(), created.userId, token);
+    if (joined.outcome !== "joined" && joined.outcome !== "already_member")
+      return {
+        ok: false,
+        message:
+          "Your account was created, but the invitation couldn't be accepted. Ask for a new link.",
+      };
+    return { ok: true, email: preview.email };
+  },
 };

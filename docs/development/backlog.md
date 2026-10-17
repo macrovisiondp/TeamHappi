@@ -43,7 +43,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done.
 1. ☐ Better Auth: email+password, email OTP, sessions; TOTP + passkey MFA
 2. ☐ Active-tenant switching; membership re-validation per request
 3. ☐ Permission catalogue + `require()` + site scoping; MFA enforcement for privileged roles
-4. ☐ Client admin: sites, teams, invitations, role assignment
+4. ☑ Client admin: sites, teams (M4.2), invitations, role assignment (M6; link invitations until email is approved)
 5. ☐ Platform console: tenant create/suspend; support-access grants
 6. ☐ Rate limiting, Postgres-backed (free; ADR-0008)
 7. ☐ Phone OTP: **deferred** (CR-002). Email provider decision needed before first non-developer sign-in (R-4).
