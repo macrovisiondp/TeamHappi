@@ -1,10 +1,16 @@
-import { ArrowRightLeft, Building2, FlaskConical } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Building2,
+  FlaskConical,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getPlatformAccess } from "@/lib/platform-access";
 import {
   getWorkspace,
   type MembershipSummary,
@@ -74,11 +80,29 @@ const BLOCKED_REASON = (m: MembershipSummary) =>
     : `Your access to ${m.name} has been suspended.`;
 
 /** Signed in, but no organisation this person can use right now. */
-export function NoOrganisation({
+export async function NoOrganisation({
   blocked,
 }: {
   blocked: readonly MembershipSummary[];
 }) {
+  const platform = await getPlatformAccess();
+  if (platform.kind !== "none")
+    return (
+      <EmptyState
+        icon={ShieldCheck}
+        title="You're signed in as Macrovision platform staff"
+        action={
+          <Button asChild>
+            <a href="/platform">Open Platform Admin</a>
+          </Button>
+        }
+      >
+        <p>
+          Your account isn&apos;t part of a client organisation, so there&apos;s
+          no workspace here. Platform Admin is where you manage TeamHappi.
+        </p>
+      </EmptyState>
+    );
   return (
     <div className="flex flex-col gap-6">
       <EmptyState

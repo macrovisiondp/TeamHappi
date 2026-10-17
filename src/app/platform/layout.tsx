@@ -38,7 +38,7 @@ export default function PlatformLayout({ children }: LayoutProps<"/platform">) {
 
 async function RequirePlatformStaff({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+  if (!user) redirect("/sign-in?next=/platform");
   const access = await getPlatformAccess();
   if (access.kind === "none") notFound();
   return children;

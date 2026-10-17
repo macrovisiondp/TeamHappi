@@ -89,7 +89,16 @@ export function NotificationsMenu() {
   );
 }
 
-export function AccountMenu({ name, email }: { name: string; email: string }) {
+export function AccountMenu({
+  name,
+  email,
+  links = [],
+}: {
+  name: string;
+  email: string;
+  /** Extra destinations, e.g. Platform Admin for platform staff. */
+  links?: readonly { href: string; label: string }[];
+}) {
   const router = useRouter();
   const { open, toggle, containerRef, triggerRef } = useDisclosure();
   const panelId = useId();
@@ -139,6 +148,15 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
             <p className="truncate text-xs text-ink-muted">{email}</p>
           </div>
           <div className="my-1 border-t border-line" />
+          {links.map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              className="flex min-h-11 w-full items-center gap-2 rounded-[10px] px-3 text-sm font-medium hover:bg-sage"
+            >
+              {l.label}
+            </a>
+          ))}
           <button
             type="button"
             onClick={signOut}

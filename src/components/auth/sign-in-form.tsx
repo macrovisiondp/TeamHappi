@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+
+import { safeNext } from "@/lib/navigation/next";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -60,7 +62,12 @@ export function SignInForm() {
         }),
       });
       if (res.ok) {
-        router.replace("/dashboard");
+        const next = safeNext(params.get("next"));
+        router.replace(
+          (next
+            ? `/continue?next=${encodeURIComponent(next)}`
+            : "/continue") as never,
+        );
         router.refresh();
         return;
       }
