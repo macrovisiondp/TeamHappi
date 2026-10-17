@@ -120,7 +120,13 @@ test("signed-out visitors are sent to sign-in", async ({ browser }, info) => {
   const context = await browser.newContext({ ...info.project.use });
   const page = await context.newPage();
   await page.goto("/platform/staff", SLOW);
-  await expect(page).toHaveURL(/\/sign-in$/, { timeout: 30_000 });
+  // The sign-in page remembers where they were going.
+  await expect(page).toHaveURL(
+    /\/sign-in\?next=%2Fplatform$|\/sign-in\?next=\/platform$/,
+    {
+      timeout: 30_000,
+    },
+  );
   await context.close();
 });
 
@@ -148,10 +154,18 @@ test("people who aren't platform staff get a 404", async ({
 test("staff must set up MFA, then manage staff with an audit trail", async ({
   browser,
 }, info) => {
-  const { context, page } = await signIn(browser, info, ada);
-
-  // MFA set-up is forced before any console page.
+  // Signed out, open Platform Admin directly: after signing in, staff land in
+  // Platform Admin (MFA set-up first), not the client dashboard.
+  const context = await browser.newContext({ ...info.project.use });
+  const page = await context.newPage();
   await page.goto("/platform/staff", SLOW);
+  await expect(page).toHaveURL(/\/sign-in\?next=/, SLOW);
+  await page
+    .waitForLoadState("networkidle", { timeout: 15_000 })
+    .catch(() => {});
+  await page.getByLabel("Email address").fill(ada.email!);
+  await page.getByLabel("Password").fill(ada.password!);
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/platform\/mfa\/setup$/, SLOW);
   await axe(page, "mfa setup");
   await page.getByRole("button", { name: "Set up authenticator app" }).click();
@@ -250,4 +264,43 @@ test("new staff must enrol before using the console; platform access is separate
   await page.goto("/platform/audit", SLOW);
   await expect(page).toHaveURL(/\/platform\/mfa\/setup$/, SLOW);
   await context.close();
+});
+
+test("staff who belong to no organisation land in Platform Admin after signing in", async ({
+  browser,
+}, info) => {
+  // Temporarily make Dan (no organisation) platform staff in the LOCAL database.
+  await localAdmin((c) =>
+    c.query(
+      `INSERT INTO platform_staff (user_id, grants)
+       SELECT id, '{audit.view}' FROM "user" WHERE email = $1
+       ON CONFLICT (user_id) DO UPDATE SET status = 'active'`,
+      [dan.email],
+    ),
+  );
+  try {
+    const context = await browser.newContext({ ...info.project.use });
+    const page = await context.newPage();
+    await page.goto("/sign-in");
+    await page
+      .waitForLoadState("networkidle", { timeout: 15_000 })
+      .catch(() => {});
+    await page.getByLabel("Email address").fill(dan.email!);
+    await page.getByLabel("Password").fill(dan.password!);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/platform\/mfa\/setup$/, SLOW);
+    // The client dashboard points staff back to Platform Admin.
+    await page.goto("/dashboard", SLOW);
+    await expect(
+      page.getByRole("link", { name: "Open Platform Admin" }),
+    ).toBeVisible();
+    await context.close();
+  } finally {
+    await localAdmin((c) =>
+      c.query(
+        `DELETE FROM platform_staff WHERE user_id = (SELECT id FROM "user" WHERE email = $1)`,
+        [dan.email],
+      ),
+    );
+  }
 });

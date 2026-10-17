@@ -21,6 +21,6 @@ async function RequireMfa({ children }: { children: ReactNode }) {
   const access = await getPlatformAccess();
   if (access.kind === "enrol") redirect("/platform/mfa/setup");
   if (access.kind === "verify") redirect("/platform/mfa/verify");
-  if (access.kind !== "staff") redirect("/sign-in");
+  if (access.kind !== "staff") redirect("/sign-in?next=/platform");
   return children;
 }

@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/misc";
 import { OrganisationSwitcher } from "@/features/workspace/components";
 import { getCurrentUser } from "@/lib/auth";
+import { getPlatformAccess } from "@/lib/platform-access";
 
 import Loading from "./loading";
 
@@ -49,5 +50,16 @@ async function RequireUser({ children }: { children: ReactNode }) {
 async function UserAccountMenu() {
   const user = await getCurrentUser();
   if (!user) return null;
-  return <AccountMenu name={user.name} email={user.email} />;
+  const platform = await getPlatformAccess();
+  return (
+    <AccountMenu
+      name={user.name}
+      email={user.email}
+      links={
+        platform.kind === "none"
+          ? []
+          : [{ href: "/platform", label: "Platform Admin" }]
+      }
+    />
+  );
 }
