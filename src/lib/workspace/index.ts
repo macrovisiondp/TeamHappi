@@ -9,6 +9,7 @@ import { serverEnv } from "@/lib/env";
 import { withTenant, type TenantTx } from "@/lib/tenancy";
 
 import { invitationLink } from "@/lib/invitations/token";
+import * as onboarding from "@/modules/onboarding";
 
 import * as invites from "./invitations";
 import * as members from "./members";
@@ -228,4 +229,77 @@ export const invitations = {
       };
     return { ok: true, email: preview.email };
   },
+};
+
+// --- Onboarding (M7.1) ----------------------------------------------------------
+
+export type {
+  CaseSummary as OnboardingCaseSummary,
+  Dashboard as OnboardingDashboard,
+  TemplateSummary as OnboardingTemplateSummary,
+} from "@/modules/onboarding";
+
+/** The member acting, from the server session (never from the browser). */
+const actorOf = (ws: Ready): onboarding.Actor => ({
+  tenantId: ws.tenant.id,
+  userId: ws.ctx.userId!,
+  membershipId: ws.membershipId,
+  grants: ws.grants,
+});
+const todayFor = (ws: Ready) => onboarding.todayIn(ws.tenant.timezone);
+const inWs = <T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: onboarding.Actor) => Promise<T>,
+) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+
+export const onboardingApi = {
+  dashboard: (ws: Ready, filter: { status?: string; siteId?: string }) =>
+    inWs(ws, (tx, a) => onboarding.dashboard(tx, a, todayFor(ws), filter)),
+  getCase: (ws: Ready, id: string) =>
+    inWs(ws, (tx, a) => onboarding.getCase(tx, a, id, todayFor(ws))),
+  caseForEmployee: (ws: Ready, employeeId: string) =>
+    inWs(ws, (tx, a) =>
+      onboarding.caseForEmployee(tx, a, employeeId, todayFor(ws)),
+    ),
+  startOptions: (ws: Ready) => inWs(ws, onboarding.startOptions),
+  listTemplates: (ws: Ready, includeArchived = false) =>
+    inWs(ws, (tx, a) => onboarding.listTemplates(tx, a, { includeArchived })),
+  getTemplate: (ws: Ready, id: string) =>
+    inWs(ws, (tx, a) => onboarding.getTemplate(tx, a, id)),
+  startCase: (ws: Ready, raw: Parameters<typeof onboarding.startCase>[2]) =>
+    inWs(ws, (tx, a) => onboarding.startCase(tx, a, raw)),
+  updateTask: (
+    ws: Ready,
+    caseId: string,
+    taskId: string,
+    cmd: onboarding.TaskCommand,
+  ) => inWs(ws, (tx, a) => onboarding.updateTask(tx, a, caseId, taskId, cmd)),
+  signOff: (ws: Ready, caseId: string, note: unknown) =>
+    inWs(ws, (tx, a) =>
+      onboarding.signOffCase(tx, a, caseId, todayFor(ws), note),
+    ),
+  cancel: (ws: Ready, caseId: string, reason: unknown) =>
+    inWs(ws, (tx, a) => onboarding.cancelCase(tx, a, caseId, reason)),
+  changeOwner: (ws: Ready, caseId: string, membershipId: unknown) =>
+    inWs(ws, (tx, a) =>
+      onboarding.changeCaseOwner(tx, a, caseId, membershipId),
+    ),
+  saveTemplate: (ws: Ready, id: string | null, raw: unknown) =>
+    inWs(ws, (tx, a) => onboarding.saveTemplate(tx, a, id, raw)),
+  archiveTemplate: (ws: Ready, id: string) =>
+    inWs(ws, (tx, a) => onboarding.archiveTemplate(tx, a, id)),
+  saveTemplateTask: (
+    ws: Ready,
+    templateId: string,
+    taskId: string | null,
+    raw: unknown,
+  ) =>
+    inWs(ws, (tx, a) =>
+      onboarding.saveTemplateTask(tx, a, templateId, taskId, raw),
+    ),
+  archiveTemplateTask: (ws: Ready, templateId: string, taskId: string) =>
+    inWs(ws, (tx, a) =>
+      onboarding.archiveTemplateTask(tx, a, templateId, taskId),
+    ),
+  addSuggested: (ws: Ready) => inWs(ws, onboarding.addSuggestedTemplates),
 };

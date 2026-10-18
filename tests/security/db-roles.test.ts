@@ -115,6 +115,11 @@ describe("application role posture", () => {
       employee: "INSERT,SELECT",
       // M6: UPDATE is column-level (link and status only; see below). No DELETE.
       invitation: "INSERT,SELECT",
+      // M7.1: UPDATE is column-level (see below). No DELETE.
+      onboarding_case: "INSERT,SELECT",
+      onboarding_task: "INSERT,SELECT",
+      onboarding_template: "INSERT,SELECT",
+      onboarding_template_task: "INSERT,SELECT",
       permission: "SELECT",
       role: "INSERT,SELECT,UPDATE",
       role_assignment: "DELETE,INSERT,SELECT",
@@ -130,7 +135,7 @@ describe("application role posture", () => {
 });
 
 describe("column-level UPDATE privileges (M4.2)", () => {
-  it("the app may update only the reviewed columns of tenant, employee and invitation", async () => {
+  it("the app may update only the reviewed columns (tenant, employee, invitation, onboarding)", async () => {
     const rows = await admin(
       async (c) =>
         (
@@ -138,7 +143,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
             `SELECT table_name, string_agg(column_name, ',' ORDER BY column_name) AS columns
              FROM information_schema.column_privileges
              WHERE grantee = 'teamhappi_app' AND privilege_type = 'UPDATE'
-               AND table_name IN ('tenant', 'employee', 'invitation')
+               AND table_name IN ('tenant', 'employee', 'invitation', 'onboarding_template',
+                                  'onboarding_template_task', 'onboarding_case', 'onboarding_task')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -169,6 +175,48 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "revoked_at",
         "status",
         "token_hash",
+        "updated_at",
+      ],
+      onboarding_case: [
+        "cancel_reason",
+        "cancelled_at",
+        "cancelled_by",
+        "owner_membership_id",
+        "sign_off_note",
+        "signed_off_at",
+        "signed_off_by",
+        "status",
+        "updated_at",
+      ],
+      onboarding_task: [
+        "assignee_membership_id",
+        "completed_at",
+        "completed_by",
+        "due_on",
+        "on_behalf",
+        "status",
+        "updated_at",
+        "waived_reason",
+      ],
+      onboarding_template: [
+        "archived_at",
+        "description",
+        "job_title",
+        "name",
+        "scope",
+        "site_id",
+        "updated_at",
+        "version",
+      ],
+      onboarding_template_task: [
+        "archived_at",
+        "category",
+        "due_offset_days",
+        "guidance",
+        "owner_kind",
+        "required",
+        "sort_order",
+        "title",
         "updated_at",
       ],
       tenant: ["legal_name", "timezone", "updated_at"],
@@ -203,6 +251,10 @@ describe("row-level security coverage", () => {
       "document",
       "employee",
       "invitation",
+      "onboarding_case",
+      "onboarding_task",
+      "onboarding_template",
+      "onboarding_template_task",
       "role",
       "role_assignment",
       "role_permission",

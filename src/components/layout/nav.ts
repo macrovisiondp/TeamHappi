@@ -49,7 +49,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/onboarding",
     label: "Onboarding",
     icon: ClipboardCheck,
-    stage: "planned",
+    stage: "live",
   },
   {
     href: "/training",
