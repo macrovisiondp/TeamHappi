@@ -34,12 +34,13 @@ model Tenant {
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  memberships TenantMembership[]
-  roles       Role[]
-  sites       Site[]
-  employees   Employee[]
-  invitations Invitation[]
-  auditEvents AuditEvent[]
+  memberships         TenantMembership[]
+  roles               Role[]
+  sites               Site[]
+  employees           Employee[]
+  invitations         Invitation[]
+  auditEvents         AuditEvent[]
+  onboardingTemplates OnboardingTemplate[]
 
   @@map("tenant")
 }
@@ -186,10 +187,12 @@ model TenantMembership {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  roleAssignments RoleAssignment[]
-  employee        Employee?
+  tenant               Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  roleAssignments      RoleAssignment[]
+  employee             Employee?
+  ownedOnboardingCases OnboardingCase[] @relation("OnboardingCaseOwner")
+  onboardingTasks      OnboardingTask[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
@@ -269,11 +272,13 @@ model Site {
   createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  teams           Team[]
-  roleAssignments RoleAssignment[]
-  primaryFor      Employee[]
-  invitations     Invitation[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  teams               Team[]
+  roleAssignments     RoleAssignment[]
+  primaryFor          Employee[]
+  invitations         Invitation[]
+  onboardingTemplates OnboardingTemplate[]
+  onboardingCases     OnboardingCase[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -337,11 +342,12 @@ model Employee {
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  membership  TenantMembership? @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  primarySite Site?             @relation(fields: [tenantId, primarySiteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  teams       TeamMember[]
-  documents   Document[]
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  membership      TenantMembership? @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  primarySite     Site?             @relation(fields: [tenantId, primarySiteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  teams           TeamMember[]
+  documents       Document[]
+  onboardingCases OnboardingCase[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
@@ -566,4 +572,159 @@ model AuditEvent {
   @@unique([tenantId, id])
   @@index([tenantId, occurredAt(sort: Desc)], map: "audit_event_tenant_time")
   @@map("audit_event")
+}
+
+// ---------------------------------------------------------------------------
+// M7.1: onboarding foundation (migration 20261025120000_onboarding_foundation).
+// Onboarding belongs to the employee record; no login is needed.
+
+enum OnboardingTemplateScope {
+  organisation
+  site
+  job_title
+
+  @@map("onboarding_template_scope")
+}
+
+enum OnboardingTaskCategory {
+  task
+  document
+  induction
+  policy
+
+  @@map("onboarding_task_category")
+}
+
+enum OnboardingOwnerKind {
+  manager
+  hr
+  employee
+
+  @@map("onboarding_owner_kind")
+}
+
+enum OnboardingCaseStatus {
+  active
+  completed
+  cancelled
+
+  @@map("onboarding_case_status")
+}
+
+enum OnboardingTaskStatus {
+  to_do
+  done
+  waived
+
+  @@map("onboarding_task_status")
+}
+
+model OnboardingTemplate {
+  id          String                  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String                  @map("tenant_id") @db.Uuid
+  name        String
+  description String?
+  scope       OnboardingTemplateScope @default(organisation)
+  siteId      String?                 @map("site_id") @db.Uuid
+  jobTitle    String?                 @map("job_title")
+  isSuggested Boolean                 @default(false) @map("is_suggested")
+  version     Int                     @default(1)
+  archivedAt  DateTime?               @map("archived_at") @db.Timestamptz
+  createdBy   String?                 @map("created_by") @db.Uuid
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_template_tenant_fkey")
+  site   Site?                    @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_template_site_fkey")
+  tasks  OnboardingTemplateTask[]
+  cases  OnboardingCase[]
+
+  @@unique([tenantId, id])
+  @@map("onboarding_template")
+}
+
+model OnboardingTemplateTask {
+  id            String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String                 @map("tenant_id") @db.Uuid
+  templateId    String                 @map("template_id") @db.Uuid
+  title         String
+  guidance      String?
+  category      OnboardingTaskCategory @default(task)
+  ownerKind     OnboardingOwnerKind    @default(manager) @map("owner_kind")
+  dueOffsetDays Int                    @default(0) @map("due_offset_days")
+  required      Boolean                @default(true)
+  sortOrder     Int                    @default(0) @map("sort_order")
+  archivedAt    DateTime?              @map("archived_at") @db.Timestamptz
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  template OnboardingTemplate @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_template_task_template_fkey")
+  copies   OnboardingTask[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, templateId], map: "onboarding_template_task_template")
+  @@map("onboarding_template_task")
+}
+
+model OnboardingCase {
+  id                String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  employeeId        String               @map("employee_id") @db.Uuid
+  templateId        String               @map("template_id") @db.Uuid
+  templateVersion   Int                  @map("template_version")
+  templateName      String               @map("template_name")
+  siteId            String?              @map("site_id") @db.Uuid
+  status            OnboardingCaseStatus @default(active)
+  startDate         DateTime             @map("start_date") @db.Date
+  ownerMembershipId String?              @map("owner_membership_id") @db.Uuid
+  signedOffBy       String?              @map("signed_off_by") @db.Uuid
+  signedOffAt       DateTime?            @map("signed_off_at") @db.Timestamptz
+  signOffNote       String?              @map("sign_off_note")
+  cancelledBy       String?              @map("cancelled_by") @db.Uuid
+  cancelledAt       DateTime?            @map("cancelled_at") @db.Timestamptz
+  cancelReason      String?              @map("cancel_reason")
+  createdBy         String?              @map("created_by") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  employee Employee           @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_employee_fkey")
+  template OnboardingTemplate @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_template_fkey")
+  site     Site?              @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_site_fkey")
+  owner    TenantMembership?  @relation("OnboardingCaseOwner", fields: [tenantId, ownerMembershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_owner_fkey")
+  tasks    OnboardingTask[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, startDate], map: "onboarding_case_tenant_status")
+  @@map("onboarding_case")
+}
+
+model OnboardingTask {
+  id                   String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String                 @map("tenant_id") @db.Uuid
+  caseId               String                 @map("case_id") @db.Uuid
+  templateTaskId       String?                @map("template_task_id") @db.Uuid
+  title                String
+  guidance             String?
+  category             OnboardingTaskCategory
+  ownerKind            OnboardingOwnerKind    @map("owner_kind")
+  required             Boolean
+  sortOrder            Int                    @default(0) @map("sort_order")
+  dueOn                DateTime?              @map("due_on") @db.Date
+  assigneeMembershipId String?                @map("assignee_membership_id") @db.Uuid
+  status               OnboardingTaskStatus   @default(to_do)
+  completedBy          String?                @map("completed_by") @db.Uuid
+  completedAt          DateTime?              @map("completed_at") @db.Timestamptz
+  onBehalf             Boolean                @default(false) @map("on_behalf")
+  waivedReason         String?                @map("waived_reason")
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  case         OnboardingCase          @relation(fields: [tenantId, caseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_task_case_fkey")
+  templateTask OnboardingTemplateTask? @relation(fields: [tenantId, templateTaskId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_task_template_task_fkey")
+  assignee     TenantMembership?       @relation(fields: [tenantId, assigneeMembershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_task_assignee_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, caseId, sortOrder], map: "onboarding_task_case")
+  @@index([tenantId, status, dueOn], map: "onboarding_task_due")
+  @@map("onboarding_task")
 }

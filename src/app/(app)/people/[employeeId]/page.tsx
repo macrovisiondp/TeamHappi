@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/misc";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
-import { can, getPerson } from "@/lib/workspace";
+import { Progress } from "@/components/ui/progress";
+import { StageBadge } from "@/features/onboarding/labels";
+import { can, getPerson, onboardingApi } from "@/lib/workspace";
 import {
   NoOrganisation,
   requireWorkspace,
@@ -37,6 +39,16 @@ export default async function EmployeePage({
   if (!person) notFound();
 
   const name = fullName(person);
+  // Onboarding (M7.1): shown only to people with onboarding.view at this site.
+  const onboarding = ws.grants.has("onboarding.view")
+    ? await onboardingApi.caseForEmployee(ws, person.id)
+    : null;
+  const canStartOnboarding =
+    person.status !== "left" &&
+    onboarding?.status !== "active" &&
+    (person.primarySiteId === null
+      ? ws.grants.get("onboarding.manage") === "all"
+      : can(ws.grants, "onboarding.manage", person.primarySiteId));
   const status = EMPLOYMENT_STATUSES[person.status]!;
   const canEdit =
     person.primarySiteId === null
@@ -111,6 +123,50 @@ export default async function EmployeePage({
             </div>
           </dl>
         </Card>
+        {onboarding || canStartOnboarding ? (
+          <Card aria-labelledby="onboarding-heading">
+            <CardHeader>
+              <div>
+                <CardTitle id="onboarding-heading">Onboarding</CardTitle>
+                <CardDescription>
+                  Doesn&rsquo;t show right to work, which is recorded
+                  separately.
+                </CardDescription>
+              </div>
+              {onboarding ? (
+                <StageBadge
+                  status={onboarding.status}
+                  progress={onboarding.progress}
+                />
+              ) : null}
+            </CardHeader>
+            {onboarding ? (
+              <>
+                <Progress
+                  value={onboarding.progress.percent}
+                  label={`Onboarding: ${onboarding.progress.finished} of ${onboarding.progress.total} tasks finished`}
+                />
+                <Link
+                  href={`/onboarding/${onboarding.id}`}
+                  className="w-fit text-sm font-semibold text-forest underline-offset-4 hover:underline"
+                >
+                  Open onboarding
+                </Link>
+              </>
+            ) : (
+              <p className="text-sm text-ink-muted">
+                No onboarding yet. It works without a TeamHappi login.
+              </p>
+            )}
+            {canStartOnboarding ? (
+              <Button asChild variant="secondary" className="w-fit">
+                <Link href={`/onboarding/new?employee=${person.id}`}>
+                  Start onboarding
+                </Link>
+              </Button>
+            ) : null}
+          </Card>
+        ) : null}
       </div>
     </div>
   );
