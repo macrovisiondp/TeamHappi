@@ -246,8 +246,14 @@ describe("vacancies and site scope", () => {
       "14.00",
       "hour",
     ]);
-    for (const e of await auditFor(vacancy))
-      expect(e.detail).not.toMatch(/12\.5|14/);
+    // Pay never reaches the audit trail: no pay keys and no pay values.
+    for (const e of await auditFor(vacancy)) {
+      const detail = JSON.parse(e.detail) as Record<string, unknown>;
+      expect(Object.keys(detail).some((k) => /pay/i.test(k))).toBe(false);
+      expect(Object.values(detail)).not.toEqual(
+        expect.arrayContaining(["12.50", "14.00", 12.5, 14]),
+      );
+    }
   });
 });
 
