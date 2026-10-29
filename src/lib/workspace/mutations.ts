@@ -20,6 +20,7 @@ import {
   type FieldErrors,
 } from "@/lib/validation/organisation";
 
+import { nextEmployeeNumber } from "./employee-number";
 import { can } from "./policy";
 import type { Workspace } from "./resolve";
 
@@ -287,19 +288,6 @@ export async function setTeamArchived(
 }
 
 // --- Employees --------------------------------------------------------------
-
-/** Next free "E0001"-style number in this organisation. */
-async function nextEmployeeNumber(tx: TenantTx): Promise<string> {
-  const rows = await tx.employee.findMany({
-    where: { employeeNumber: { startsWith: "E" } },
-    select: { employeeNumber: true },
-  });
-  const max = rows.reduce((m, r) => {
-    const n = /^E(\d+)$/.exec(r.employeeNumber);
-    return n ? Math.max(m, Number(n[1])) : m;
-  }, 0);
-  return `E${String(max + 1).padStart(4, "0")}`;
-}
 
 const canManageAt = (ws: Ready, siteId: string | null) =>
   siteId === null

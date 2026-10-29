@@ -11,6 +11,7 @@ import { withTenant, type TenantTx } from "@/lib/tenancy";
 import { invitationLink } from "@/lib/invitations/token";
 import * as onboarding from "@/modules/onboarding";
 import * as training from "@/modules/training";
+import * as recruitment from "@/modules/recruitment";
 
 import * as invites from "./invitations";
 import * as members from "./members";
@@ -410,5 +411,112 @@ export const trainingApi = {
   ) =>
     inTraining(ws, (tx, a) =>
       training.voidRecord(tx, a, employeeId, recordId, reason),
+    ),
+};
+
+// --- Recruitment (M9.1) ---------------------------------------------------------
+
+/**
+ * Runs a recruitment call in one transaction. A Rollback thrown inside undoes
+ * everything (for example a hire whose onboarding couldn't start) and becomes
+ * the result.
+ */
+async function inRecruitment<T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: recruitment.Actor) => Promise<T>,
+): Promise<T | recruitment.Result<never>> {
+  try {
+    return await withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+  } catch (e) {
+    if (e instanceof recruitment.Rollback) return e.result;
+    throw e;
+  }
+}
+const recruitmentToday = (ws: Ready) => recruitment.todayIn(ws.tenant.timezone);
+
+export const recruitmentApi = {
+  settings: (ws: Ready) => inRecruitment(ws, recruitment.getSettings),
+  saveSettings: (ws: Ready, raw: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.saveSettings(tx, a, raw)),
+  vacancies: (ws: Ready, filter: { status?: string; siteId?: string }) =>
+    inRecruitment(ws, (tx, a) => recruitment.listVacancies(tx, a, filter)),
+  vacancy: (ws: Ready, id: string) =>
+    inRecruitment(ws, (tx, a) => recruitment.getVacancy(tx, a, id)),
+  vacancyOptions: (ws: Ready) => inRecruitment(ws, recruitment.vacancyOptions),
+  saveVacancy: (ws: Ready, id: string | null, raw: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.saveVacancy(tx, a, id, raw)),
+  setVacancyStatus: (ws: Ready, id: string, status: unknown) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.setVacancyStatus(tx, a, id, status),
+    ),
+  possibleMatches: (ws: Ready, email: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.possibleMatches(tx, a, email)),
+  addApplication: (
+    ws: Ready,
+    vacancyId: string,
+    raw: Parameters<typeof recruitment.addApplication>[3],
+  ) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.addApplication(tx, a, vacancyId, raw),
+    ),
+  application: (ws: Ready, id: string) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.getApplication(tx, a, id, ws.tenant.timezone),
+    ),
+  moveStage: (ws: Ready, id: string, to: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.moveStage(tx, a, id, to)),
+  close: (
+    ws: Ready,
+    id: string,
+    cmd: Parameters<typeof recruitment.closeApplication>[3],
+  ) =>
+    inRecruitment(ws, (tx, a) => recruitment.closeApplication(tx, a, id, cmd)),
+  addNote: (ws: Ready, id: string, body: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.addNote(tx, a, id, body)),
+  scheduleInterview: (
+    ws: Ready,
+    applicationId: string,
+    raw: Parameters<typeof recruitment.scheduleInterview>[4],
+  ) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.scheduleInterview(
+        tx,
+        a,
+        applicationId,
+        ws.tenant.timezone,
+        raw,
+      ),
+    ),
+  updateInterview: (ws: Ready, id: string, cmd: recruitment.InterviewCommand) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.updateInterview(tx, a, id, ws.tenant.timezone, cmd),
+    ),
+  schedule: (ws: Ready, window?: { from: Date; to: Date }) =>
+    inRecruitment(ws, (tx, a) => recruitment.interviewSchedule(tx, a, window)),
+  /** Hire: one employee per application, even when retried (see recruitment.hire). */
+  hire: async (
+    ws: Ready,
+    applicationId: string,
+    raw: Parameters<typeof recruitment.hire>[3],
+  ) => {
+    const r = await inRecruitment(ws, (tx, a) =>
+      recruitment.hire(tx, a, applicationId, raw),
+    );
+    // Someone else hired it first: everything here was rolled back; return theirs.
+    if (!r.ok && r.message === "ALREADY_HIRED")
+      return inRecruitment(ws, (tx, a) =>
+        recruitment.hire(tx, a, applicationId, raw),
+      );
+    return r;
+  },
+  hiredFrom: (ws: Ready, employeeId: string) =>
+    inRecruitment(ws, (tx, a) => recruitment.hiredFrom(tx, a, employeeId)),
+  retention: (ws: Ready) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.retentionReview(tx, a, recruitmentToday(ws)),
+    ),
+  anonymise: (ws: Ready, candidateId: string) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.anonymiseCandidate(tx, a, candidateId, recruitmentToday(ws)),
     ),
 };

@@ -280,6 +280,7 @@ model Site {
   invitations         Invitation[]
   onboardingTemplates OnboardingTemplate[]
   onboardingCases     OnboardingCase[]
+  vacancies           Vacancy[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -950,4 +951,258 @@ model TrainingRecord {
   @@unique([tenantId, employeeId, id], map: "training_record_tenant_employee_id_key")
   @@index([tenantId, employeeId, courseId], map: "training_record_employee_course")
   @@map("training_record")
+}
+
+// ---------------------------------------------------------------------------
+// M9.1: recruitment foundation (migration 20261101120000_recruitment_foundation).
+// Candidates are people; applications link a candidate to a vacancy. Team,
+// hiring manager, hired employee and interviewer-membership foreign keys
+// exist in SQL; only the relations the module queries are modelled.
+
+enum VacancyStatus {
+  draft
+  open
+  paused
+  filled
+  closed
+
+  @@map("vacancy_status")
+}
+
+enum EmploymentType {
+  full_time
+  part_time
+  casual
+  fixed_term
+  seasonal
+
+  @@map("employment_type")
+}
+
+enum PayPeriod {
+  hour
+  year
+
+  @@map("pay_period")
+}
+
+enum CandidateSource {
+  manual
+  referral
+  agency
+  careers_page
+
+  @@map("candidate_source")
+}
+
+enum ApplicationStage {
+  applied
+  screening
+  shortlisted
+  interview
+  offer
+  hired
+  rejected
+  withdrawn
+
+  @@map("application_stage")
+}
+
+enum ApplicationOutcome {
+  active
+  hired
+  rejected
+  withdrawn
+
+  @@map("application_outcome")
+}
+
+enum RejectionReason {
+  not_suitable
+  role_filled
+  no_response
+  other
+
+  @@map("rejection_reason")
+}
+
+enum InterviewFormat {
+  in_person
+  phone
+  video
+
+  @@map("interview_format")
+}
+
+enum InterviewStatus {
+  scheduled
+  completed
+  cancelled
+  no_show
+
+  @@map("interview_status")
+}
+
+enum InterviewOutcome {
+  progress
+  hold
+  do_not_progress
+
+  @@map("interview_outcome")
+}
+
+model RecruitmentSettings {
+  id              String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String   @unique(map: "recruitment_settings_one_per_tenant") @map("tenant_id") @db.Uuid
+  stageLabels     Json     @default("{}") @map("stage_labels")
+  retentionMonths Int      @default(6) @map("retention_months")
+  updatedBy       String?  @map("updated_by") @db.Uuid
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, id])
+  @@map("recruitment_settings")
+}
+
+model Vacancy {
+  id                        String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId                  String         @map("tenant_id") @db.Uuid
+  title                     String
+  jobTitle                  String         @map("job_title")
+  siteId                    String         @map("site_id") @db.Uuid
+  teamId                    String?        @map("team_id") @db.Uuid
+  employmentType            EmploymentType @map("employment_type")
+  description               String?
+  openings                  Int            @default(1)
+  status                    VacancyStatus  @default(draft)
+  closesOn                  DateTime?      @map("closes_on") @db.Date
+  hiringManagerMembershipId String?        @map("hiring_manager_membership_id") @db.Uuid
+  payMin                    Decimal?       @map("pay_min") @db.Decimal(10, 2)
+  payMax                    Decimal?       @map("pay_max") @db.Decimal(10, 2)
+  payPeriod                 PayPeriod?     @map("pay_period")
+  createdBy                 String?        @map("created_by") @db.Uuid
+  createdAt                 DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  site         Site          @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "vacancy_site_fkey")
+  applications Application[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, siteId], map: "vacancy_tenant_status")
+  @@map("vacancy")
+}
+
+model Candidate {
+  id           String          @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String          @map("tenant_id") @db.Uuid
+  givenName    String          @map("given_name")
+  familyName   String          @map("family_name")
+  email        String?
+  phone        String?
+  source       CandidateSource @default(manual)
+  anonymisedAt DateTime?       @map("anonymised_at") @db.Timestamptz
+  createdBy    String?         @map("created_by") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  applications Application[]
+
+  @@unique([tenantId, id])
+  @@map("candidate")
+}
+
+model Application {
+  id              String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  candidateId     String             @map("candidate_id") @db.Uuid
+  vacancyId       String             @map("vacancy_id") @db.Uuid
+  stage           ApplicationStage   @default(applied)
+  outcome         ApplicationOutcome @default(active)
+  appliedOn       DateTime           @default(dbgenerated("CURRENT_DATE")) @map("applied_on") @db.Date
+  rejectionReason RejectionReason?   @map("rejection_reason")
+  closedAt        DateTime?          @map("closed_at") @db.Timestamptz
+  hiredEmployeeId String?            @map("hired_employee_id") @db.Uuid
+  hiredAt         DateTime?          @map("hired_at") @db.Timestamptz
+  hiredBy         String?            @map("hired_by") @db.Uuid
+  createdBy       String?            @map("created_by") @db.Uuid
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  candidate  Candidate          @relation(fields: [tenantId, candidateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_candidate_fkey")
+  vacancy    Vacancy            @relation(fields: [tenantId, vacancyId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_vacancy_fkey")
+  events     ApplicationEvent[]
+  notes      ApplicationNote[]
+  interviews Interview[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, candidateId, vacancyId], map: "application_one_per_vacancy")
+  @@index([tenantId, vacancyId, stage], map: "application_vacancy")
+  @@map("application")
+}
+
+model ApplicationEvent {
+  id            String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  applicationId String            @map("application_id") @db.Uuid
+  fromStage     ApplicationStage? @map("from_stage")
+  toStage       ApplicationStage  @map("to_stage")
+  actorUserId   String?           @map("actor_user_id") @db.Uuid
+  occurredAt    DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+
+  application Application @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_event_application_fkey")
+
+  @@unique([tenantId, id])
+  @@map("application_event")
+}
+
+model ApplicationNote {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  applicationId String    @map("application_id") @db.Uuid
+  authorUserId  String    @map("author_user_id") @db.Uuid
+  body          String?
+  redactedAt    DateTime? @map("redacted_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  application Application @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_note_application_fkey")
+
+  @@unique([tenantId, id])
+  @@map("application_note")
+}
+
+model Interview {
+  id              String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  applicationId   String            @map("application_id") @db.Uuid
+  scheduledAt     DateTime          @map("scheduled_at") @db.Timestamptz
+  durationMinutes Int               @default(30) @map("duration_minutes")
+  format          InterviewFormat   @default(in_person)
+  location        String?
+  status          InterviewStatus   @default(scheduled)
+  outcome         InterviewOutcome?
+  feedback        String?
+  feedbackBy      String?           @map("feedback_by") @db.Uuid
+  feedbackAt      DateTime?         @map("feedback_at") @db.Timestamptz
+  createdBy       String?           @map("created_by") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  application  Application            @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "interview_application_fkey")
+  interviewers InterviewInterviewer[]
+
+  @@unique([tenantId, id])
+  @@map("interview")
+}
+
+model InterviewInterviewer {
+  id           String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  interviewId  String    @map("interview_id") @db.Uuid
+  membershipId String    @map("membership_id") @db.Uuid
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  interview Interview @relation(fields: [tenantId, interviewId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "interview_interviewer_interview_fkey")
+
+  @@unique([tenantId, id])
+  @@map("interview_interviewer")
 }

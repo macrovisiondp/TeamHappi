@@ -15,7 +15,13 @@ import { Avatar } from "@/components/ui/misc";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
 import { Progress } from "@/components/ui/progress";
 import { ClearanceBadge, StageBadge } from "@/features/onboarding/labels";
-import { can, getPerson, onboardingApi, trainingApi } from "@/lib/workspace";
+import {
+  can,
+  getPerson,
+  onboardingApi,
+  recruitmentApi,
+  trainingApi,
+} from "@/lib/workspace";
 import { STATUS as TRAINING_STATUS } from "@/features/training/labels";
 import {
   NoOrganisation,
@@ -64,6 +70,12 @@ export default async function EmployeePage({
   const trainingNeeds = (training?.required ?? []).filter(
     (r) => r.status !== "up_to_date",
   );
+  // Recruitment (M9.1): the application they were hired from, for recruitment.view holders.
+  const hiredFromRes = ws.grants.has("recruitment.view")
+    ? await recruitmentApi.hiredFrom(ws, person.id)
+    : null;
+  const hiredFrom =
+    hiredFromRes && !("ok" in hiredFromRes) ? hiredFromRes : null;
   const status = EMPLOYMENT_STATUSES[person.status]!;
   const canEdit =
     person.primarySiteId === null
@@ -77,6 +89,11 @@ export default async function EmployeePage({
     ["Start date", person.startDate ? formatDate(person.startDate) : "Not set"],
   ];
   if (person.endDate) rows.push(["End date", formatDate(person.endDate)]);
+  if (hiredFrom)
+    rows.push([
+      "Hired from",
+      `${hiredFrom.vacancyTitle}${hiredFrom.hiredAt ? ` (${formatDate(hiredFrom.hiredAt)})` : ""}`,
+    ]);
 
   return (
     <div className="flex flex-col gap-6">

@@ -25,6 +25,12 @@ export const PERMISSIONS = {
   "training.view": "View training requirements, status and records",
   "training.record": "Record and correct training completions",
   "training.manage": "Manage training courses and requirement rules",
+  // M9.1 recruitment.
+  "recruitment.view": "View vacancies, candidates and applications",
+  "recruitment.manage": "Manage vacancies, the pipeline, notes and interviews",
+  "recruitment.hire": "Hire candidates (creates employee records)",
+  "recruitment.settings":
+    "Manage recruitment settings and candidate data retention",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -56,9 +62,17 @@ export const SYSTEM_ROLES: readonly {
       "training.view",
       "training.record",
       "training.manage",
+      "recruitment.view",
+      "recruitment.manage",
+      "recruitment.hire",
+      "recruitment.settings",
     ],
   },
-  { key: "recruiter", name: "Recruiter", permissions: ["site.view"] },
+  {
+    key: "recruiter",
+    name: "Recruiter",
+    permissions: ["site.view", "recruitment.view", "recruitment.manage"],
+  },
   {
     key: "site_manager",
     name: "Site manager",
@@ -70,6 +84,8 @@ export const SYSTEM_ROLES: readonly {
       "onboarding.manage",
       "training.view",
       "training.record",
+      "recruitment.view",
+      "recruitment.manage",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },
