@@ -329,6 +329,11 @@ export const onboardingApi = {
   /** Restricted: every call is audited. */
   rtwFollowUps: (ws: Ready) =>
     inWs(ws, (tx, a) => onboarding.rtwFollowUps(tx, a, todayFor(ws))),
+  // M7.3: the signed-in member's own onboarding (by ownership, not role).
+  mine: (ws: Ready) =>
+    inWs(ws, (tx, a) => onboarding.myOnboarding(tx, a, todayFor(ws))),
+  completeMine: (ws: Ready, taskId: string, raw: { acknowledge?: unknown }) =>
+    inWs(ws, (tx, a) => onboarding.completeMyTask(tx, a, taskId, raw)),
   rtwAttentionCount: (ws: Ready) =>
     inWs(ws, (tx, a) => onboarding.rtwAttentionCount(tx, a, todayFor(ws))),
 };

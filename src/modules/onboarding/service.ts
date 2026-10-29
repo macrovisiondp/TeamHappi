@@ -1042,8 +1042,11 @@ export async function updateTask(
   if (cmd.kind === "complete") {
     if (task.status !== "to_do")
       return conflict("This task is already finished.");
-    // Tasks for the employee are done on their behalf until the employee view exists (M7.3).
-    const onBehalf = task.ownerKind === "employee";
+    // Someone else completing the employee's task does it on their behalf
+    // (since M7.3, linked employees complete their own from "My onboarding").
+    const onBehalf =
+      task.ownerKind === "employee" &&
+      c.employee.membershipId !== actor.membershipId;
     await tx.onboardingTask.update({
       where,
       data: {

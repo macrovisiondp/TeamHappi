@@ -1,4 +1,4 @@
-// Public API of the onboarding module (M7.1, M7.2). Other code uses only this
+// Public API of the onboarding module (M7.1 to M7.3). Other code uses only this
 // file. Functions take a tenant-scoped transaction (withTenant) and an Actor
 // from the server session; see src/lib/workspace/index.ts for the wrappers
 // pages use.
@@ -29,6 +29,7 @@ export {
   type TemplateSummary,
 } from "./service";
 export { assignableMembers, type Result } from "./shared";
+export { completeMyTask, myOnboarding } from "./self";
 export {
   getRightToWork,
   isClearedToWork,

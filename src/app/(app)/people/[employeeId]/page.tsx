@@ -54,6 +54,8 @@ export default async function EmployeePage({
     person.primarySiteId === null
       ? ws.grants.get("rtw.view") === "all"
       : can(ws.grants, "rtw.view", person.primarySiteId);
+  // M7.3: owners and admins can invite the person, linking this record to a login.
+  const canInvite = ws.grants.get("member.invite") === "all";
   const status = EMPLOYMENT_STATUSES[person.status]!;
   const canEdit =
     person.primarySiteId === null
@@ -173,6 +175,27 @@ export default async function EmployeePage({
               <Button asChild variant="secondary" className="w-fit">
                 <Link href={`/onboarding/new?employee=${person.id}`}>
                   Start onboarding
+                </Link>
+              </Button>
+            ) : null}
+          </Card>
+        ) : null}
+        {canInvite ? (
+          <Card aria-labelledby="login-heading">
+            <CardHeader>
+              <div>
+                <CardTitle id="login-heading">TeamHappi login</CardTitle>
+                <CardDescription>
+                  {person.membershipId
+                    ? "Linked to a TeamHappi login. They can see and complete their own onboarding tasks."
+                    : "Not linked yet. Invite them so they can complete their own onboarding tasks on their phone."}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            {!person.membershipId && person.status !== "left" ? (
+              <Button asChild variant="secondary" className="w-fit">
+                <Link href={`/people/${person.id}/invite`}>
+                  Invite to TeamHappi
                 </Link>
               </Button>
             ) : null}
