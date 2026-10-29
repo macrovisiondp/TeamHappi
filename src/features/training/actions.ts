@@ -139,3 +139,20 @@ export async function trainingRecordCommand(
     );
   return { status: "error", message: "Unknown action." };
 }
+
+// --- M8.2: my training ----------------------------------------------------------------
+
+export async function confirmMyTraining(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  return toState(
+    await trainingApi.confirmMine(ws, str(form, "courseId"), {
+      acknowledge: form.get("acknowledge") === "on",
+      version: str(form, "version"),
+    }),
+    "Thanks, your confirmation is recorded.",
+  );
+}

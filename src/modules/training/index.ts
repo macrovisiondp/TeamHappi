@@ -1,4 +1,4 @@
-// Public API of the training module (M8.1). Other code uses only this file.
+// Public API of the training module (M8.1, M8.2). Other code uses only this file.
 // Functions take a tenant-scoped transaction (withTenant) and an Actor from
 // the server session; see src/lib/workspace/index.ts for the wrappers pages use.
 
@@ -39,6 +39,7 @@ export {
   type Rule,
   type TrainingStatus,
 } from "./policy";
+export { confirmMyCourse, myTraining, type MyCourse } from "./self";
 export { SUGGESTED_COURSES } from "./suggested";
 export {
   referralUrl,

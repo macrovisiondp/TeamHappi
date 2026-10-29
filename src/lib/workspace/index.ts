@@ -391,6 +391,17 @@ export const trainingApi = {
     inTraining(ws, (tx, a) =>
       training.recordTraining(tx, a, employeeId, trainingToday(ws), raw),
     ),
+  // M8.2: the signed-in member's own training (by ownership, not role).
+  mine: (ws: Ready) =>
+    inTraining(ws, (tx, a) => training.myTraining(tx, a, trainingToday(ws))),
+  confirmMine: (
+    ws: Ready,
+    courseId: string,
+    raw: { acknowledge?: unknown; version?: unknown },
+  ) =>
+    inTraining(ws, (tx, a) =>
+      training.confirmMyCourse(tx, a, courseId, trainingToday(ws), raw),
+    ),
   voidRecord: (
     ws: Ready,
     employeeId: string,
