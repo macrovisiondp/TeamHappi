@@ -128,6 +128,8 @@ describe("application role posture", () => {
       role_permission: "DELETE,INSERT,SELECT",
       // M9.1: recruitment. UPDATE is column-level (see below). No DELETE.
       application: "INSERT,SELECT",
+      // M9.2b: CV records. UPDATE of the deletion columns only. No DELETE.
+      application_document: "INSERT,SELECT",
       application_event: "INSERT,SELECT",
       application_note: "INSERT,SELECT",
       candidate: "INSERT,SELECT",
@@ -165,7 +167,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'onboarding_document', 'rtw_check', 'training_course',
                                   'training_requirement', 'training_record', 'recruitment_settings',
                                   'vacancy', 'candidate', 'application', 'application_event',
-                                  'application_note', 'interview', 'interview_interviewer')
+                                  'application_note', 'interview', 'interview_interviewer',
+                                  'application_document')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -186,6 +189,13 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "rejection_reason",
         "stage",
         "updated_at",
+      ],
+      application_document: [
+        "delete_reason",
+        "deleted_at",
+        "deleted_by",
+        "file_name",
+        "status",
       ],
       application_note: ["body", "redacted_at"],
       candidate: [
@@ -353,6 +363,7 @@ describe("row-level security coverage", () => {
     );
     expect(rows.map((r) => r.table)).toEqual([
       "application",
+      "application_document",
       "application_event",
       "application_note",
       "audit_event",

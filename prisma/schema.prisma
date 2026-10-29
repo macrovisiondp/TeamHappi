@@ -1133,10 +1133,11 @@ model Application {
   createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  candidate  Candidate          @relation(fields: [tenantId, candidateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_candidate_fkey")
-  vacancy    Vacancy            @relation(fields: [tenantId, vacancyId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_vacancy_fkey")
+  candidate  Candidate             @relation(fields: [tenantId, candidateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_candidate_fkey")
+  vacancy    Vacancy               @relation(fields: [tenantId, vacancyId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_vacancy_fkey")
   events     ApplicationEvent[]
   notes      ApplicationNote[]
+  documents  ApplicationDocument[]
   interviews Interview[]
 
   @@unique([tenantId, id])
@@ -1173,6 +1174,30 @@ model ApplicationNote {
 
   @@unique([tenantId, id])
   @@map("application_note")
+}
+
+model ApplicationDocument {
+  id            String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  applicationId String    @map("application_id") @db.Uuid
+  fileName      String?   @map("file_name")
+  contentType   String    @map("content_type")
+  sizeBytes     Int       @map("size_bytes")
+  sha256        String
+  providerId    String    @map("provider_id")
+  storageKey    String    @unique(map: "application_document_storage_key_key") @map("storage_key")
+  status        String    @default("stored")
+  uploadedBy    String    @map("uploaded_by") @db.Uuid
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+  deleteReason  String?   @map("delete_reason")
+
+  application Application @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_document_application_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, applicationId, uploadedAt], map: "application_document_application")
+  @@map("application_document")
 }
 
 model Interview {

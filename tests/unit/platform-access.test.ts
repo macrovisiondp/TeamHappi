@@ -246,8 +246,9 @@ describe("platform and integration guards", () => {
       expect(page.text, page.path).toMatch(/export const instant = false/);
   });
 
-  it("integration adapters make no network calls yet", () => {
+  it("only the approved S3 store makes network calls (M9.2b)", () => {
     const offenders = SRC.filter((f) => f.path.startsWith("src/integrations/"))
+      .filter((f) => f.path !== "src/integrations/storage/s3.ts")
       .filter((f) =>
         /\bfetch\(|from\s+["'](node:)?(https?|net|tls)["']|from\s+["'](@aws-sdk|stripe|resend|openai|@anthropic-ai|@google|cloudinary)/.test(
           f.text,
@@ -255,5 +256,12 @@ describe("platform and integration guards", () => {
       )
       .map((f) => f.path);
     expect(offenders).toEqual([]);
+  });
+
+  it("only src/integrations/storage/s3.ts imports the AWS SDK", () => {
+    const importers = SRC.filter((f) =>
+      /from\s+["']@aws-sdk\//.test(f.text),
+    ).map((f) => f.path);
+    expect(importers).toEqual(["src/integrations/storage/s3.ts"]);
   });
 });

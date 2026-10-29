@@ -2,6 +2,7 @@
 
 import type { FormState } from "@/features/setup/form-state";
 import {
+  cvApi,
   getWorkspace,
   recruitmentApi,
   vacancySharingApi,
@@ -265,5 +266,39 @@ export async function vacancyShareAction(
         : intent === "disable"
           ? "Share link removed. The old link no longer works."
           : "Saved.",
+  );
+}
+
+// --- M9.2b: CVs ---------------------------------------------------------------------------
+
+export async function uploadCvAction(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0)
+    return {
+      status: "error",
+      message: "Choose a file to upload.",
+      fieldErrors: { file: "Choose a PDF or Word (.docx) file" },
+    };
+  const r = await cvApi.upload(ws, str(form, "applicationId"), {
+    name: file.name,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+  });
+  return toState(r, "CV uploaded.");
+}
+
+export async function removeCvAction(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  return toState(
+    await cvApi.remove(ws, str(form, "documentId")),
+    "CV removed.",
   );
 }
