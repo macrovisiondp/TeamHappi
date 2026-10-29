@@ -19,6 +19,7 @@ import * as members from "./members";
 import * as mutations from "./mutations";
 import * as queries from "./queries";
 import type { InvitationPreview } from "./invitations";
+import { submitPublicApplication } from "./public-application";
 import { publicVacancy as publicVacancyQuery } from "./public-vacancy";
 import { listMemberships, resolveWorkspace, type Workspace } from "./resolve";
 
@@ -553,6 +554,31 @@ export const getPublicVacancy = (
   serverEnv().DATABASE_URL
     ? publicVacancyQuery(db(), code, source)
     : Promise.resolve({ state: "missing" } as const);
+
+export type { PublicApplyOutcome } from "./public-application";
+
+/**
+ * An online application from the share link (M9.3). The rate-limit hash is
+ * keyed with the server's secret, so stored hashes can't be matched to
+ * addresses without it.
+ */
+export const applyOnline = (input: {
+  code: string;
+  fields: Record<string, unknown>;
+  file: { name: string; bytes: Uint8Array } | null;
+  clientAddress: string;
+}) => {
+  const env = serverEnv();
+  if (!env.DATABASE_URL || !env.BETTER_AUTH_SECRET)
+    return Promise.resolve({ kind: "missing" } as const);
+  return submitPublicApplication(db(), {
+    ...input,
+    hashKey: env.BETTER_AUTH_SECRET,
+  });
+};
+
+/** Whether candidates can attach a CV in this deployment. */
+export const onlineCvUploadsOn = cv.cvStorageReady;
 
 /** The full share link for a code (the QR code adds ?s=qr so scans are counted separately). */
 export const vacancyShareUrl = (code: string, viaQr = false) =>

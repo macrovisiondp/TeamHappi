@@ -4,7 +4,8 @@ import { isPublicCode } from "@/modules/recruitment";
 // The public vacancy page (M9.2a) has no signed-in organisation. It reads
 // through app.public_vacancy(code, source), a SECURITY DEFINER function that
 // returns only the published fields of an open vacancy (or that it's closed)
-// and counts link and QR views. No applicant data is collected.
+// and counts link and QR views. Applications go through app.public_apply
+// (M9.3, ./public-application.ts).
 
 export type PublicVacancy =
   | { state: "missing" }
@@ -19,6 +20,8 @@ export type PublicVacancy =
       howToApply: string | null;
       closesOn: string | null;
       pay: { min: string; max: string | null; period: string } | null;
+      /** How long the organisation keeps applicant data (privacy notice). */
+      retentionMonths: number;
     };
 
 const money = (v: unknown) =>
@@ -43,9 +46,10 @@ export async function publicVacancy(
       pay_min: unknown;
       pay_max: unknown;
       pay_period: string | null;
+      retention_months: number | null;
     }[]
   >`SELECT state, organisation, title, site_name, employment_type, description, how_to_apply,
-           closes_on, pay_min, pay_max, pay_period
+           closes_on, pay_min, pay_max, pay_period, retention_months
     FROM app.public_vacancy(${code}, ${source})`;
   if (!row) return { state: "missing" };
   if (row.state === "closed")
@@ -68,5 +72,6 @@ export async function publicVacancy(
       min && row.pay_period
         ? { min, max: money(row.pay_max), period: row.pay_period }
         : null,
+    retentionMonths: row.retention_months ?? 6,
   };
 }

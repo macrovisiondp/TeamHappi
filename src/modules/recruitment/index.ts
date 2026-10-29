@@ -43,6 +43,12 @@ export {
   type CvContentType,
 } from "./documents";
 export {
+  PRIVACY_NOTICE_VERSION,
+  parsePublicApplication,
+  publicApplicationSchema,
+  type PublicApplication,
+} from "./public-apply";
+export {
   isPublicCode,
   newPublicCode,
   updateSharing,
