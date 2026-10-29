@@ -7,7 +7,11 @@ import { join } from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { localDiskStore, s3Settings } from "@/integrations/storage/blob";
+import {
+  localDiskStore,
+  s3Settings,
+  s3Status,
+} from "@/integrations/storage/blob";
 import {
   CV_MAX_BYTES,
   CV_TYPES,
@@ -102,6 +106,33 @@ describe("storage selection", () => {
     ).toBeNull();
     for (const name of Object.keys(full).filter((k) => k.startsWith("STORAGE")))
       expect(s3Settings({ ...full, [name]: " " }), name).toBeNull();
+  });
+
+  it("reports S3 status for Platform Admin without key values", () => {
+    const on = s3Status(full);
+    expect(on).toEqual({
+      on: true,
+      approved: true,
+      bucket: "bucket",
+      region: "eu-west-2",
+      keysSet: true,
+      missing: [],
+    });
+    expect(JSON.stringify(on)).not.toMatch(/synthetic-(id|secret)/);
+    expect(
+      s3Status({
+        ...full,
+        APPROVED_LIVE_PROVIDERS: "",
+        STORAGE_S3_SECRET_ACCESS_KEY: "",
+      }),
+    ).toMatchObject({
+      on: false,
+      keysSet: false,
+      missing: [
+        "STORAGE_S3_SECRET_ACCESS_KEY",
+        "APPROVED_LIVE_PROVIDERS (aws-s3)",
+      ],
+    });
   });
 
   it("never uses the local file store in production", () => {

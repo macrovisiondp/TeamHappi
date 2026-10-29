@@ -58,27 +58,36 @@ export default async function CredentialsPage() {
           </thead>
           <tbody>
             {read.data.flatMap((category) =>
-              category.providers.flatMap((p) =>
-                p.credentials.map((c) => (
-                  <tr key={c.name}>
-                    <Td className="font-semibold">
-                      {getProvider(p.providerId)?.name ?? p.providerId}
-                    </Td>
-                    <Td>{CATEGORY_LABEL[category.category]}</Td>
-                    <Td>
-                      <code>{c.name}</code>
-                    </Td>
-                    <Td>
-                      <Badge tone={c.present ? "success" : "neutral"}>
-                        {c.present ? "Set" : "Not set"}
-                      </Badge>
-                    </Td>
-                    <Td>
-                      {approved.has(p.providerId) ? "Approved" : "Not approved"}
-                    </Td>
-                  </tr>
-                )),
-              ),
+              category.providers
+                // Storage is Amazon S3 only (ADR-0014).
+                .filter(
+                  (p) =>
+                    category.category !== "storage" ||
+                    p.providerId === "aws-s3",
+                )
+                .flatMap((p) =>
+                  p.credentials.map((c) => (
+                    <tr key={c.name}>
+                      <Td className="font-semibold">
+                        {getProvider(p.providerId)?.name ?? p.providerId}
+                      </Td>
+                      <Td>{CATEGORY_LABEL[category.category]}</Td>
+                      <Td>
+                        <code>{c.name}</code>
+                      </Td>
+                      <Td>
+                        <Badge tone={c.present ? "success" : "neutral"}>
+                          {c.present ? "Set" : "Not set"}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        {approved.has(p.providerId)
+                          ? "Approved"
+                          : "Not approved"}
+                      </Td>
+                    </tr>
+                  )),
+                ),
             )}
           </tbody>
         </Table>

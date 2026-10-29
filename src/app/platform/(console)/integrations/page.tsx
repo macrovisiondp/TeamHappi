@@ -16,6 +16,7 @@ import {
   CATEGORY_LABEL,
 } from "@/features/platform/labels";
 import { getProvider } from "@/integrations/registry";
+import { s3Status } from "@/integrations/storage/blob";
 import { integrationAdmin } from "@/lib/platform-access";
 
 export const metadata: Metadata = { title: "Integrations · Platform" };
@@ -31,6 +32,8 @@ const ICONS = {
 export default async function IntegrationsPage() {
   const read = await integrationAdmin.overview();
   if (read.kind === "forbidden") return <PermissionDenied />;
+  // Storage is Amazon S3, switched on in Vercel (ADR-0014), not chosen here.
+  const s3On = s3Status().on;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -73,26 +76,43 @@ export default async function IntegrationsPage() {
                         </CardDescription>
                       </div>
                     </div>
-                    <dl className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <dt className="text-ink-muted">Active provider</dt>
-                        <dd className="font-semibold">
-                          {active?.name ?? "None"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-ink-muted">Since</dt>
-                        <dd>{active ? when(state.activatedAt) : "Not set"}</dd>
-                      </div>
-                      <div className="col-span-2">
-                        <dt className="text-ink-muted">Supported providers</dt>
-                        <dd>
-                          {state.providers
-                            .map((p) => getProvider(p.providerId)?.name)
-                            .join(", ")}
-                        </dd>
-                      </div>
-                    </dl>
+                    {state.category === "storage" ? (
+                      <dl className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <dt className="text-ink-muted">Provider</dt>
+                          <dd className="font-semibold">Amazon S3</dd>
+                        </div>
+                        <div>
+                          <dt className="text-ink-muted">Status</dt>
+                          <dd>{s3On ? "On (set in Vercel)" : "Off"}</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <dl className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <dt className="text-ink-muted">Active provider</dt>
+                          <dd className="font-semibold">
+                            {active?.name ?? "None"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-ink-muted">Since</dt>
+                          <dd>
+                            {active ? when(state.activatedAt) : "Not set"}
+                          </dd>
+                        </div>
+                        <div className="col-span-2">
+                          <dt className="text-ink-muted">
+                            Supported providers
+                          </dt>
+                          <dd>
+                            {state.providers
+                              .map((p) => getProvider(p.providerId)?.name)
+                              .join(", ")}
+                          </dd>
+                        </div>
+                      </dl>
+                    )}
                   </Card>
                 </li>
               );
