@@ -372,3 +372,37 @@ export function AiControlsForm({
     </form>
   );
 }
+
+/**
+ * Chooses which provider's settings to show. Works without JavaScript (the
+ * Show button); with it, picking an option shows that provider straight away.
+ */
+export function ProviderPicker({
+  options,
+  selected,
+}: {
+  options: readonly { id: string; label: string }[];
+  selected: string;
+}) {
+  return (
+    <form method="get" className="flex flex-wrap items-end gap-3">
+      <Field id="field-provider" label="Provider">
+        <Select
+          id="field-provider"
+          name="provider"
+          defaultValue={selected}
+          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+        >
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Button type="submit" variant="secondary">
+        Show
+      </Button>
+    </form>
+  );
+}

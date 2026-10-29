@@ -68,9 +68,15 @@ async function AiControls() {
   );
 }
 
-export default function AiIntegrationsPage() {
+export default async function AiIntegrationsPage({
+  searchParams,
+}: PageProps<"/platform/integrations/ai">) {
+  const { provider } = await searchParams;
   return (
-    <CategoryPage category="ai">
+    <CategoryPage
+      category="ai"
+      selected={typeof provider === "string" ? provider : undefined}
+    >
       <AiControls />
       <p className="text-sm text-ink-muted">
         AI never makes hiring, disciplinary, compliance or other employment

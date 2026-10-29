@@ -6,9 +6,15 @@ import { CategoryPage } from "@/features/platform/components";
 export const metadata: Metadata = { title: "Payments · Platform" };
 export const instant = false;
 
-export default function PaymentsIntegrationsPage() {
+export default async function PaymentsIntegrationsPage({
+  searchParams,
+}: PageProps<"/platform/integrations/payments">) {
+  const { provider } = await searchParams;
   return (
-    <CategoryPage category="payments">
+    <CategoryPage
+      category="payments"
+      selected={typeof provider === "string" ? provider : undefined}
+    >
       <Alert tone="info" title="Sandbox only">
         Live payments, real subscriptions and refunds need separate approval.
         Card details are only ever entered on the provider&apos;s own hosted

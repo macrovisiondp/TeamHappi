@@ -6,9 +6,15 @@ import { CategoryPage } from "@/features/platform/components";
 export const metadata: Metadata = { title: "Email · Platform" };
 export const instant = false;
 
-export default function EmailIntegrationsPage() {
+export default async function EmailIntegrationsPage({
+  searchParams,
+}: PageProps<"/platform/integrations/email">) {
+  const { provider } = await searchParams;
   return (
-    <CategoryPage category="email">
+    <CategoryPage
+      category="email"
+      selected={typeof provider === "string" ? provider : undefined}
+    >
       <Alert tone="info" title="How email delivery is protected">
         <ul className="list-disc pl-5">
           <li>

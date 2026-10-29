@@ -11,7 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
-import { ProviderControls } from "@/features/platform-admin/integrations";
+import {
+  ProviderControls,
+  ProviderPicker,
+} from "@/features/platform-admin/integrations";
 import type {
   DeploymentEnvironment,
   HealthStatus,
@@ -73,12 +76,16 @@ export const ENVIRONMENT_LABEL: Record<DeploymentEnvironment, string> = {
 };
 
 export function PreviewNotice() {
+  const approved = integrationAdmin
+    .approvedLive()
+    .map((id) => getProvider(id)?.name ?? id);
   return (
-    <Alert tone="info" title="Live providers stay switched off">
-      Settings are saved and audited, and the built-in test adapters can be
-      switched on outside production. Connecting a real provider (sending real
-      email, storing real files, taking payments or calling an AI model) needs
-      your separate approval first.
+    <Alert tone="info" title="Live providers need your approval">
+      {approved.length
+        ? `Approved for live use: ${approved.join(", ")}. `
+        : "No live provider is approved yet. "}
+      Everything else stays off: settings can be saved and tested, but no real
+      email, payment or AI call happens until you approve that provider.
     </Alert>
   );
 }
@@ -202,12 +209,18 @@ function ProviderCard({
   );
 }
 
-/** Shared layout for /platform/integrations/{email,storage,payments,ai}. */
+/**
+ * Shared layout for /platform/integrations/{email,payments,ai}: the current
+ * provider, a dropdown to choose a provider, and only that provider's
+ * settings. Test adapters aren't offered in production (they can't run there).
+ */
 export async function CategoryPage({
   category,
+  selected,
   children,
 }: {
   category: ServiceCategory;
+  selected?: string;
   children?: React.ReactNode;
 }) {
   const [read, access] = await Promise.all([
@@ -217,56 +230,85 @@ export async function CategoryPage({
   if (read.kind === "forbidden") return <PermissionDenied />;
   const canManage = hasGrant(access, "integrations.manage");
   const returnTo = `/platform/integrations/${category}`;
+  const production =
+    read.kind === "ok" && read.data.environment === "production";
+  const states =
+    read.kind === "ok"
+      ? read.data.providers.filter(
+          (st) =>
+            !(
+              production &&
+              getProvider(st.providerId)?.readiness === "synthetic"
+            ),
+        )
+      : [];
+  const activeId = read.kind === "ok" ? read.data.activeProviderId : null;
+  const chosen =
+    states.find((st) => st.providerId === selected) ??
+    states.find((st) => st.providerId === activeId) ??
+    states[0];
+  const provider = chosen ? getProvider(chosen.providerId) : undefined;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title={CATEGORY_LABEL[category]}
         description={CATEGORY_DESCRIPTION[category]}
       />
-      <PreviewNotice />
       {read.kind === "not_configured" ? (
         <NotConfiguredNotice />
       ) : (
-        <p className="text-sm text-ink-muted">
-          Environment: {ENVIRONMENT_LABEL[read.data.environment]}. Active
-          provider:{" "}
-          <strong className="text-ink">
-            {read.data.activeProviderId
-              ? (getProvider(read.data.activeProviderId)?.name ??
-                read.data.activeProviderId)
-              : "none"}
-          </strong>
-          .{" "}
-          {canManage
-            ? "Changes need an authenticator check within the last 15 minutes."
-            : "Changing providers needs the “Manage integrations” permission."}
-        </p>
+        <Card aria-labelledby="current-heading">
+          <CardHeader>
+            <CardTitle id="current-heading">Current provider</CardTitle>
+            <Badge tone={activeId ? "success" : "neutral"}>
+              {activeId ? (getProvider(activeId)?.name ?? activeId) : "None"}
+            </Badge>
+          </CardHeader>
+          <CardDescription>
+            {ENVIRONMENT_LABEL[read.data.environment]}.{" "}
+            {activeId
+              ? `Active since ${when(read.data.activatedAt)}.`
+              : "Nothing is sent for this service until a provider is set up and made active."}{" "}
+            {canManage
+              ? "Changes need an authenticator check within the last 15 minutes."
+              : "Changing providers needs the “Manage integrations” permission."}
+          </CardDescription>
+        </Card>
       )}
-      {children}
-      {read.kind === "ok" ? (
+      {chosen && provider ? (
         <section
-          aria-labelledby="providers-heading"
-          className="flex flex-col gap-3"
+          aria-labelledby="setup-heading"
+          className="flex flex-col gap-4"
         >
-          <h2 id="providers-heading" className="text-lg font-semibold">
-            Providers
+          <h2 id="setup-heading" className="text-lg font-semibold">
+            Set up a provider
           </h2>
-          <div className="grid gap-4 xl:grid-cols-2">
-            {read.data.providers.map((state) => {
-              const provider = getProvider(state.providerId)!;
-              return (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  state={state}
-                  canManage={canManage}
-                  returnTo={returnTo}
-                />
-              );
+          <ProviderPicker
+            selected={provider.id}
+            options={states.map((st) => {
+              const p = getProvider(st.providerId)!;
+              const notes = [
+                st.active ? "active" : null,
+                p.readiness === "synthetic" ? "test only" : null,
+                p.readiness === "planned" ? "coming later" : null,
+              ].filter(Boolean);
+              return {
+                id: p.id,
+                label: notes.length
+                  ? `${p.name} (${notes.join(", ")})`
+                  : p.name,
+              };
             })}
-          </div>
+          />
+          <ProviderCard
+            provider={provider}
+            state={chosen}
+            canManage={canManage}
+            returnTo={returnTo}
+          />
         </section>
       ) : null}
+      {children}
     </div>
   );
 }
