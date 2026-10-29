@@ -193,6 +193,7 @@ model TenantMembership {
   employee             Employee?
   ownedOnboardingCases OnboardingCase[] @relation("OnboardingCaseOwner")
   onboardingTasks      OnboardingTask[]
+  rtwChecksDone        RtwCheck[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
@@ -348,6 +349,7 @@ model Employee {
   teams           TeamMember[]
   documents       Document[]
   onboardingCases OnboardingCase[]
+  rtwChecks       RtwCheck[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
@@ -687,11 +689,12 @@ model OnboardingCase {
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  employee Employee           @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_employee_fkey")
-  template OnboardingTemplate @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_template_fkey")
-  site     Site?              @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_site_fkey")
-  owner    TenantMembership?  @relation("OnboardingCaseOwner", fields: [tenantId, ownerMembershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_owner_fkey")
-  tasks    OnboardingTask[]
+  employee  Employee             @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_employee_fkey")
+  template  OnboardingTemplate   @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_template_fkey")
+  site      Site?                @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_site_fkey")
+  owner     TenantMembership?    @relation("OnboardingCaseOwner", fields: [tenantId, ownerMembershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_case_owner_fkey")
+  tasks     OnboardingTask[]
+  documents OnboardingDocument[]
 
   @@unique([tenantId, id])
   @@index([tenantId, status, startDate], map: "onboarding_case_tenant_status")
@@ -727,4 +730,106 @@ model OnboardingTask {
   @@index([tenantId, caseId, sortOrder], map: "onboarding_task_case")
   @@index([tenantId, status, dueOn], map: "onboarding_task_due")
   @@map("onboarding_task")
+}
+
+// ---------------------------------------------------------------------------
+// M7.2: onboarding compliance (migration 20261029120000_onboarding_compliance).
+// Right-to-work checks are the EMPLOYER'S record of a check: restricted, append-only
+// (a trigger blocks UPDATE and DELETE for every role), and never hold document
+// numbers, share codes, nationality or images. The supersedes chain has a
+// composite foreign key in SQL (same employee); it isn't modelled as a relation here.
+
+enum RtwMethod {
+  manual_document
+  online_check
+  idsp
+
+  @@map("rtw_method")
+}
+
+enum RtwList {
+  list_a
+  list_b_group_1
+  list_b_group_2
+
+  @@map("rtw_list")
+}
+
+enum RtwOutcome {
+  confirmed
+  time_limited
+  not_confirmed
+
+  @@map("rtw_outcome")
+}
+
+enum RtwCheckKind {
+  initial
+  follow_up
+  correction
+
+  @@map("rtw_check_kind")
+}
+
+enum OnboardingDocumentStatus {
+  requested
+  seen
+  verified
+  rejected
+  waived
+
+  @@map("onboarding_document_status")
+}
+
+model RtwCheck {
+  id                    String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId              String       @map("tenant_id") @db.Uuid
+  employeeId            String       @map("employee_id") @db.Uuid
+  kind                  RtwCheckKind
+  supersedesId          String?      @map("supersedes_id") @db.Uuid
+  method                RtwMethod
+  listType              RtwList?     @map("list_type")
+  checkedOn             DateTime     @map("checked_on") @db.Date
+  checkedByMembershipId String       @map("checked_by_membership_id") @db.Uuid
+  personPresent         Boolean      @map("person_present")
+  outcome               RtwOutcome
+  permissionEndsOn      DateTime?    @map("permission_ends_on") @db.Date
+  followUpDueOn         DateTime?    @map("follow_up_due_on") @db.Date
+  note                  String?
+  correctionReason      String?      @map("correction_reason")
+  // Reserved for when secure document storage is approved (ADR-0007). Always NULL in M7.2.
+  evidenceDocumentId    String?      @map("evidence_document_id") @db.Uuid
+  recordedBy            String       @map("recorded_by") @db.Uuid
+  recordedAt            DateTime     @default(now()) @map("recorded_at") @db.Timestamptz
+
+  employee  Employee         @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "rtw_check_employee_fkey")
+  checkedBy TenantMembership @relation(fields: [tenantId, checkedByMembershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "rtw_check_checked_by_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeId, id], map: "rtw_check_tenant_employee_id_key")
+  @@map("rtw_check")
+}
+
+model OnboardingDocument {
+  id         String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String                   @map("tenant_id") @db.Uuid
+  caseId     String                   @map("case_id") @db.Uuid
+  title      String
+  required   Boolean
+  status     OnboardingDocumentStatus @default(requested)
+  expiresOn  DateTime?                @map("expires_on") @db.Date
+  reason     String?
+  statusBy   String?                  @map("status_by") @db.Uuid
+  statusAt   DateTime?                @map("status_at") @db.Timestamptz
+  // Reserved for when secure document storage is approved (ADR-0007). Always NULL in M7.2.
+  documentId String?                  @map("document_id") @db.Uuid
+  createdBy  String?                  @map("created_by") @db.Uuid
+  createdAt  DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  case OnboardingCase @relation(fields: [tenantId, caseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "onboarding_document_case_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, caseId], map: "onboarding_document_case")
+  @@map("onboarding_document")
 }

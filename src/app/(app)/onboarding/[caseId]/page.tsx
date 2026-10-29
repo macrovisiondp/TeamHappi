@@ -12,12 +12,19 @@ import {
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
 import { Progress } from "@/components/ui/progress";
+import {
+  AddDocumentForm,
+  DocumentActions,
+} from "@/features/onboarding/compliance-controls";
 import { CaseActions, TaskActions } from "@/features/onboarding/controls";
 import {
   CATEGORY_LABEL,
+  ClearanceBadge,
+  DOCUMENT_STATUS,
   OWNER_LABEL,
   RightToWorkNotice,
   StageBadge,
+  clearanceGaps,
 } from "@/features/onboarding/labels";
 import {
   NoOrganisation,
@@ -41,6 +48,7 @@ export default async function OnboardingCasePage({
   const c = await onboardingApi.getCase(ws, caseId);
   if (!c) notFound();
   const p = c.progress;
+  const gaps = clearanceGaps(c.clearance);
   const signOffBlockedReason =
     c.status !== "active" || !c.can.signOffAuthorised
       ? null
@@ -107,6 +115,79 @@ export default async function OnboardingCasePage({
       </div>
 
       <RightToWorkNotice />
+
+      {c.status === "active" ? (
+        <section
+          aria-labelledby="clearance-heading"
+          className="flex flex-col gap-3"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="clearance-heading" className="text-lg font-semibold">
+              Cleared to start
+            </h2>
+            <ClearanceBadge status={c.status} clearance={c.clearance} />
+          </div>
+          <p className="text-sm text-ink-muted">
+            Worked out for {formatDate(c.clearance.on)} from what&rsquo;s
+            recorded: required tasks, required documents and a right-to-work
+            check. It isn&rsquo;t ticked by hand.
+          </p>
+          {gaps.length ? (
+            <ul className="list-disc pl-5 text-sm">
+              {gaps.map((g) => (
+                <li key={g}>{g}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card aria-labelledby="rtw-heading">
+              <CardTitle id="rtw-heading">Right-to-work check</CardTitle>
+              <p className="text-sm">
+                {c.clearance.rightToWork
+                  ? `A recorded check covers ${formatDate(c.clearance.on)}.`
+                  : `No recorded check covers ${formatDate(c.clearance.on)}.`}
+              </p>
+              {c.can.viewRightToWork ? (
+                <Link
+                  href={`/people/${c.employeeId}/right-to-work`}
+                  // Opening the record is an audited view: never prefetch it.
+                  prefetch={false}
+                  className="w-fit text-sm font-semibold text-forest underline-offset-4 hover:underline"
+                >
+                  Open the right-to-work record
+                </Link>
+              ) : (
+                <CardDescription>
+                  Only owners, administrators and HR managers can see or record
+                  the details.
+                </CardDescription>
+              )}
+            </Card>
+            <Card aria-labelledby="documents-summary-heading">
+              <CardTitle id="documents-summary-heading">Documents</CardTitle>
+              <p className="text-sm">
+                {c.documents.total === 0
+                  ? "No documents on the checklist."
+                  : `${c.documents.satisfied} of ${c.documents.total} seen or waived${c.documents.requiredOutstanding ? ` · ${c.documents.requiredOutstanding} required still needed` : ""}.`}
+              </p>
+              {c.documents.expired || c.documents.expiringSoon ? (
+                <CardDescription>
+                  {[
+                    c.documents.expired
+                      ? `${c.documents.expired} expired`
+                      : null,
+                    c.documents.expiringSoon
+                      ? `${c.documents.expiringSoon} expiring in the next 60 days`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </CardDescription>
+              ) : null}
+            </Card>
+          </div>
+        </section>
+      ) : null}
 
       {c.status === "active" ? (
         <CaseActions
@@ -227,6 +308,86 @@ export default async function OnboardingCasePage({
             );
           })}
         </ul>
+      </section>
+
+      <section
+        aria-labelledby="documents-heading"
+        className="flex flex-col gap-3"
+      >
+        <h2 id="documents-heading" className="text-lg font-semibold">
+          Documents
+        </h2>
+        <p className="text-sm text-ink-muted">
+          A record of the documents you&rsquo;ve seen, such as certificates and
+          licences. Keep the documents themselves in your own records: TeamHappi
+          doesn&rsquo;t store files yet.
+        </p>
+        {c.documentList.length ? (
+          <ul className="flex flex-col gap-3">
+            {c.documentList.map((d) => {
+              const st = DOCUMENT_STATUS[d.status];
+              return (
+                <li key={d.id}>
+                  <Card aria-label={d.title} className="gap-3">
+                    <CardHeader>
+                      <span className="font-semibold">{d.title}</span>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone="neutral" icon={null}>
+                          {d.required ? "Required" : "Optional"}
+                        </Badge>
+                        {d.expired ? (
+                          <Badge tone="danger">Expired</Badge>
+                        ) : (
+                          <Badge tone={st.tone}>{st.label}</Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    {d.changedAt || d.expiresOn ? (
+                      <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+                        {d.changedAt ? (
+                          <div>
+                            <dt className="text-ink-muted">{st.label} by</dt>
+                            <dd>
+                              {d.changedByName}, {when(d.changedAt)}
+                            </dd>
+                          </div>
+                        ) : null}
+                        {d.expiresOn ? (
+                          <div>
+                            <dt className="text-ink-muted">Expires</dt>
+                            <dd>{formatDate(d.expiresOn)}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    ) : null}
+                    {d.reason ? (
+                      <p className="text-sm">Reason: {d.reason}</p>
+                    ) : null}
+                    {c.can.manage ? (
+                      <DocumentActions
+                        caseId={c.id}
+                        documentId={d.id}
+                        title={d.title}
+                        status={d.status}
+                        required={d.required}
+                        expiresOn={d.expiresOn}
+                        canWaiveRequired={c.can.waiveRequired}
+                      />
+                    ) : null}
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-sm">No documents on the checklist yet.</p>
+        )}
+        {c.can.manage ? (
+          <Card aria-labelledby="add-document-heading">
+            <CardTitle id="add-document-heading">Add a document</CardTitle>
+            <AddDocumentForm caseId={c.id} />
+          </Card>
+        ) : null}
       </section>
     </div>
   );

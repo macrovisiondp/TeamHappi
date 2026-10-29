@@ -14,7 +14,7 @@ import {
 import { Avatar } from "@/components/ui/misc";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
 import { Progress } from "@/components/ui/progress";
-import { StageBadge } from "@/features/onboarding/labels";
+import { ClearanceBadge, StageBadge } from "@/features/onboarding/labels";
 import { can, getPerson, onboardingApi } from "@/lib/workspace";
 import {
   NoOrganisation,
@@ -49,6 +49,11 @@ export default async function EmployeePage({
     (person.primarySiteId === null
       ? ws.grants.get("onboarding.manage") === "all"
       : can(ws.grants, "onboarding.manage", person.primarySiteId));
+  // Right to work (M7.2): owners, admins and HR only (decision D1).
+  const canViewRightToWork =
+    person.primarySiteId === null
+      ? ws.grants.get("rtw.view") === "all"
+      : can(ws.grants, "rtw.view", person.primarySiteId);
   const status = EMPLOYMENT_STATUSES[person.status]!;
   const canEdit =
     person.primarySiteId === null
@@ -134,10 +139,16 @@ export default async function EmployeePage({
                 </CardDescription>
               </div>
               {onboarding ? (
-                <StageBadge
-                  status={onboarding.status}
-                  progress={onboarding.progress}
-                />
+                <div className="flex flex-wrap gap-1.5">
+                  <StageBadge
+                    status={onboarding.status}
+                    progress={onboarding.progress}
+                  />
+                  <ClearanceBadge
+                    status={onboarding.status}
+                    clearance={onboarding.clearance}
+                  />
+                </div>
               ) : null}
             </CardHeader>
             {onboarding ? (
@@ -165,6 +176,26 @@ export default async function EmployeePage({
                 </Link>
               </Button>
             ) : null}
+          </Card>
+        ) : null}
+        {canViewRightToWork ? (
+          <Card aria-labelledby="rtw-heading">
+            <CardHeader>
+              <div>
+                <CardTitle id="rtw-heading">Right to work</CardTitle>
+                <CardDescription>
+                  Restricted. Opening the record is itself recorded.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <Link
+              href={`/people/${person.id}/right-to-work`}
+              // Opening the record is an audited view: never prefetch it.
+              prefetch={false}
+              className="w-fit text-sm font-semibold text-forest underline-offset-4 hover:underline"
+            >
+              Open the right-to-work record
+            </Link>
           </Card>
         ) : null}
       </div>

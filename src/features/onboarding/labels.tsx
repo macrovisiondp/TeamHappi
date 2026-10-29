@@ -2,7 +2,15 @@ import Link from "next/link";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge, type Tone } from "@/components/ui/badge";
-import type { Progress } from "@/modules/onboarding";
+import type {
+  Clearance,
+  DocumentStatus,
+  Progress,
+  RtwList,
+  RtwMethod,
+  RtwOutcome,
+  RtwState,
+} from "@/modules/onboarding";
 
 export const CATEGORY_LABEL: Record<string, string> = {
   task: "Task",
@@ -57,21 +65,106 @@ export function RightToWorkNotice() {
   return (
     <Alert tone="info" title="Right to work is separate">
       Onboarding progress and sign-off don&rsquo;t show whether someone has the
-      right to work. Right-to-work checks will be recorded separately in a later
-      update. Until then, keep your own records of every check.
+      right to work. Right-to-work checks are recorded separately by an owner,
+      administrator or HR manager. TeamHappi records your check; it
+      doesn&rsquo;t decide whether someone has the right to work.
     </Alert>
   );
+}
+
+// --- M7.2: right to work and documents ------------------------------------------------
+
+export const RTW_METHOD_LABEL: Record<RtwMethod, string> = {
+  manual_document: "Manual check of original documents",
+  online_check: "Home Office online check (share code)",
+  idsp: "Identity service provider (digital identity check)",
+};
+
+export const RTW_LIST_LABEL: Record<RtwList, string> = {
+  list_a: "List A (continuous)",
+  list_b_group_1: "List B group 1 (time-limited)",
+  list_b_group_2: "List B group 2 (time-limited)",
+};
+
+export const RTW_OUTCOME_LABEL: Record<RtwOutcome, string> = {
+  confirmed: "Confirmed, no follow-up needed",
+  time_limited: "Confirmed, time-limited",
+  not_confirmed: "Couldn't be confirmed",
+};
+
+export const RTW_KIND_LABEL = {
+  initial: "First check",
+  follow_up: "Follow-up check",
+  correction: "Correction",
+} as const;
+
+/** What the CURRENT recorded check says today. Never a legal decision. */
+export const RTW_STATE: Record<RtwState, { tone: Tone; label: string }> = {
+  none: { tone: "warning", label: "No check recorded" },
+  not_confirmed: { tone: "danger", label: "Recorded as not confirmed" },
+  lapsed: { tone: "danger", label: "Permission has ended" },
+  follow_up_overdue: { tone: "danger", label: "Follow-up check overdue" },
+  follow_up_due: { tone: "warning", label: "Follow-up check due soon" },
+  recorded: { tone: "success", label: "Check recorded" },
+};
+
+export const DOCUMENT_STATUS: Record<
+  DocumentStatus,
+  { tone: Tone; label: string }
+> = {
+  requested: { tone: "neutral", label: "Requested" },
+  seen: { tone: "success", label: "Seen" },
+  verified: { tone: "success", label: "Verified" },
+  rejected: { tone: "danger", label: "Rejected" },
+  waived: { tone: "info", label: "Waived" },
+};
+
+/** Cleared to start: computed, shown as yes/no with what's missing. */
+export function ClearanceBadge({
+  status,
+  clearance,
+}: {
+  status: "active" | "completed" | "cancelled";
+  clearance: Clearance;
+}) {
+  if (status !== "active") return null;
+  return clearance.cleared ? (
+    <Badge tone="success">Cleared to start</Badge>
+  ) : (
+    <Badge tone="warning">Not cleared</Badge>
+  );
+}
+
+export function clearanceGaps(c: Clearance): string[] {
+  return [
+    c.tasksReady ? null : "Required tasks are still open",
+    c.documentsReady ? null : "Required documents are still needed",
+    c.rightToWork
+      ? null
+      : "No recorded right-to-work check covers the start date",
+  ].filter((v): v is string => v !== null);
 }
 
 export function OnboardingTabs({
   current,
   showTemplates,
+  showRightToWork = false,
 }: {
-  current: "people" | "templates";
+  current: "people" | "templates" | "right-to-work";
   showTemplates: boolean;
+  showRightToWork?: boolean;
 }) {
   const tabs = [
     { href: "/onboarding" as const, label: "People", id: "people" },
+    ...(showRightToWork
+      ? [
+          {
+            href: "/onboarding/right-to-work" as const,
+            label: "Right to work",
+            id: "right-to-work",
+          },
+        ]
+      : []),
     ...(showTemplates
       ? [
           {
@@ -89,6 +182,8 @@ export function OnboardingTabs({
           <li key={t.id}>
             <Link
               href={t.href}
+              // Opening the right-to-work list is an audited view: never prefetch it.
+              prefetch={t.id === "right-to-work" ? false : undefined}
               aria-current={current === t.id ? "page" : undefined}
               className={
                 current === t.id

@@ -189,3 +189,67 @@ export async function onboardingTemplateCommand(
   }
   return { status: "error", message: "Unknown action." };
 }
+
+// --- M7.2: document checklist and right to work ----------------------------------------
+
+export async function onboardingDocumentCommand(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const caseId = str(form, "caseId");
+  const intent = str(form, "intent");
+  if (intent === "add")
+    return toState(
+      await onboardingApi.addDocument(ws, caseId, {
+        title: str(form, "title"),
+        required: form.get("required") === "on",
+      }),
+      "Document added to the checklist.",
+    );
+  const cmd =
+    intent === "seen" || intent === "verified"
+      ? ({ kind: intent, expiresOn: str(form, "expiresOn") || null } as const)
+      : intent === "reject" || intent === "waive"
+        ? ({ kind: intent, reason: str(form, "reason") } as const)
+        : intent === "reopen"
+          ? ({ kind: "reopen" } as const)
+          : null;
+  if (!cmd) return { status: "error", message: "Unknown action." };
+  return toState(
+    await onboardingApi.updateDocument(
+      ws,
+      caseId,
+      str(form, "documentId"),
+      cmd,
+    ),
+    intent === "reopen" ? "Document reopened." : "Document updated.",
+  );
+}
+
+export async function recordRightToWorkCheck(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const employeeId = str(form, "employeeId");
+  return toState(
+    await onboardingApi.recordRtw(ws, employeeId, {
+      supersedesId: str(form, "supersedesId"),
+      kind: str(form, "kind"),
+      method: str(form, "method"),
+      listType: str(form, "listType"),
+      checkedOn: str(form, "checkedOn"),
+      checkedByMembershipId: str(form, "checkedByMembershipId") || null,
+      personPresent: form.get("personPresent") === "on",
+      outcome: str(form, "outcome"),
+      permissionEndsOn: str(form, "permissionEndsOn"),
+      followUpDueOn: str(form, "followUpDueOn"),
+      note: str(form, "note"),
+      correctionReason: str(form, "correctionReason"),
+    }),
+    "Right-to-work check recorded.",
+  );
+}

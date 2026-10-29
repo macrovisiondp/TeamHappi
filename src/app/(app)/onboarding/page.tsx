@@ -2,7 +2,10 @@ import {
   AlarmClock,
   CalendarClock,
   ClipboardCheck,
+  FileClock,
   Plus,
+  ShieldAlert,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -16,6 +19,7 @@ import { PageHeader, StatCard } from "@/components/ui/misc";
 import { Progress } from "@/components/ui/progress";
 import { Table, Td, Th } from "@/components/ui/table";
 import {
+  ClearanceBadge,
   OnboardingTabs,
   RightToWorkNotice,
   StageBadge,
@@ -51,6 +55,10 @@ export default async function OnboardingPage({
     return <PermissionDenied message="Your role doesn't include onboarding." />;
   const canStart = ws.grants.has("onboarding.manage");
   const canTemplates = ws.grants.get("onboarding.template.manage") === "all";
+  // A count only (not audited); the list itself is on the audited Right to work tab.
+  const rtwAttention = ws.grants.has("rtw.view")
+    ? await onboardingApi.rtwAttentionCount(ws)
+    : null;
   const start = canStart ? (
     <Button asChild>
       <Link href="/onboarding/new">
@@ -67,7 +75,11 @@ export default async function OnboardingPage({
         description="Get new starters ready, with every step recorded."
         actions={start}
       />
-      <OnboardingTabs current="people" showTemplates={canTemplates} />
+      <OnboardingTabs
+        current="people"
+        showTemplates={canTemplates}
+        showRightToWork={rtwAttention !== null}
+      />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="In progress" value={data.stats.active} icon={Users} />
         <StatCard
@@ -87,6 +99,29 @@ export default async function OnboardingPage({
           detail="Every required task finished"
           icon={ClipboardCheck}
         />
+        <StatCard
+          label="Not cleared to start"
+          value={data.stats.notCleared}
+          detail="Tasks, documents or right-to-work check missing"
+          icon={ShieldAlert}
+          tone={data.stats.notCleared ? "attention" : "default"}
+        />
+        <StatCard
+          label="Documents expired or expiring"
+          value={data.stats.documentsExpiring}
+          detail="Within the next 60 days"
+          icon={FileClock}
+          tone={data.stats.documentsExpiring ? "attention" : "default"}
+        />
+        {rtwAttention !== null ? (
+          <StatCard
+            label="Right-to-work follow-ups"
+            value={rtwAttention}
+            detail="Due within 60 days, or needing attention"
+            icon={ShieldCheck}
+            tone={rtwAttention ? "attention" : "default"}
+          />
+        ) : null}
       </div>
       <RightToWorkNotice />
 
@@ -165,7 +200,10 @@ export default async function OnboardingPage({
                   />
                 </Td>
                 <Td>
-                  <StageBadge status={c.status} progress={c.progress} />
+                  <div className="flex flex-wrap gap-1.5">
+                    <StageBadge status={c.status} progress={c.progress} />
+                    <ClearanceBadge status={c.status} clearance={c.clearance} />
+                  </div>
                 </Td>
                 <Td>
                   {c.nextDue ? (

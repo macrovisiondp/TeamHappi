@@ -29,7 +29,7 @@ interface Option {
   name: string;
 }
 
-function Submit({
+export function Submit({
   label,
   variant = "primary",
   size,
@@ -49,7 +49,7 @@ function Submit({
   );
 }
 
-function ErrorAlert({ state }: { state: FormState }) {
+export function ErrorAlert({ state }: { state: FormState }) {
   return state.status === "error" ? (
     <Alert tone="danger" title={state.message} role="alert">
       {state.fieldErrors ? (
@@ -64,13 +64,13 @@ function ErrorAlert({ state }: { state: FormState }) {
 }
 
 /** Full reload after a change, so progress, badges and history all agree. */
-function useReload(state: FormState) {
+export function useReload(state: FormState) {
   useEffect(() => {
     if (state.status === "saved") window.location.reload();
   }, [state]);
 }
 
-const textareaClass =
+export const textareaClass =
   "w-full rounded-[10px] border border-line-strong bg-surface px-3 py-2 text-base";
 
 // --- Starting onboarding ------------------------------------------------------------
