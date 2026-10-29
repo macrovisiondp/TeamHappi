@@ -1079,6 +1079,12 @@ model Vacancy {
   payMin                    Decimal?       @map("pay_min") @db.Decimal(10, 2)
   payMax                    Decimal?       @map("pay_max") @db.Decimal(10, 2)
   payPeriod                 PayPeriod?     @map("pay_period")
+  // M9.2a: unlisted share link (/jobs/<publicCode>); counts only, no applicant data.
+  publicCode                String?        @map("public_code")
+  howToApply                String?        @map("how_to_apply")
+  showPay                   Boolean        @default(false) @map("show_pay")
+  shareViewsLink            Int            @default(0) @map("share_views_link")
+  shareViewsQr              Int            @default(0) @map("share_views_qr")
   createdBy                 String?        @map("created_by") @db.Uuid
   createdAt                 DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                 DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

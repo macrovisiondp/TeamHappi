@@ -1,7 +1,11 @@
 "use server";
 
 import type { FormState } from "@/features/setup/form-state";
-import { getWorkspace, recruitmentApi } from "@/lib/workspace";
+import {
+  getWorkspace,
+  recruitmentApi,
+  vacancySharingApi,
+} from "@/lib/workspace";
 
 // Server actions for recruitment (M9.1). The organisation and the acting
 // member always come from the server session; every id in a form is untrusted
@@ -228,5 +232,38 @@ export async function anonymiseCandidateAction(
   return toState(
     await recruitmentApi.anonymise(ws, str(form, "candidateId")),
     "Candidate anonymised.",
+  );
+}
+
+// --- M9.2a: share links ------------------------------------------------------------------
+
+export async function vacancyShareAction(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const vacancyId = str(form, "vacancyId");
+  const intent = str(form, "intent");
+  const cmd =
+    intent === "enable" || intent === "regenerate" || intent === "disable"
+      ? ({ kind: intent } as const)
+      : intent === "details"
+        ? ({
+            kind: "details",
+            howToApply: str(form, "howToApply"),
+            showPay: form.get("showPay") === "on",
+          } as const)
+        : null;
+  if (!cmd) return { status: "error", message: "Unknown action." };
+  return toState(
+    await vacancySharingApi.update(ws, vacancyId, cmd),
+    intent === "enable"
+      ? "Share link created."
+      : intent === "regenerate"
+        ? "New link created. The old link and printed QR codes no longer work."
+        : intent === "disable"
+          ? "Share link removed. The old link no longer works."
+          : "Saved.",
   );
 }

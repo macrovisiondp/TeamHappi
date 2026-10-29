@@ -18,6 +18,7 @@ import * as members from "./members";
 import * as mutations from "./mutations";
 import * as queries from "./queries";
 import type { InvitationPreview } from "./invitations";
+import { publicVacancy as publicVacancyQuery } from "./public-vacancy";
 import { listMemberships, resolveWorkspace, type Workspace } from "./resolve";
 
 type Ready = Extract<Workspace, { kind: "ready" }>;
@@ -518,5 +519,29 @@ export const recruitmentApi = {
   anonymise: (ws: Ready, candidateId: string) =>
     inRecruitment(ws, (tx, a) =>
       recruitment.anonymiseCandidate(tx, a, candidateId, recruitmentToday(ws)),
+    ),
+};
+
+// --- Vacancy sharing (M9.2a) -------------------------------------------------------
+
+export type { PublicVacancy } from "./public-vacancy";
+
+/** The public (unauthenticated) vacancy page. Counts a view when source is link or qr. */
+export const getPublicVacancy = (
+  code: string,
+  source: "link" | "qr" | "none",
+) =>
+  serverEnv().DATABASE_URL
+    ? publicVacancyQuery(db(), code, source)
+    : Promise.resolve({ state: "missing" } as const);
+
+/** The full share link for a code (the QR code adds ?s=qr so scans are counted separately). */
+export const vacancyShareUrl = (code: string, viaQr = false) =>
+  `${serverEnv().APP_URL.replace(/\/$/, "")}/jobs/${code}${viaQr ? "?s=qr" : ""}`;
+
+export const vacancySharingApi = {
+  update: (ws: Ready, vacancyId: string, cmd: recruitment.ShareCommand) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.updateSharing(tx, a, vacancyId, cmd),
     ),
 };
