@@ -1,6 +1,6 @@
 # ADR-0014: How production finds its CV storage
 
-**Status:** Proposed (29 October 2026), for the product owner to accept with M9.2b. It narrows ADR-0012 for document storage. ADR-0012 is unchanged for every other provider.
+**Status:** Accepted by the product owner on 29 October 2026, with M9.2b. It narrows ADR-0012 for document storage. ADR-0012 is unchanged for every other provider.
 
 ## Context
 
