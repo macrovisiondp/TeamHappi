@@ -1,6 +1,6 @@
 # M9: Recruitment — scope proposal
 
-**Status:** proposal for product-owner review (gate R1). No code, migration, AWS resource or external service has been created.
+**Status:** **approved** by the product owner (R1, 29 October 2026): scope and decisions D1–D6 as recommended. M9.1 is built locally (`m9.1-recruitment-foundation.md`); its Neon migration awaits approval (R2). M9.2–M9.4 need their own gates.
 **Direction:** the product owner chose Recruitment before Rota (29 October 2026). The lifecycle is Recruitment → Employee record → Onboarding → Training → Rota → Attendance.
 **Requirement:** TH-DEV-02 Capability 1, Recruitment (Release 1).
 **Builds on:**

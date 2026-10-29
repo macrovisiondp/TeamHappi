@@ -38,6 +38,10 @@ const ALL = [
   "training.view",
   "training.record",
   "training.manage",
+  "recruitment.view",
+  "recruitment.manage",
+  "recruitment.hire",
+  "recruitment.settings",
 ];
 
 export const SCRIPT_SYSTEM_ROLES = [
@@ -59,9 +63,17 @@ export const SCRIPT_SYSTEM_ROLES = [
       "training.view",
       "training.record",
       "training.manage",
+      "recruitment.view",
+      "recruitment.manage",
+      "recruitment.hire",
+      "recruitment.settings",
     ],
   },
-  { key: "recruiter", name: "Recruiter", permissions: ["site.view"] },
+  {
+    key: "recruiter",
+    name: "Recruiter",
+    permissions: ["site.view", "recruitment.view", "recruitment.manage"],
+  },
   {
     key: "site_manager",
     name: "Site manager",
@@ -73,6 +85,8 @@ export const SCRIPT_SYSTEM_ROLES = [
       "onboarding.manage",
       "training.view",
       "training.record",
+      "recruitment.view",
+      "recruitment.manage",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

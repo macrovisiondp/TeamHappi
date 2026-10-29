@@ -43,7 +43,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/recruitment",
     label: "Recruitment",
     icon: UserPlus,
-    stage: "planned",
+    stage: "live",
   },
   {
     href: "/onboarding",

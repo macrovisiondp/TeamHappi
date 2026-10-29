@@ -126,6 +126,15 @@ describe("application role posture", () => {
       role: "INSERT,SELECT,UPDATE",
       role_assignment: "DELETE,INSERT,SELECT",
       role_permission: "DELETE,INSERT,SELECT",
+      // M9.1: recruitment. UPDATE is column-level (see below). No DELETE.
+      application: "INSERT,SELECT",
+      application_event: "INSERT,SELECT",
+      application_note: "INSERT,SELECT",
+      candidate: "INSERT,SELECT",
+      interview: "INSERT,SELECT",
+      interview_interviewer: "INSERT,SELECT",
+      recruitment_settings: "INSERT,SELECT",
+      vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
       site: "INSERT,SELECT,UPDATE",
@@ -154,7 +163,9 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                AND table_name IN ('tenant', 'employee', 'invitation', 'onboarding_template',
                                   'onboarding_template_task', 'onboarding_case', 'onboarding_task',
                                   'onboarding_document', 'rtw_check', 'training_course',
-                                  'training_requirement', 'training_record')
+                                  'training_requirement', 'training_record', 'recruitment_settings',
+                                  'vacancy', 'candidate', 'application', 'application_event',
+                                  'application_note', 'interview', 'interview_interviewer')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -166,6 +177,25 @@ describe("column-level UPDATE privileges (M4.2)", () => {
     expect(
       Object.fromEntries(rows.map((r) => [r.table_name, r.columns.split(",")])),
     ).toEqual({
+      application: [
+        "closed_at",
+        "hired_at",
+        "hired_by",
+        "hired_employee_id",
+        "outcome",
+        "rejection_reason",
+        "stage",
+        "updated_at",
+      ],
+      application_note: ["body", "redacted_at"],
+      candidate: [
+        "anonymised_at",
+        "email",
+        "family_name",
+        "given_name",
+        "phone",
+        "updated_at",
+      ],
       employee: [
         "email",
         "employee_number",
@@ -180,6 +210,19 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "status",
         "updated_at",
       ],
+      interview: [
+        "duration_minutes",
+        "feedback",
+        "feedback_at",
+        "feedback_by",
+        "format",
+        "location",
+        "outcome",
+        "scheduled_at",
+        "status",
+        "updated_at",
+      ],
+      interview_interviewer: ["removed_at"],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -237,6 +280,12 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "title",
         "updated_at",
       ],
+      recruitment_settings: [
+        "retention_months",
+        "stage_labels",
+        "updated_at",
+        "updated_by",
+      ],
       tenant: ["legal_name", "timezone", "updated_at"],
       training_course: [
         "archived_at",
@@ -255,6 +304,22 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "archived_at",
         "due_days",
         "mandatory",
+        "updated_at",
+      ],
+      vacancy: [
+        "closes_on",
+        "description",
+        "employment_type",
+        "hiring_manager_membership_id",
+        "job_title",
+        "openings",
+        "pay_max",
+        "pay_min",
+        "pay_period",
+        "site_id",
+        "status",
+        "team_id",
+        "title",
         "updated_at",
       ],
     });
@@ -284,15 +349,22 @@ describe("row-level security coverage", () => {
         ).rows,
     );
     expect(rows.map((r) => r.table)).toEqual([
+      "application",
+      "application_event",
+      "application_note",
       "audit_event",
+      "candidate",
       "document",
       "employee",
+      "interview",
+      "interview_interviewer",
       "invitation",
       "onboarding_case",
       "onboarding_document",
       "onboarding_task",
       "onboarding_template",
       "onboarding_template_task",
+      "recruitment_settings",
       "role",
       "role_assignment",
       "role_permission",
@@ -306,6 +378,7 @@ describe("row-level security coverage", () => {
       "training_record",
       "training_requirement",
       "user",
+      "vacancy",
     ]);
     for (const r of rows) {
       expect(r, r.table).toMatchObject({ enabled: true, forced: true });
