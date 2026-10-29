@@ -120,7 +120,7 @@ export const PROVIDER_FIELDS: Record<string, readonly FieldDef[]> = {
 export const CREDENTIAL_ENV: Record<string, readonly string[]> = {
   resend: ["RESEND_API_KEY"],
   "amazon-ses": ["SES_ACCESS_KEY_ID", "SES_SECRET_ACCESS_KEY"],
-  "aws-s3": ["S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
+  "aws-s3": ["STORAGE_S3_ACCESS_KEY_ID", "STORAGE_S3_SECRET_ACCESS_KEY"],
   cloudinary: ["CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"],
   stripe: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
   paystack: ["PAYSTACK_SECRET_KEY"],

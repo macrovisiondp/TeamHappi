@@ -13,6 +13,7 @@ import * as onboarding from "@/modules/onboarding";
 import * as training from "@/modules/training";
 import * as recruitment from "@/modules/recruitment";
 
+import * as cv from "./cv-documents";
 import * as invites from "./invitations";
 import * as members from "./members";
 import * as mutations from "./mutations";
@@ -516,10 +517,28 @@ export const recruitmentApi = {
     inRecruitment(ws, (tx, a) =>
       recruitment.retentionReview(tx, a, recruitmentToday(ws)),
     ),
-  anonymise: (ws: Ready, candidateId: string) =>
-    inRecruitment(ws, (tx, a) =>
+  anonymise: async (ws: Ready, candidateId: string) => {
+    const r = await inRecruitment(ws, (tx, a) =>
       recruitment.anonymiseCandidate(tx, a, candidateId, recruitmentToday(ws)),
+    );
+    // Their CVs were marked for deletion in that transaction; delete the files now.
+    if (r.ok) await cv.purgeDeletedCvs(ws);
+    return r;
+  },
+};
+
+// --- CVs (M9.2b) ---------------------------------------------------------------------
+
+export const cvApi = {
+  /** CVs on an application, or null if the member can't see it. */
+  list: (ws: Ready, applicationId: string) =>
+    inRecruitment(ws, (tx, a) =>
+      recruitment.listDocuments(tx, a, applicationId),
     ),
+  storageReady: cv.cvStorageReady,
+  upload: cv.uploadCv,
+  download: cv.downloadCv,
+  remove: cv.removeCv,
 };
 
 // --- Vacancy sharing (M9.2a) -------------------------------------------------------

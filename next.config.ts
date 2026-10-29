@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   typedRoutes: true,
   poweredByHeader: false,
+  experimental: {
+    // CV uploads (M9.2b) send up to 4 MB through a server action; Vercel
+    // functions accept 4.5 MB per request. Everything else stays small.
+    serverActions: { bodySizeLimit: "4.3mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -18,6 +18,7 @@ import {
   NoteForm,
   ScheduleInterviewForm,
 } from "@/features/recruitment/controls";
+import { CvItem, CvUploadForm } from "@/features/recruitment/cv-controls";
 import {
   INTERVIEW_FORMAT,
   INTERVIEW_OUTCOME,
@@ -31,7 +32,7 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate, formatTime } from "@/lib/format";
-import { recruitmentApi } from "@/lib/workspace";
+import { cvApi, recruitmentApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Application" };
 
@@ -39,6 +40,10 @@ export const metadata: Metadata = { title: "Application" };
 export const instant = false;
 
 const when = (d: Date) => `${formatDate(d)}, ${formatTime(d)}`;
+const sizeOf = (bytes: number) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 export default async function ApplicationPage({
   params,
@@ -50,6 +55,10 @@ export default async function ApplicationPage({
   const a = await recruitmentApi.application(ws, applicationId);
   if (!a || "ok" in a) notFound();
   const outcome = OUTCOME[a.outcome]!;
+  const [cvs, storageReady] = await Promise.all([
+    cvApi.list(ws, a.id),
+    cvApi.storageReady(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,6 +135,45 @@ export default async function ApplicationPage({
           outcome below.
         </p>
       )}
+
+      {cvs && !("ok" in cvs) ? (
+        <section aria-labelledby="cv-heading" className="flex flex-col gap-3">
+          <h2 id="cv-heading" className="text-lg font-semibold">
+            CV
+          </h2>
+          {cvs.documents.length === 0 ? (
+            <p className="text-sm">
+              {a.candidate.anonymised
+                ? "Any CVs were deleted when this candidate was anonymised."
+                : "No CV yet."}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {cvs.documents.map((d) => (
+                <CvItem
+                  key={d.id}
+                  id={d.id}
+                  fileName={d.fileName}
+                  meta={`${d.kind} · ${sizeOf(d.sizeBytes)} · uploaded by ${d.uploadedBy}, ${when(d.uploadedAt)}`}
+                  canRemove={cvs.canRemove}
+                />
+              ))}
+            </ul>
+          )}
+          {cvs.canUpload ? (
+            storageReady ? (
+              <Card aria-labelledby="cv-upload-heading">
+                <CardTitle id="cv-upload-heading">Add a CV</CardTitle>
+                <CvUploadForm applicationId={a.id} />
+              </Card>
+            ) : (
+              <p className="text-sm text-ink-muted">
+                CV uploads aren&rsquo;t switched on yet.
+              </p>
+            )
+          ) : null}
+        </section>
+      ) : null}
 
       {a.can.manage && !a.candidate.anonymised ? (
         <Card aria-labelledby="actions-heading">

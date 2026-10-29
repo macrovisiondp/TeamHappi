@@ -28,6 +28,21 @@ export {
   type Result,
 } from "./service";
 export {
+  CV_MAX_BYTES,
+  CV_MAX_PER_APPLICATION,
+  CV_TYPES,
+  cleanFileName,
+  inspectCv,
+  listDocuments,
+  markDeleted,
+  mayUpload,
+  openDocument,
+  pendingDeletions,
+  recordUpload,
+  removeDocument,
+  type CvContentType,
+} from "./documents";
+export {
   isPublicCode,
   newPublicCode,
   updateSharing,

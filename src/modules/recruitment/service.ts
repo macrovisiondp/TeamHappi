@@ -10,6 +10,8 @@ import { isUuid, type TenantTx } from "@/lib/tenancy";
 import { nextEmployeeNumber } from "@/lib/workspace/employee-number";
 import * as onboarding from "@/modules/onboarding";
 
+import { markForDeletion } from "./documents";
+
 import {
   WORKING_STAGES,
   canAt,
@@ -1591,6 +1593,8 @@ export async function anonymiseCandidate(
     where: { tenantId: actor.tenantId, applicationId: { in: appIds } },
     data: { feedback: null, location: null, updatedAt: now },
   });
+  // CV files are deleted from storage after this commits (workspace layer).
+  const cvs = await markForDeletion(tx, actor, appIds);
   await audit(
     tx,
     actor,
@@ -1599,6 +1603,7 @@ export async function anonymiseCandidate(
     candidateId,
     {
       applications: appIds.length,
+      cvs,
     },
   );
   return { ok: true, data: { id: candidateId } };
