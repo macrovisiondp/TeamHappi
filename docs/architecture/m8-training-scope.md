@@ -162,8 +162,8 @@ Each increment gets its own branch, tests, Neon approval request and read-only v
 
 | Milestone | Scope | Status |
 |---|---|---|
-| **M8.1 Foundation** | Catalogue with suggested courses; rules; automatic requirements; manager-recorded completions with corrections; matrix; person and onboarding integration; permissions and audit; partner-ready model (`providers.ts`, safe referral-URL builder) | **Built locally**; Neon migration awaiting approval |
-| **M8.2 My training** | Staff view on the phone; read-and-confirm (versioned); due and expiry; own history; approved external opportunities where listings exist; My onboarding integration. Staff can't self-verify external certificates. | Separate approval |
+| **M8.1 Foundation** | Catalogue with suggested courses; rules; automatic requirements; manager-recorded completions with corrections; matrix; person and onboarding integration; permissions and audit; partner-ready model (`providers.ts`, safe referral-URL builder) | **Done**: Neon migration applied and verified; merged (PR #12) |
+| **M8.2 My training** | Staff view on the phone; read-and-confirm (versioned); due and expiry; own history; approved external opportunities where listings exist; My onboarding integration. Staff can't self-verify external certificates. | **Built** (`m8.2-my-training.md`), no migration; awaiting merge approval |
 | **M8.3 Training partners** | Platform Admin partner registry and profiles; course listings mapped to categories or courses; validated referral links with safe outbound navigation; activation and suspension; optional aggregate click counts; agreement metadata. Lightweight: no marketplace, commission engine or partner portal. | Separate approval |
 | **Later** | Provider APIs, automated enrolment and completion sync, quizzes and assessments, certificate uploads (G7), email reminders (G6), Rota eligibility, referral commissions and partner payments | Each separately approved |
 

@@ -1,5 +1,6 @@
 import { CheckCircle2, ClipboardCheck, FileText } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate } from "@/lib/format";
-import { onboardingApi } from "@/lib/workspace";
+import { onboardingApi, trainingApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "My onboarding" };
 
@@ -41,6 +42,11 @@ export default async function MyOnboardingPage() {
     );
 
   const o = me.onboarding;
+  // M8.2: their outstanding training, as a pointer to My training.
+  const training = await trainingApi.mine(ws);
+  const trainingToDo = (training?.required ?? []).filter(
+    (c) => c.status !== "up_to_date",
+  );
   const todo = o.myTasks.filter((t) => !t.done);
   const done = o.myTasks.filter((t) => t.done);
   const bring = o.documents.filter((d) => d.needed);
@@ -114,6 +120,36 @@ export default async function MyOnboardingPage() {
           </ul>
         )}
       </section>
+
+      {trainingToDo.length ? (
+        <section
+          aria-labelledby="training-heading"
+          className="flex flex-col gap-3"
+        >
+          <h2 id="training-heading" className="text-lg font-semibold">
+            Training to complete
+          </h2>
+          <ul className="flex flex-col gap-1 text-base">
+            {trainingToDo.map((c) => (
+              <li key={c.courseId}>
+                {c.name}
+                {c.dueOn && (c.status === "due" || c.status === "overdue") ? (
+                  <span className="text-sm text-ink-muted">
+                    {" "}
+                    · by {formatDate(c.dueOn)}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/training/me"
+            className="w-fit text-base font-semibold text-forest underline-offset-4 hover:underline"
+          >
+            Open My training
+          </Link>
+        </section>
+      ) : null}
 
       {bring.length ? (
         <section

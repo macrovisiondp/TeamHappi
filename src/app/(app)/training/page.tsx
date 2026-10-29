@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { PermissionDenied } from "@/components/states/states";
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,11 @@ export default async function TrainingPage({
     status: one("status"),
   };
   const data = await trainingApi.matrix(ws, filter);
-  if (!data)
+  if (!data) {
+    // M8.2: people with a linked staff record see their own training instead.
+    if (await trainingApi.mine(ws)) redirect("/training/me");
     return <PermissionDenied message="Your role doesn't include training." />;
+  }
   const canCourses = ws.grants.get("training.manage") === "all";
 
   return (
