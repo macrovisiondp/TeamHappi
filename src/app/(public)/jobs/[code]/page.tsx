@@ -6,8 +6,9 @@ import { Alert } from "@/components/ui/alert";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/misc";
 import { EMPLOYMENT_TYPE } from "@/features/recruitment/labels";
+import { PublicApplyForm } from "@/features/recruitment/public-apply-form";
 import { formatDate } from "@/lib/format";
-import { getPublicVacancy } from "@/lib/workspace";
+import { getPublicVacancy, onlineCvUploadsOn } from "@/lib/workspace";
 
 export const metadata: Metadata = {
   title: "Job vacancy",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 
 /**
  * A shared vacancy (M9.2a). Shows only what the employer published, while the
- * vacancy is open. Collects nothing: there is no form, cookie or tracking
+ * vacancy is open, and (M9.3) an application form. No cookies or tracking
  * beyond a count of opens (link or QR).
  */
 export default function PublicVacancyPage({
@@ -84,15 +85,24 @@ async function Vacancy({
           <p className="text-base whitespace-pre-line">{v.description}</p>
         </Card>
       ) : null}
-      <Card aria-labelledby="apply-heading" className="gap-2">
-        <CardTitle id="apply-heading">How to apply</CardTitle>
-        <p className="text-base whitespace-pre-line">
-          {v.howToApply ?? `Ask the team at ${v.siteName} about this role.`}
-        </p>
+      <Card aria-labelledby="apply-heading" className="gap-4">
+        <CardTitle id="apply-heading">Apply for this role</CardTitle>
+        <PublicApplyForm
+          code={code}
+          organisation={v.organisation}
+          retentionMonths={v.retentionMonths}
+          cvUploads={await onlineCvUploadsOn()}
+        />
       </Card>
+      {v.howToApply ? (
+        <Card aria-labelledby="other-heading" className="gap-2">
+          <CardTitle id="other-heading">Other ways to apply</CardTitle>
+          <p className="text-base whitespace-pre-line">{v.howToApply}</p>
+        </Card>
+      ) : null}
       <p className="text-xs text-ink-muted">
-        This page is shared by {v.organisation} through TeamHappi. It
-        doesn&rsquo;t collect any of your information.
+        This page is shared by {v.organisation} through TeamHappi. It uses no
+        cookies or tracking; your details are only sent if you apply.
       </p>
     </>
   );

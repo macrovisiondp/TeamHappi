@@ -175,7 +175,15 @@ export async function listDocuments(
     },
   });
   const users = await tx.user.findMany({
-    where: { id: { in: [...new Set(docs.map((d) => d.uploadedBy))] } },
+    where: {
+      id: {
+        in: [
+          ...new Set(
+            docs.map((d) => d.uploadedBy).filter((v): v is string => !!v),
+          ),
+        ],
+      },
+    },
     select: { id: true, name: true },
   });
   const name = new Map(users.map((u) => [u.id, u.name]));
@@ -190,7 +198,10 @@ export async function listDocuments(
       fileName: d.fileName!,
       kind: d.contentType === CV_TYPES.pdf ? "PDF" : "Word",
       sizeBytes: d.sizeBytes,
-      uploadedBy: name.get(d.uploadedBy) ?? "A former member",
+      // No uploader: the candidate sent it with an online application (M9.3).
+      uploadedBy: d.uploadedBy
+        ? (name.get(d.uploadedBy) ?? "A former member")
+        : "the candidate",
       uploadedAt: d.uploadedAt,
     })),
   };

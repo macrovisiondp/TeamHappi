@@ -1117,21 +1117,23 @@ model Candidate {
 }
 
 model Application {
-  id              String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  tenantId        String             @map("tenant_id") @db.Uuid
-  candidateId     String             @map("candidate_id") @db.Uuid
-  vacancyId       String             @map("vacancy_id") @db.Uuid
-  stage           ApplicationStage   @default(applied)
-  outcome         ApplicationOutcome @default(active)
-  appliedOn       DateTime           @default(dbgenerated("CURRENT_DATE")) @map("applied_on") @db.Date
-  rejectionReason RejectionReason?   @map("rejection_reason")
-  closedAt        DateTime?          @map("closed_at") @db.Timestamptz
-  hiredEmployeeId String?            @map("hired_employee_id") @db.Uuid
-  hiredAt         DateTime?          @map("hired_at") @db.Timestamptz
-  hiredBy         String?            @map("hired_by") @db.Uuid
-  createdBy       String?            @map("created_by") @db.Uuid
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                   String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId             String             @map("tenant_id") @db.Uuid
+  candidateId          String             @map("candidate_id") @db.Uuid
+  vacancyId            String             @map("vacancy_id") @db.Uuid
+  stage                ApplicationStage   @default(applied)
+  outcome              ApplicationOutcome @default(active)
+  appliedOn            DateTime           @default(dbgenerated("CURRENT_DATE")) @map("applied_on") @db.Date
+  rejectionReason      RejectionReason?   @map("rejection_reason")
+  closedAt             DateTime?          @map("closed_at") @db.Timestamptz
+  hiredEmployeeId      String?            @map("hired_employee_id") @db.Uuid
+  hiredAt              DateTime?          @map("hired_at") @db.Timestamptz
+  hiredBy              String?            @map("hired_by") @db.Uuid
+  privacyNoticeVersion String?            @map("privacy_notice_version")
+  privacyNoticeAt      DateTime?          @map("privacy_notice_at") @db.Timestamptz
+  createdBy            String?            @map("created_by") @db.Uuid
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   candidate  Candidate             @relation(fields: [tenantId, candidateId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_candidate_fkey")
   vacancy    Vacancy               @relation(fields: [tenantId, vacancyId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "application_vacancy_fkey")
@@ -1187,7 +1189,7 @@ model ApplicationDocument {
   providerId    String    @map("provider_id")
   storageKey    String    @unique(map: "application_document_storage_key_key") @map("storage_key")
   status        String    @default("stored")
-  uploadedBy    String    @map("uploaded_by") @db.Uuid
+  uploadedBy    String?   @map("uploaded_by") @db.Uuid
   uploadedAt    DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz
   deletedBy     String?   @map("deleted_by") @db.Uuid
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
@@ -1236,4 +1238,15 @@ model InterviewInterviewer {
 
   @@unique([tenantId, id])
   @@map("interview_interviewer")
+}
+
+/// Rate limits for online applications (M9.3). Only app.public_apply touches
+/// it; no application role has any privilege on it.
+model PublicApplyThrottle {
+  clientHash  String   @map("client_hash")
+  windowStart DateTime @map("window_start") @db.Timestamptz
+  attempts    Int      @default(0)
+
+  @@id([clientHash, windowStart])
+  @@map("public_apply_throttle")
 }

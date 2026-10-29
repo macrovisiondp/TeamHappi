@@ -154,9 +154,7 @@ test("an owner shares a vacancy by link and QR code; a visitor sees only what's 
   ).toBeVisible(SLOW);
   await expect(visitor.getByText("Pop in and ask for Sam")).toBeVisible();
   await expect(visitor.getByText(/£12\.60/)).toHaveCount(0);
-  await expect(
-    visitor.getByText(/doesn.t collect any of your information/),
-  ).toBeVisible();
+  await expect(visitor.getByText(/uses no cookies or tracking/)).toBeVisible();
   await axe(visitor, "public vacancy");
   await shot(visitor, info, "sharing-public-page");
 
