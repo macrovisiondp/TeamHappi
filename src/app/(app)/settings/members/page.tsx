@@ -171,6 +171,9 @@ export default async function MembersPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <span className="font-semibold break-all">{i.email}</span>
+                      {i.personName ? (
+                        <span className="text-sm">For {i.personName}</span>
+                      ) : null}
                       <span className="text-sm text-ink-muted">
                         {i.siteName
                           ? `${i.roleName} (${i.siteName})`

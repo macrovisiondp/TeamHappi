@@ -253,3 +253,20 @@ export async function recordRightToWorkCheck(
     "Right-to-work check recorded.",
   );
 }
+
+// --- M7.3: my onboarding ------------------------------------------------------------------
+
+export async function completeMyOnboardingTask(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const acknowledge = form.get("acknowledge") === "on";
+  return toState(
+    await onboardingApi.completeMine(ws, str(form, "taskId"), {
+      acknowledge: form.has("policy") ? acknowledge : undefined,
+    }),
+    form.has("policy") ? "Thanks, that's recorded." : "Done. Thank you.",
+  );
+}

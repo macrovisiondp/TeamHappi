@@ -50,6 +50,8 @@ export interface InvitationRow {
   expiresAt: Date;
   expired: boolean;
   createdAt: Date;
+  /** M7.3: the person's record the invitation is for. */
+  personName: string | null;
 }
 
 export interface MembersPage {
@@ -220,6 +222,13 @@ export async function membersPage(
             createdAt: true,
             role: { select: { name: true } },
             site: { select: { name: true } },
+            employee: {
+              select: {
+                givenName: true,
+                familyName: true,
+                preferredName: true,
+              },
+            },
           },
         }),
         tx.role.findMany({
@@ -275,6 +284,9 @@ export async function membersPage(
         expiresAt: i.expiresAt,
         expired: i.expiresAt.getTime() <= now,
         createdAt: i.createdAt,
+        personName: i.employee
+          ? `${i.employee.preferredName || i.employee.givenName} ${i.employee.familyName}`
+          : null,
       })),
       roles: roles.map((r) => ({
         id: r.id,
@@ -352,6 +364,8 @@ const inviteSchema = z.object({
     .transform((v) => v.trim().toLowerCase()),
   roleId: z.string(),
   siteId: z.string().optional(),
+  // M7.3: the person's record this invitation is for (linked on acceptance).
+  employeeId: z.string().optional(),
 });
 
 const expiry = () =>
@@ -415,6 +429,28 @@ export async function createInvitation(
         return refused(
           "This person is already a member. Change their role from the members list instead.",
         );
+      // An invitation for a person's record: the record must be in this
+      // organisation, still employed or about to start, and not linked yet.
+      let employeeId: string | null = null;
+      if (parsed.data.employeeId) {
+        const employee = isUuid(parsed.data.employeeId)
+          ? await tx.employee.findUnique({
+              where: {
+                tenantId_id: {
+                  tenantId: ws.tenant.id,
+                  id: parsed.data.employeeId,
+                },
+              },
+              select: { id: true, status: true, membershipId: true },
+            })
+          : null;
+        if (!employee) return invalidField("employeeId", "Choose a person.");
+        if (employee.status === "left")
+          return refused("This person has left the organisation.");
+        if (employee.membershipId)
+          return refused("This person already has a TeamHappi login.");
+        employeeId = employee.id;
+      }
       const { token, hash } = newInvitationToken();
       const invitation = await tx.invitation.create({
         data: {
@@ -425,12 +461,14 @@ export async function createInvitation(
           tokenHash: hash,
           expiresAt: expiry(),
           invitedBy: ws.ctx.userId!, // a ready workspace always has a user
+          employeeId,
         },
         select: { id: true },
       });
       await audit(tx, ws, "invitation.created", "invitation", invitation.id, {
         role: role.key,
         siteId: site.id,
+        employeeId,
       });
       return { ok: true, data: { id: invitation.id, token } } as const;
     });
@@ -443,7 +481,7 @@ export async function createInvitation(
         ok: false,
         code: "conflict",
         message:
-          "There's already an open invitation for this address. Copy a new link for it from the list below.",
+          "There's already an open invitation for this address or person. Copy a new link for it from Settings → Members.",
         fieldErrors: { email: "Already invited" },
       };
     throw error;

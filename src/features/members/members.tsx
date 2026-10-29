@@ -96,9 +96,12 @@ export function LinkBox({ link, label }: { link: string; label: string }) {
 export function InviteForm({
   roles,
   sites,
+  person,
 }: {
   roles: readonly Option[];
   sites: readonly Option[];
+  /** M7.3: inviting a person's record; accepting links the record to the login. */
+  person?: { employeeId: string; email: string | null; siteId: string | null };
 }) {
   const router = useRouter();
   const [state, action] = useActionState(inviteMember, IDLE);
@@ -125,11 +128,15 @@ export function InviteForm({
       ) : null}
       <ErrorAlert state={state} />
       <form action={action} className="grid gap-4 md:grid-cols-3" noValidate>
+        {person ? (
+          <input type="hidden" name="employeeId" value={person.employeeId} />
+        ) : null}
         <Field id="invite-email" label="Email address" error={errors.email}>
           <Input
             id="invite-email"
             name="email"
             type="email"
+            defaultValue={person?.email ?? undefined}
             autoComplete="off"
             required
             aria-invalid={errors.email ? true : undefined}
@@ -163,7 +170,7 @@ export function InviteForm({
           <Select
             id="invite-siteId"
             name="siteId"
-            defaultValue=""
+            defaultValue={person?.siteId ?? ""}
             aria-invalid={errors.siteId ? true : undefined}
             aria-describedby={described("invite-siteId", true)}
           >

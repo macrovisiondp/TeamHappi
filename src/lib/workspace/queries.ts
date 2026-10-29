@@ -231,6 +231,8 @@ export async function getPerson(
         endDate: true,
         jobTitle: true,
         primarySiteId: true,
+        // M7.3: whether the record is linked to a TeamHappi login.
+        membershipId: true,
         primarySite: { select: { name: true } },
         teams: {
           select: {

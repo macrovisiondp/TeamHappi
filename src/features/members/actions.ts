@@ -55,6 +55,7 @@ export async function inviteMember(
     email: String(form.get("email") ?? ""),
     roleId: String(form.get("roleId") ?? ""),
     siteId: String(form.get("siteId") ?? "") || undefined,
+    employeeId: String(form.get("employeeId") ?? "") || undefined,
   });
   return toState(
     r,

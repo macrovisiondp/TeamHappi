@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { PermissionDenied } from "@/components/states/states";
 import { Button } from "@/components/ui/button";
@@ -51,8 +52,12 @@ export default async function OnboardingPage({
   const status = typeof params.status === "string" ? params.status : "active";
   const siteId = typeof params.site === "string" ? params.site : "";
   const data = await onboardingApi.dashboard(ws, { status, siteId });
-  if (!data)
+  if (!data) {
+    // M7.3: people being onboarded see their own onboarding instead.
+    const mine = await onboardingApi.mine(ws);
+    if (mine?.onboarding) redirect("/onboarding/me");
     return <PermissionDenied message="Your role doesn't include onboarding." />;
+  }
   const canStart = ws.grants.has("onboarding.manage");
   const canTemplates = ws.grants.get("onboarding.template.manage") === "all";
   // A count only (not audited); the list itself is on the audited Right to work tab.

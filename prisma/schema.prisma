@@ -350,6 +350,7 @@ model Employee {
   documents       Document[]
   onboardingCases OnboardingCase[]
   rtwChecks       RtwCheck[]
+  invitations     Invitation[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
@@ -547,12 +548,15 @@ model Invitation {
   acceptedBy String?          @map("accepted_by") @db.Uuid
   acceptedAt DateTime?        @map("accepted_at") @db.Timestamptz
   revokedAt  DateTime?        @map("revoked_at") @db.Timestamptz
+  employeeId String?          @map("employee_id") @db.Uuid
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_role_fkey")
-  site   Site?  @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_site_fkey")
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role     Role      @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_role_fkey")
+  site     Site?     @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_site_fkey")
+  // M7.3: an invitation for a person's record; accepting it links the record.
+  employee Employee? @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "invitation_employee_fkey")
 
   @@unique([tenantId, id])
   @@map("invitation")
