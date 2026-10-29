@@ -15,7 +15,8 @@ import { Avatar } from "@/components/ui/misc";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
 import { Progress } from "@/components/ui/progress";
 import { ClearanceBadge, StageBadge } from "@/features/onboarding/labels";
-import { can, getPerson, onboardingApi } from "@/lib/workspace";
+import { can, getPerson, onboardingApi, trainingApi } from "@/lib/workspace";
+import { STATUS as TRAINING_STATUS } from "@/features/training/labels";
 import {
   NoOrganisation,
   requireWorkspace,
@@ -56,6 +57,13 @@ export default async function EmployeePage({
       : can(ws.grants, "rtw.view", person.primarySiteId);
   // M7.3: owners and admins can invite the person, linking this record to a login.
   const canInvite = ws.grants.get("member.invite") === "all";
+  // Training (M8.1): shown to people with training.view at this person's site.
+  const training = ws.grants.has("training.view")
+    ? await trainingApi.person(ws, person.id)
+    : null;
+  const trainingNeeds = (training?.required ?? []).filter(
+    (r) => r.status !== "up_to_date",
+  );
   const status = EMPLOYMENT_STATUSES[person.status]!;
   const canEdit =
     person.primarySiteId === null
@@ -178,6 +186,40 @@ export default async function EmployeePage({
                 </Link>
               </Button>
             ) : null}
+          </Card>
+        ) : null}
+        {training ? (
+          <Card aria-labelledby="training-heading">
+            <CardHeader>
+              <div>
+                <CardTitle id="training-heading">Training</CardTitle>
+                <CardDescription>
+                  {training.required.length === 0
+                    ? "No training rules apply at the moment."
+                    : `${training.required.filter((r) => r.status === "up_to_date" || r.status === "expiring").length} of ${training.required.length} done${trainingNeeds.length ? ` · ${trainingNeeds.length} need attention` : ""}`}
+                </CardDescription>
+              </div>
+              {training.required.length ? (
+                <Badge tone={training.upToDate ? "success" : "warning"}>
+                  {training.upToDate ? "Up to date" : "Training needed"}
+                </Badge>
+              ) : null}
+            </CardHeader>
+            {trainingNeeds.length ? (
+              <ul className="flex flex-col gap-1 text-sm">
+                {trainingNeeds.slice(0, 4).map((r) => (
+                  <li key={r.courseId}>
+                    {r.courseName}: {TRAINING_STATUS[r.status].label}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <Link
+              href={`/people/${person.id}/training`}
+              className="w-fit text-sm font-semibold text-forest underline-offset-4 hover:underline"
+            >
+              Open training
+            </Link>
           </Card>
         ) : null}
         {canInvite ? (

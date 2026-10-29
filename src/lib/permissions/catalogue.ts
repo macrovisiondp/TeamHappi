@@ -21,6 +21,10 @@ export const PERMISSIONS = {
   // M7.2 right to work (restricted, IS-03). Never given to site managers (D1).
   "rtw.view": "View right-to-work check records (every view is audited)",
   "rtw.record": "Record right-to-work checks, follow-ups and corrections",
+  // M8.1 training.
+  "training.view": "View training requirements, status and records",
+  "training.record": "Record and correct training completions",
+  "training.manage": "Manage training courses and requirement rules",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -49,6 +53,9 @@ export const SYSTEM_ROLES: readonly {
       "onboarding.signoff",
       "rtw.view",
       "rtw.record",
+      "training.view",
+      "training.record",
+      "training.manage",
     ],
   },
   { key: "recruiter", name: "Recruiter", permissions: ["site.view"] },
@@ -61,6 +68,8 @@ export const SYSTEM_ROLES: readonly {
       "employee.view",
       "onboarding.view",
       "onboarding.manage",
+      "training.view",
+      "training.record",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

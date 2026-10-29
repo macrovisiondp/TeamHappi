@@ -1,6 +1,6 @@
 # M8: Training — scope proposal
 
-**Status:** proposal for product-owner review. No code, migration or Neon change has been made.
+**Status:** **approved** by the product owner (G1, 29 October 2026): scope and D1–D6 as recommended, with the additions recorded in "Approval record" below. M8.1 is authorised for local development only; Neon changes, merging and deployment need separate approval.
 **Builds on:** M4.2 (sites, employee records, job titles), M6 (memberships, audit trail), M7 (onboarding, "My onboarding", linked employee logins).
 **Requirement:** TH-DEV-02 Capability 3, "Training":
 - assigning required training by role, site or person;
@@ -139,3 +139,31 @@ Each increment gets its own branch, tests, Neon approval request and read-only v
 | D4 | Should overdue **mandatory** training stop someone being "cleared to start" in onboarding? | **No, show it only.** Many hospitality courses are completed in the first weeks. Rota can later warn or block for specific courses (for example a personal licence for a bar shift). |
 | D5 | May workers record **external** certificates themselves? | **Not yet.** Managers record them after seeing the certificate. Worker submissions make sense once uploads are approved (G7). |
 | D6 | Default expiry warning window? | **60 days**, editable per course (the same as right-to-work follow-ups). |
+
+---
+
+## Approval record (29 October 2026)
+
+**D1–D6 approved as recommended**, with these clarifications:
+- **D1:** rules by organisation, site, job title or named person. Access roles never set training obligations.
+- **D2:** requirements recalculate on joining, job-title change, site move, rule change, course withdrawal and status change. No duplicates; history is preserved. M8.1 meets this by working requirements out from the rules whenever they're read (`m8.1-training-foundation.md`).
+- **D3:** read-and-confirm records the course content version, date and time, and method. It's never presented as an exam, accreditation or qualification.
+- **D4:** training is shown in onboarding but never blocks it. M7 clearance and sign-off are unchanged. Duty-specific eligibility (for Rota) needs separate design and approval.
+- **D5:** only authorised managers and HR record external completions. No uploads until storage is approved.
+- **D6:** 60-day default warning, configurable per course; clear states; an expired certificate never appears valid.
+
+**New direction: external training partners**, referral links first:
+- **Who manages listings:** Macrovision Platform Admin manages partner listings. There are no trainer logins.
+- **How referrals work:** a referral opens the partner's site with an approved referral identifier only. It never carries names, emails, employee, tenant or other personal data, and it never marks anything complete.
+- **What must be honest:** accreditation is shown only once verified, and commercial relationships are disclosed.
+- **Provider APIs** (catalogue sync, enrolment, progress, completion, certificate verification, reconciliation) are future work only. Each needs consent or another lawful basis, contractual safeguards and a separate privacy assessment.
+
+## Updated roadmap
+
+| Milestone | Scope | Status |
+|---|---|---|
+| **M8.1 Foundation** | Catalogue with suggested courses; rules; automatic requirements; manager-recorded completions with corrections; matrix; person and onboarding integration; permissions and audit; partner-ready model (`providers.ts`, safe referral-URL builder) | **Built locally**; Neon migration awaiting approval |
+| **M8.2 My training** | Staff view on the phone; read-and-confirm (versioned); due and expiry; own history; approved external opportunities where listings exist; My onboarding integration. Staff can't self-verify external certificates. | Separate approval |
+| **M8.3 Training partners** | Platform Admin partner registry and profiles; course listings mapped to categories or courses; validated referral links with safe outbound navigation; activation and suspension; optional aggregate click counts; agreement metadata. Lightweight: no marketplace, commission engine or partner portal. | Separate approval |
+| **Later** | Provider APIs, automated enrolment and completion sync, quizzes and assessments, certificate uploads (G7), email reminders (G6), Rota eligibility, referral commissions and partner payments | Each separately approved |
+
