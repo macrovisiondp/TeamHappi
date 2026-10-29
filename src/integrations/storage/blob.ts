@@ -121,3 +121,35 @@ export async function blobStoreFor(
   const store = await blobStore();
   return store?.providerId === providerId ? store : null;
 }
+
+/**
+ * What Platform Admin shows for storage (ADR-0014): whether S3 is switched on
+ * here, the bucket and region (not secrets), and which settings are missing.
+ * Key values are never returned, only whether they are set.
+ */
+export function s3Status(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const has = (name: string) => !!env[name]?.trim();
+  const approved = (env.APPROVED_LIVE_PROVIDERS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .includes("aws-s3");
+  const names = [
+    "STORAGE_S3_BUCKET",
+    "STORAGE_S3_REGION",
+    "STORAGE_S3_ACCESS_KEY_ID",
+    "STORAGE_S3_SECRET_ACCESS_KEY",
+  ] as const;
+  const missing: string[] = names.filter((n) => !has(n));
+  if (!approved) missing.push("APPROVED_LIVE_PROVIDERS (aws-s3)");
+  return {
+    on: missing.length === 0,
+    approved,
+    bucket: env.STORAGE_S3_BUCKET?.trim() || null,
+    region: env.STORAGE_S3_REGION?.trim() || null,
+    keysSet:
+      has("STORAGE_S3_ACCESS_KEY_ID") && has("STORAGE_S3_SECRET_ACCESS_KEY"),
+    missing,
+  };
+}
