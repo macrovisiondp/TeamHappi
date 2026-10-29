@@ -302,4 +302,33 @@ export const onboardingApi = {
       onboarding.archiveTemplateTask(tx, a, templateId, taskId),
     ),
   addSuggested: (ws: Ready) => inWs(ws, onboarding.addSuggestedTemplates),
+  // M7.2: document checklist and right to work.
+  addDocument: (
+    ws: Ready,
+    caseId: string,
+    raw: Parameters<typeof onboarding.addDocument>[3],
+  ) => inWs(ws, (tx, a) => onboarding.addDocument(tx, a, caseId, raw)),
+  updateDocument: (
+    ws: Ready,
+    caseId: string,
+    documentId: string,
+    cmd: onboarding.DocumentCommand,
+  ) =>
+    inWs(ws, (tx, a) =>
+      onboarding.updateDocument(tx, a, caseId, documentId, cmd),
+    ),
+  /** Restricted: every call is audited as a view of the record. */
+  rightToWork: (ws: Ready, employeeId: string) =>
+    inWs(ws, (tx, a) =>
+      onboarding.getRightToWork(tx, a, employeeId, todayFor(ws)),
+    ),
+  recordRtw: (ws: Ready, employeeId: string, raw: onboarding.RtwCommand) =>
+    inWs(ws, (tx, a) =>
+      onboarding.recordRtwCheck(tx, a, employeeId, todayFor(ws), raw),
+    ),
+  /** Restricted: every call is audited. */
+  rtwFollowUps: (ws: Ready) =>
+    inWs(ws, (tx, a) => onboarding.rtwFollowUps(tx, a, todayFor(ws))),
+  rtwAttentionCount: (ws: Ready) =>
+    inWs(ws, (tx, a) => onboarding.rtwAttentionCount(tx, a, todayFor(ws))),
 };

@@ -1,4 +1,4 @@
-// Onboarding service (M7.1). Every function receives a transaction already
+// Onboarding service (M7.1, with the M7.2 document checklist). Every function receives a transaction already
 // scoped to one organisation by withTenant() (so RLS applies) and an Actor
 // resolved from the server session. Permissions and site scope are checked
 // here for every read and write; each change writes an audit event in the same
@@ -23,66 +23,35 @@ import {
   type Progress,
   type TemplateScope,
 } from "./policy";
+import { rtwFactsFor } from "./compliance";
+import {
+  IDENTIFIER_MESSAGE,
+  clearanceOf,
+  documentProgressOf,
+  looksLikeIdentifier,
+  mayCloseDocument,
+  type Clearance,
+  type DocumentProgress,
+  type RtwFacts,
+} from "./compliance-policy";
+import {
+  activeMember,
+  asDate,
+  assignableMembers,
+  audit,
+  conflict,
+  forbidden,
+  invalid,
+  isoOf,
+  notFound,
+  uniqueViolation,
+  userNames,
+  zodErrors,
+  type Result,
+} from "./shared";
 import { SUGGESTED_TEMPLATES } from "./suggested";
 
-export type Result<T = { id: string }> =
-  | { ok: true; data: T }
-  | {
-      ok: false;
-      code: "forbidden" | "not_found" | "invalid" | "conflict";
-      message: string;
-      fieldErrors?: Record<string, string>;
-    };
-
-const forbidden = (message = "Your role doesn't allow this change.") =>
-  ({ ok: false, code: "forbidden", message }) as const;
-const notFound = (what: string) =>
-  ({
-    ok: false,
-    code: "not_found",
-    message: `That ${what} couldn't be found.`,
-  }) as const;
-const conflict = (message: string) =>
-  ({ ok: false, code: "conflict", message }) as const;
-const invalid = (
-  fieldErrors: Record<string, string>,
-  message = "Check the highlighted fields.",
-) => ({ ok: false, code: "invalid", message, fieldErrors }) as const;
-
-const zodErrors = (e: z.ZodError) =>
-  Object.fromEntries(
-    e.issues.map((i) => [String(i.path[0] ?? "form"), i.message]),
-  );
-
-const asDate = (iso: string) => new Date(`${iso}T00:00:00Z`);
-const isoOf = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
-
-async function audit(
-  tx: TenantTx,
-  actor: Actor,
-  action: string,
-  targetType: "onboarding_template" | "onboarding_case" | "onboarding_task",
-  targetId: string,
-  detail: Record<string, string | number | boolean | null> = {},
-) {
-  await tx.auditEvent.create({
-    data: {
-      tenantId: actor.tenantId,
-      actorUserId: actor.userId,
-      action,
-      targetType,
-      targetId,
-      detail,
-    },
-    select: { id: true },
-  });
-}
-
-const uniqueViolation = (e: unknown) =>
-  // Prisma's unique-constraint error code (the module can't import the client).
-  typeof e === "object" &&
-  e !== null &&
-  (e as { code?: unknown }).code === "P2002";
+export type { Result } from "./shared";
 
 // --- Templates ------------------------------------------------------------------
 
@@ -564,37 +533,6 @@ export async function startOptions(tx: TenantTx, actor: Actor) {
   };
 }
 
-/** Active members (who can own a case or a task). */
-export async function assignableMembers(tx: TenantTx, actor: Actor) {
-  const memberships = await tx.tenantMembership.findMany({
-    where: { tenantId: actor.tenantId, status: "active" },
-    select: { id: true, userId: true },
-  });
-  const users = await tx.user.findMany({
-    where: { id: { in: memberships.map((m) => m.userId) } },
-    select: { id: true, name: true },
-  });
-  const names = new Map(users.map((u) => [u.id, u.name]));
-  return memberships
-    .map((m) => ({ id: m.id, name: names.get(m.userId) ?? "Member" }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-async function activeMember(tx: TenantTx, actor: Actor, membershipId: unknown) {
-  if (
-    membershipId === null ||
-    membershipId === undefined ||
-    membershipId === ""
-  )
-    return null;
-  if (typeof membershipId !== "string" || !isUuid(membershipId)) return false;
-  const m = await tx.tenantMembership.findUnique({
-    where: { tenantId_id: { tenantId: actor.tenantId, id: membershipId } },
-    select: { status: true },
-  });
-  return m?.status === "active" ? membershipId : false;
-}
-
 export async function startCase(
   tx: TenantTx,
   actor: Actor,
@@ -757,6 +695,20 @@ const caseSelect = {
       waivedReason: true,
     },
   },
+  // M7.2: document checklist (metadata only).
+  documents: {
+    orderBy: [{ createdAt: "asc" as const }],
+    select: {
+      id: true,
+      title: true,
+      required: true,
+      status: true,
+      expiresOn: true,
+      reason: true,
+      statusBy: true,
+      statusAt: true,
+    },
+  },
 } satisfies CaseSelect;
 
 const findCase = (tx: TenantTx, tenantId: string, id: string) =>
@@ -787,10 +739,33 @@ export interface CaseSummary {
   startDate: string;
   ownerMembershipId: string | null;
   progress: Progress;
+  documents: DocumentProgress;
+  /** Computed, never ticked by hand. Yes/no only: no right-to-work details. */
+  clearance: Clearance;
   nextDue: { title: string; dueOn: string | null } | null;
 }
 
-function summarise(c: CaseRow, today: string): CaseSummary {
+const documentFacts = (c: CaseRow) =>
+  c.documents.map((d) => ({
+    required: d.required,
+    status: d.status,
+    expiresOn: isoOf(d.expiresOn),
+  }));
+
+function summarise(
+  c: CaseRow,
+  today: string,
+  rtw: ReadonlyMap<string, RtwFacts>,
+): CaseSummary {
+  const progress = progressOf(taskFacts(c), today);
+  const startDate = isoOf(c.startDate)!;
+  const clearance = clearanceOf(
+    progress,
+    documentFacts(c),
+    rtw.get(c.employeeId) ?? null,
+    startDate,
+    today,
+  );
   const next = c.tasks
     .filter((t) => t.status === "to_do")
     .sort((a, b) =>
@@ -804,9 +779,11 @@ function summarise(c: CaseRow, today: string): CaseSummary {
     siteName: c.site?.name ?? null,
     templateName: c.templateName,
     status: c.status,
-    startDate: isoOf(c.startDate)!,
+    startDate,
     ownerMembershipId: c.ownerMembershipId,
-    progress: progressOf(taskFacts(c), today),
+    progress,
+    documents: documentProgressOf(documentFacts(c), clearance.on),
+    clearance,
     nextDue: next ? { title: next.title, dueOn: isoOf(next.dueOn) } : null,
   };
 }
@@ -824,6 +801,8 @@ export interface Dashboard {
     startingSoon: number;
     overdueTasks: number;
     readyForSignOff: number;
+    notCleared: number;
+    documentsExpiring: number;
   };
   cases: CaseSummary[];
   sites: { id: string; name: string }[];
@@ -872,8 +851,12 @@ export async function dashboard(
       select: { id: true, name: true },
     }),
   ]);
+  const rtw = await rtwFactsFor(tx, actor.tenantId, [
+    ...rows.map((c) => c.employeeId),
+    ...activeRows.map((c) => c.employeeId),
+  ]);
   const soon = dueDate(today, 7);
-  const active = activeRows.map((c) => summarise(c, today));
+  const active = activeRows.map((c) => summarise(c, today, rtw));
   return {
     stats: {
       active: active.length,
@@ -883,8 +866,13 @@ export async function dashboard(
       overdueTasks: active.reduce((n, c) => n + c.progress.overdue, 0),
       readyForSignOff: active.filter((c) => c.progress.operationallyReady)
         .length,
+      notCleared: active.filter((c) => !c.clearance.cleared).length,
+      documentsExpiring: active.reduce(
+        (n, c) => n + c.documents.expiringSoon + c.documents.expired,
+        0,
+      ),
     },
-    cases: rows.map((c) => summarise(c, today)),
+    cases: rows.map((c) => summarise(c, today, rtw)),
     sites: siteRows,
   };
 }
@@ -903,7 +891,11 @@ export async function caseForEmployee(
     select: caseSelect,
   });
   if (!c || !canAt(actor, "onboarding.view", c.siteId)) return null;
-  return summarise(c, today);
+  return summarise(
+    c,
+    today,
+    await rtwFactsFor(tx, actor.tenantId, [c.employeeId]),
+  );
 }
 
 async function loadCase(tx: TenantTx, actor: Actor, caseId: string) {
@@ -922,23 +914,21 @@ export async function getCase(
   if (!c) return null;
   const members = await assignableMembers(tx, actor);
   const names = new Map(members.map((m) => [m.id, m.name]));
-  // Who completed tasks (user ids) and who signed off.
-  const userIds = [
-    ...new Set(
-      [...c.tasks.map((t) => t.completedBy), c.signedOffBy].filter(
-        (v): v is string => !!v,
-      ),
-    ),
-  ];
-  const users = await tx.user.findMany({
-    where: { id: { in: userIds } },
-    select: { id: true, name: true },
-  });
-  const userNames = new Map(users.map((u) => [u.id, u.name]));
+  // Who completed tasks, changed documents and signed off (user ids).
+  const people = await userNames(tx, [
+    ...c.tasks.map((t) => t.completedBy),
+    ...c.documents.map((d) => d.statusBy),
+    c.signedOffBy,
+  ]);
   const isOwnRecord = c.employee.membershipId === actor.membershipId;
-  const progress = progressOf(taskFacts(c), today);
+  const summary = summarise(
+    c,
+    today,
+    await rtwFactsFor(tx, actor.tenantId, [c.employeeId]),
+  );
+  const progress = summary.progress;
   return {
-    ...summarise(c, today),
+    ...summary,
     templateVersion: c.templateVersion,
     ownerName: c.ownerMembershipId
       ? (names.get(c.ownerMembershipId) ?? "A former member")
@@ -946,7 +936,7 @@ export async function getCase(
     signedOff: c.signedOffAt
       ? {
           at: c.signedOffAt,
-          by: userNames.get(c.signedOffBy!) ?? "A former member",
+          by: people.get(c.signedOffBy!) ?? "A former member",
           note: c.signOffNote,
         }
       : null,
@@ -972,10 +962,26 @@ export async function getCase(
       status: t.status,
       completedAt: t.completedAt,
       completedByName: t.completedBy
-        ? (userNames.get(t.completedBy) ?? "A former member")
+        ? (people.get(t.completedBy) ?? "A former member")
         : null,
       onBehalf: t.onBehalf,
       waivedReason: t.waivedReason,
+    })),
+    documentList: c.documents.map((d) => ({
+      id: d.id,
+      title: d.title,
+      required: d.required,
+      status: d.status,
+      expiresOn: isoOf(d.expiresOn),
+      expired:
+        d.expiresOn !== null &&
+        (d.status === "seen" || d.status === "verified") &&
+        isoOf(d.expiresOn)! < summary.clearance.on,
+      reason: d.reason,
+      changedByName: d.statusBy
+        ? (people.get(d.statusBy) ?? "A former member")
+        : null,
+      changedAt: d.statusAt,
     })),
     members,
     can: {
@@ -987,6 +993,8 @@ export async function getCase(
         c.status === "active" &&
         maySignOff(actor, c.siteId, progress, isOwnRecord).ok,
       signOffAuthorised: canAt(actor, "onboarding.signoff", c.siteId),
+      // The full right-to-work record (restricted, audited when opened).
+      viewRightToWork: canAt(actor, "rtw.view", c.siteId),
     },
     isOwnRecord,
   };
@@ -1246,4 +1254,166 @@ export async function changeCaseOwner(
     { ownerMembershipId: owner },
   );
   return { ok: true, data: { id: c.id } };
+}
+
+// --- Document checklist (M7.2, metadata only) --------------------------------------
+// Records that a document was seen or verified, by whom and when, and when it
+// expires. No file is stored. Right-to-work documents are never listed here:
+// they are recorded in the right-to-work check.
+
+async function editableCase(tx: TenantTx, actor: Actor, caseId: string) {
+  const c = await loadCase(tx, actor, caseId);
+  if (!c) return { error: notFound("onboarding") } as const;
+  if (c.status !== "active")
+    return { error: conflict("This onboarding is closed.") } as const;
+  if (!canAt(actor, "onboarding.manage", c.siteId))
+    return { error: forbidden() } as const;
+  return { c } as const;
+}
+
+export async function addDocument(
+  tx: TenantTx,
+  actor: Actor,
+  caseId: string,
+  raw: { title?: unknown; required?: unknown },
+): Promise<Result> {
+  const found = await editableCase(tx, actor, caseId);
+  if ("error" in found) return found.error!;
+  const title = typeof raw.title === "string" ? raw.title.trim() : "";
+  if (title.length < 1 || title.length > 120)
+    return invalid({ title: "Enter the document (up to 120 characters)" });
+  if (looksLikeIdentifier(title)) return invalid({ title: IDENTIFIER_MESSAGE });
+  if (RIGHT_TO_WORK_WORDS.test(title))
+    return invalid({
+      title:
+        "Record right-to-work documents in the right-to-work check, not here.",
+    });
+  const required = raw.required === true;
+  const created = await tx.onboardingDocument.create({
+    data: {
+      tenantId: actor.tenantId,
+      caseId: found.c.id,
+      title,
+      required,
+      createdBy: actor.userId,
+    },
+    select: { id: true },
+  });
+  await audit(
+    tx,
+    actor,
+    "onboarding.document_added",
+    "onboarding_document",
+    created.id,
+    { caseId: found.c.id, required },
+  );
+  return { ok: true, data: created };
+}
+
+const RIGHT_TO_WORK_WORDS =
+  /\b(right[\s-]to[\s-]work|passport|share code|e-?visa|visa|biometric residence|brp|immigration)\b/i;
+
+export type DocumentCommand =
+  | { kind: "seen" | "verified"; expiresOn: string | null }
+  | { kind: "reject" | "waive"; reason: string }
+  | { kind: "reopen" };
+
+export async function updateDocument(
+  tx: TenantTx,
+  actor: Actor,
+  caseId: string,
+  documentId: string,
+  cmd: DocumentCommand,
+): Promise<Result> {
+  const found = await editableCase(tx, actor, caseId);
+  if ("error" in found) return found.error!;
+  const { c } = found;
+  const doc = c.documents.find((d) => d.id === documentId);
+  if (!doc) return notFound("document");
+  const where = { tenantId_id: { tenantId: actor.tenantId, id: doc.id } };
+  const now = new Date();
+  let action: string;
+  if (cmd.kind === "seen" || cmd.kind === "verified") {
+    if (doc.status === "waived")
+      return conflict("This document was waived. Reopen it first.");
+    if (cmd.expiresOn !== null && !isIsoDate(cmd.expiresOn))
+      return invalid({ expiresOn: "Enter a date" });
+    await tx.onboardingDocument.update({
+      where,
+      data: {
+        status: cmd.kind,
+        expiresOn: cmd.expiresOn ? asDate(cmd.expiresOn) : null,
+        reason: null,
+        statusBy: actor.userId,
+        statusAt: now,
+        updatedAt: now,
+      },
+      select: { id: true },
+    });
+    action = `onboarding.document_${cmd.kind}`;
+  } else if (cmd.kind === "reject" || cmd.kind === "waive") {
+    if (doc.status === "waived" || doc.status === "rejected")
+      return conflict("Reopen this document first.");
+    const reason = (cmd.reason ?? "").trim();
+    if (reason.length > 500)
+      return invalid({ reason: "Keep it under 500 characters" });
+    if (looksLikeIdentifier(reason))
+      return invalid({ reason: IDENTIFIER_MESSAGE });
+    const may = mayCloseDocument(
+      actor,
+      c.siteId,
+      doc.required,
+      cmd.kind,
+      reason,
+    );
+    if (!may.ok)
+      return "field" in may
+        ? invalid({ reason: may.message })
+        : forbidden(may.message);
+    await tx.onboardingDocument.update({
+      where,
+      data: {
+        status: cmd.kind === "reject" ? "rejected" : "waived",
+        reason,
+        statusBy: actor.userId,
+        statusAt: now,
+        updatedAt: now,
+      },
+      select: { id: true },
+    });
+    // The reason is free text: kept on the record, not copied into the audit trail.
+    action =
+      cmd.kind === "reject"
+        ? "onboarding.document_rejected"
+        : "onboarding.document_waived";
+  } else {
+    if (doc.status === "requested")
+      return conflict("This document is already open.");
+    if (
+      doc.status === "waived" &&
+      doc.required &&
+      !canAt(actor, "onboarding.signoff", c.siteId)
+    )
+      return forbidden(
+        "Only an owner, administrator or HR manager can reopen a waived required document.",
+      );
+    await tx.onboardingDocument.update({
+      where,
+      data: {
+        status: "requested",
+        expiresOn: null,
+        reason: null,
+        statusBy: null,
+        statusAt: null,
+        updatedAt: now,
+      },
+      select: { id: true },
+    });
+    action = "onboarding.document_reopened";
+  }
+  await audit(tx, actor, action, "onboarding_document", doc.id, {
+    caseId: c.id,
+    required: doc.required,
+  });
+  return { ok: true, data: { id: doc.id } };
 }

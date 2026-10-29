@@ -12,12 +12,15 @@ export const PERMISSIONS = {
   "role.manage": "Create and edit roles",
   "employee.view": "View employee records",
   "employee.manage": "Create and edit employee records",
-  // M7.1 onboarding. Right-to-work permissions arrive with M7.2.
+  // M7.1 onboarding.
   "onboarding.view": "View onboarding and its progress",
   "onboarding.manage": "Start onboarding and work through tasks",
   "onboarding.template.manage": "Create and edit onboarding templates",
   "onboarding.signoff":
     "Give final onboarding sign-off and waive required tasks",
+  // M7.2 right to work (restricted, IS-03). Never given to site managers (D1).
+  "rtw.view": "View right-to-work check records (every view is audited)",
+  "rtw.record": "Record right-to-work checks, follow-ups and corrections",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -44,6 +47,8 @@ export const SYSTEM_ROLES: readonly {
       "onboarding.manage",
       "onboarding.template.manage",
       "onboarding.signoff",
+      "rtw.view",
+      "rtw.record",
     ],
   },
   { key: "recruiter", name: "Recruiter", permissions: ["site.view"] },

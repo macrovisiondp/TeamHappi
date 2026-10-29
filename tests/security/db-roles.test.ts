@@ -117,6 +117,8 @@ describe("application role posture", () => {
       invitation: "INSERT,SELECT",
       // M7.1: UPDATE is column-level (see below). No DELETE.
       onboarding_case: "INSERT,SELECT",
+      // M7.2: UPDATE is column-level (status, expiry, reason). No DELETE.
+      onboarding_document: "INSERT,SELECT",
       onboarding_task: "INSERT,SELECT",
       onboarding_template: "INSERT,SELECT",
       onboarding_template_task: "INSERT,SELECT",
@@ -124,6 +126,8 @@ describe("application role posture", () => {
       role: "INSERT,SELECT,UPDATE",
       role_assignment: "DELETE,INSERT,SELECT",
       role_permission: "DELETE,INSERT,SELECT",
+      // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
+      rtw_check: "INSERT,SELECT",
       site: "INSERT,SELECT,UPDATE",
       team: "INSERT,SELECT,UPDATE",
       team_member: "DELETE,INSERT,SELECT",
@@ -144,7 +148,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
              FROM information_schema.column_privileges
              WHERE grantee = 'teamhappi_app' AND privilege_type = 'UPDATE'
                AND table_name IN ('tenant', 'employee', 'invitation', 'onboarding_template',
-                                  'onboarding_template_task', 'onboarding_case', 'onboarding_task')
+                                  'onboarding_template_task', 'onboarding_case', 'onboarding_task',
+                                  'onboarding_document', 'rtw_check')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -186,6 +191,14 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "signed_off_at",
         "signed_off_by",
         "status",
+        "updated_at",
+      ],
+      onboarding_document: [
+        "expires_on",
+        "reason",
+        "status",
+        "status_at",
+        "status_by",
         "updated_at",
       ],
       onboarding_task: [
@@ -252,12 +265,14 @@ describe("row-level security coverage", () => {
       "employee",
       "invitation",
       "onboarding_case",
+      "onboarding_document",
       "onboarding_task",
       "onboarding_template",
       "onboarding_template_task",
       "role",
       "role_assignment",
       "role_permission",
+      "rtw_check",
       "site",
       "team",
       "team_member",

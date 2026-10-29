@@ -44,7 +44,11 @@ export default async function OnboardingTemplatesPage() {
         title="Onboarding"
         description="Templates are checklists you reuse. Each onboarding takes its own copy when it starts."
       />
-      <OnboardingTabs current="templates" showTemplates />
+      <OnboardingTabs
+        current="templates"
+        showTemplates
+        showRightToWork={ws.grants.has("rtw.view")}
+      />
 
       <Card aria-labelledby="suggested-heading">
         <CardHeader>
