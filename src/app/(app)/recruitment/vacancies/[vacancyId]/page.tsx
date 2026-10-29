@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import QRCode from "qrcode";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,8 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate } from "@/lib/format";
-import { recruitmentApi } from "@/lib/workspace";
+import { SharePanel } from "@/features/recruitment/share-panel";
+import { recruitmentApi, vacancyShareUrl } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Vacancy" };
 
@@ -66,6 +68,15 @@ export default async function VacancyPage({
   const pay = payText(v);
   const closed = data.applications.filter((a) => a.outcome !== "active");
   const accepting = v.status !== "closed" && v.status !== "filled";
+  // M9.2a: share link and QR code (the QR link is counted separately).
+  const shareUrl = v.publicCode ? vacancyShareUrl(v.publicCode) : null;
+  const qrDataUrl = v.publicCode
+    ? await QRCode.toDataURL(vacancyShareUrl(v.publicCode, true), {
+        margin: 1,
+        width: 320,
+        errorCorrectionLevel: "M",
+      })
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -216,6 +227,30 @@ export default async function VacancyPage({
             vacancyId={v.id}
             matches={matches}
             email={email}
+          />
+        </Card>
+      ) : null}
+
+      {data.can.manage ? (
+        <Card aria-labelledby="share-heading">
+          <CardHeader>
+            <div>
+              <CardTitle id="share-heading">Share this vacancy</CardTitle>
+              <CardDescription>
+                A link and QR code for posters and social media. No one can
+                apply through it yet: it shows the role and how to apply.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <SharePanel
+            vacancyId={v.id}
+            shareUrl={shareUrl}
+            qrDataUrl={qrDataUrl}
+            views={{ link: v.shareViewsLink, qr: v.shareViewsQr }}
+            howToApply={v.howToApply}
+            showPay={v.showPay}
+            hasPay={v.payMin !== null}
+            isOpen={v.status === "open"}
           />
         </Card>
       ) : null}

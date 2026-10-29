@@ -28,6 +28,12 @@ export {
   type Result,
 } from "./service";
 export {
+  isPublicCode,
+  newPublicCode,
+  updateSharing,
+  type ShareCommand,
+} from "./sharing";
+export {
   DEFAULT_STAGE_LABELS,
   WORKING_STAGES,
   addMonths,
