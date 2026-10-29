@@ -13,6 +13,7 @@ import { Table, Td, Th } from "@/components/ui/table";
 import { PreviewNotice, when } from "@/features/platform/components";
 import { CATEGORY_LABEL } from "@/features/platform/labels";
 import { getProvider } from "@/integrations/registry";
+import { s3Status } from "@/integrations/storage/blob";
 import {
   integrationAdmin,
   organisationAdmin,
@@ -28,9 +29,23 @@ export default async function PlatformDashboardPage() {
     organisationAdmin.list(),
     integrationAdmin.overview(),
   ]);
-  const categories = integrations.kind === "ok" ? integrations.data : [];
+  // Storage is Amazon S3, switched on in Vercel (ADR-0014), not activated here.
+  const s3On = s3Status().on;
+  const categories = (integrations.kind === "ok" ? integrations.data : []).map(
+    (c) =>
+      c.category === "storage"
+        ? {
+            ...c,
+            activeProviderId: s3On ? "aws-s3" : null,
+            activatedAt: null,
+          }
+        : c,
+  );
+  // Only the keys of providers actually in use (not every possible provider).
   const credentials = categories.flatMap((c) =>
-    c.providers.flatMap((p) => p.credentials),
+    c.providers
+      .filter((p) => p.providerId === c.activeProviderId)
+      .flatMap((p) => p.credentials),
   );
   const notSet = "Not available";
   return (
@@ -64,7 +79,7 @@ export default async function PlatformDashboardPage() {
         <StatCard
           label="Credentials set"
           value={`${credentials.filter((c) => c.present).length} / ${credentials.length}`}
-          detail="In this deployment"
+          detail="For the providers in use"
           icon={KeyRound}
         />
       </div>
@@ -104,7 +119,13 @@ export default async function PlatformDashboardPage() {
                         c.activeProviderId)
                       : "None"}
                   </Td>
-                  <Td>{c.activeProviderId ? when(c.activatedAt) : "–"}</Td>
+                  <Td>
+                    {c.category === "storage" && c.activeProviderId
+                      ? "Set in Vercel"
+                      : c.activeProviderId
+                        ? when(c.activatedAt)
+                        : "–"}
+                  </Td>
                 </tr>
               ))}
             </tbody>

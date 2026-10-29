@@ -286,7 +286,13 @@ test("staff must set up MFA, then manage staff with an audit trail", async ({
   // Integrations (M5.3): settings are versioned, real providers can't be
   // switched on without approval, test adapters can, AI changes need a
   // recent authenticator check, and keys are shown by name only.
+  // One provider at a time: choose it from the dropdown.
   await page.goto("/platform/integrations/email", SLOW);
+  await expect(
+    page.getByRole("region", { name: "Current provider" }),
+  ).toBeVisible(SLOW);
+  await page.getByLabel("Provider", { exact: true }).selectOption("resend");
+  await expect(page).toHaveURL(/provider=resend/, SLOW);
   const resendCard = page.getByRole("region", { name: "Resend" });
   await resendCard.getByRole("button", { name: "Configure Resend" }).click();
   const configure = page.getByRole("dialog", { name: "Configure Resend" });
@@ -308,6 +314,8 @@ test("staff must set up MFA, then manage staff with an audit trail", async ({
   await expect(resendCard.getByText(/No request was sent/).first()).toBeVisible(
     SLOW,
   );
+  await page.getByLabel("Provider", { exact: true }).selectOption("dev-mailer");
+  await expect(page).toHaveURL(/provider=dev-mailer/, SLOW);
   const devMailer = page.getByRole("region", { name: "Development mailer" });
   await devMailer.getByRole("button", { name: "Test connection" }).click();
   await expect(
