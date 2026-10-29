@@ -10,6 +10,7 @@ import { withTenant, type TenantTx } from "@/lib/tenancy";
 
 import { invitationLink } from "@/lib/invitations/token";
 import * as onboarding from "@/modules/onboarding";
+import * as training from "@/modules/training";
 
 import * as invites from "./invitations";
 import * as members from "./members";
@@ -336,4 +337,67 @@ export const onboardingApi = {
     inWs(ws, (tx, a) => onboarding.completeMyTask(tx, a, taskId, raw)),
   rtwAttentionCount: (ws: Ready) =>
     inWs(ws, (tx, a) => onboarding.rtwAttentionCount(tx, a, todayFor(ws))),
+};
+
+// --- Training (M8.1) ------------------------------------------------------------
+
+export type {
+  CourseSummary as TrainingCourseSummary,
+  Matrix as TrainingMatrix,
+} from "@/modules/training";
+
+const inTraining = <T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: training.Actor) => Promise<T>,
+) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+const trainingToday = (ws: Ready) => training.todayIn(ws.tenant.timezone);
+
+export const trainingApi = {
+  matrix: (
+    ws: Ready,
+    filter: {
+      siteId?: string;
+      teamId?: string;
+      jobTitle?: string;
+      status?: string;
+    },
+  ) =>
+    inTraining(ws, (tx, a) =>
+      training.matrix(tx, a, trainingToday(ws), filter),
+    ),
+  listCourses: (ws: Ready, includeArchived = false) =>
+    inTraining(ws, (tx, a) => training.listCourses(tx, a, { includeArchived })),
+  getCourse: (ws: Ready, id: string) =>
+    inTraining(ws, (tx, a) => training.getCourse(tx, a, id)),
+  saveCourse: (ws: Ready, id: string | null, raw: unknown) =>
+    inTraining(ws, (tx, a) => training.saveCourse(tx, a, id, raw)),
+  archiveCourse: (ws: Ready, id: string) =>
+    inTraining(ws, (tx, a) => training.archiveCourse(tx, a, id)),
+  addSuggested: (ws: Ready) => inTraining(ws, training.addSuggestedCourses),
+  saveRule: (
+    ws: Ready,
+    courseId: string,
+    ruleId: string | null,
+    raw: unknown,
+  ) =>
+    inTraining(ws, (tx, a) => training.saveRule(tx, a, courseId, ruleId, raw)),
+  archiveRule: (ws: Ready, courseId: string, ruleId: string) =>
+    inTraining(ws, (tx, a) => training.archiveRule(tx, a, courseId, ruleId)),
+  person: (ws: Ready, employeeId: string) =>
+    inTraining(ws, (tx, a) =>
+      training.personTraining(tx, a, employeeId, trainingToday(ws)),
+    ),
+  record: (ws: Ready, employeeId: string, raw: training.RecordCommand) =>
+    inTraining(ws, (tx, a) =>
+      training.recordTraining(tx, a, employeeId, trainingToday(ws), raw),
+    ),
+  voidRecord: (
+    ws: Ready,
+    employeeId: string,
+    recordId: string,
+    reason: unknown,
+  ) =>
+    inTraining(ws, (tx, a) =>
+      training.voidRecord(tx, a, employeeId, recordId, reason),
+    ),
 };

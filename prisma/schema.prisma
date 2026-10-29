@@ -837,3 +837,117 @@ model OnboardingDocument {
   @@index([tenantId, caseId], map: "onboarding_document_case")
   @@map("onboarding_document")
 }
+
+// ---------------------------------------------------------------------------
+// M8.1: training foundation (migration 20261031120000_training_foundation).
+// Requirements are RULES; who needs what is worked out when read. Records are
+// append-only facts that can be voided once (trigger). Site, employee and
+// replaces_id foreign keys exist in SQL; only the course relations are modelled.
+
+enum TrainingCourseKind {
+  internal
+  external
+
+  @@map("training_course_kind")
+}
+
+enum TrainingCompletionMethod {
+  read_and_confirm
+  in_person
+  external_certificate
+
+  @@map("training_completion_method")
+}
+
+enum TrainingRequirementScope {
+  organisation
+  site
+  job_title
+  employee
+
+  @@map("training_requirement_scope")
+}
+
+enum TrainingRecordMethod {
+  read_and_confirm
+  in_person
+  external_certificate
+
+  @@map("training_record_method")
+}
+
+model TrainingCourse {
+  id                  String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId            String                   @map("tenant_id") @db.Uuid
+  name                String
+  description         String?
+  category            String                   @default("other")
+  kind                TrainingCourseKind
+  completionMethod    TrainingCompletionMethod @map("completion_method")
+  certificateExpected Boolean                  @default(false) @map("certificate_expected")
+  validityMonths      Int?                     @map("validity_months")
+  warnDays            Int                      @default(60) @map("warn_days")
+  content             String?
+  contentVersion      Int                      @default(1) @map("content_version")
+  isSuggested         Boolean                  @default(false) @map("is_suggested")
+  archivedAt          DateTime?                @map("archived_at") @db.Timestamptz
+  createdBy           String?                  @map("created_by") @db.Uuid
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  requirements TrainingRequirement[]
+  records      TrainingRecord[]
+
+  @@unique([tenantId, id])
+  @@map("training_course")
+}
+
+model TrainingRequirement {
+  id            String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String                   @map("tenant_id") @db.Uuid
+  courseId      String                   @map("course_id") @db.Uuid
+  scope         TrainingRequirementScope
+  siteId        String?                  @map("site_id") @db.Uuid
+  jobTitle      String?                  @map("job_title")
+  employeeId    String?                  @map("employee_id") @db.Uuid
+  mandatory     Boolean                  @default(true)
+  dueDays       Int                      @default(0) @map("due_days")
+  effectiveFrom DateTime                 @default(dbgenerated("CURRENT_DATE")) @map("effective_from") @db.Date
+  archivedAt    DateTime?                @map("archived_at") @db.Timestamptz
+  createdBy     String?                  @map("created_by") @db.Uuid
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  course TrainingCourse @relation(fields: [tenantId, courseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "training_requirement_course_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, courseId], map: "training_requirement_course")
+  @@map("training_requirement")
+}
+
+model TrainingRecord {
+  id            String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId      String               @map("tenant_id") @db.Uuid
+  employeeId    String               @map("employee_id") @db.Uuid
+  courseId      String               @map("course_id") @db.Uuid
+  courseVersion Int                  @map("course_version")
+  method        TrainingRecordMethod
+  completedOn   DateTime             @map("completed_on") @db.Date
+  expiresOn     DateTime?            @map("expires_on") @db.Date
+  provider      String?
+  reference     String?
+  selfCompleted Boolean              @default(false) @map("self_completed")
+  replacesId    String?              @map("replaces_id") @db.Uuid
+  recordedBy    String               @map("recorded_by") @db.Uuid
+  recordedAt    DateTime             @default(now()) @map("recorded_at") @db.Timestamptz
+  voidedAt      DateTime?            @map("voided_at") @db.Timestamptz
+  voidedBy      String?              @map("voided_by") @db.Uuid
+  voidReason    String?              @map("void_reason")
+
+  course TrainingCourse @relation(fields: [tenantId, courseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "training_record_course_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeId, id], map: "training_record_tenant_employee_id_key")
+  @@index([tenantId, employeeId, courseId], map: "training_record_employee_course")
+  @@map("training_record")
+}

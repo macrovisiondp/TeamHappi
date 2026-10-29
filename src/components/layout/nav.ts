@@ -55,7 +55,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/training",
     label: "Training",
     icon: GraduationCap,
-    stage: "planned",
+    stage: "live",
   },
   { href: "/rota", label: "Rota", icon: CalendarDays, stage: "planned" },
   { href: "/attendance", label: "Attendance", icon: Clock, stage: "planned" },

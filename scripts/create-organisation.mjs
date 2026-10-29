@@ -35,6 +35,9 @@ const ALL = [
   "onboarding.signoff",
   "rtw.view",
   "rtw.record",
+  "training.view",
+  "training.record",
+  "training.manage",
 ];
 
 export const SCRIPT_SYSTEM_ROLES = [
@@ -53,6 +56,9 @@ export const SCRIPT_SYSTEM_ROLES = [
       "onboarding.signoff",
       "rtw.view",
       "rtw.record",
+      "training.view",
+      "training.record",
+      "training.manage",
     ],
   },
   { key: "recruiter", name: "Recruiter", permissions: ["site.view"] },
@@ -65,6 +71,8 @@ export const SCRIPT_SYSTEM_ROLES = [
       "employee.view",
       "onboarding.view",
       "onboarding.manage",
+      "training.view",
+      "training.record",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

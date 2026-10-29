@@ -133,6 +133,10 @@ describe("application role posture", () => {
       team_member: "DELETE,INSERT,SELECT",
       tenant: "INSERT,SELECT",
       tenant_membership: "INSERT,SELECT,UPDATE",
+      // M8.1: UPDATE is column-level (see below). No DELETE.
+      training_course: "INSERT,SELECT",
+      training_record: "INSERT,SELECT",
+      training_requirement: "INSERT,SELECT",
       user: "SELECT",
     });
   });
@@ -149,7 +153,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
              WHERE grantee = 'teamhappi_app' AND privilege_type = 'UPDATE'
                AND table_name IN ('tenant', 'employee', 'invitation', 'onboarding_template',
                                   'onboarding_template_task', 'onboarding_case', 'onboarding_task',
-                                  'onboarding_document', 'rtw_check')
+                                  'onboarding_document', 'rtw_check', 'training_course',
+                                  'training_requirement', 'training_record')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -233,6 +238,25 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "updated_at",
       ],
       tenant: ["legal_name", "timezone", "updated_at"],
+      training_course: [
+        "archived_at",
+        "category",
+        "certificate_expected",
+        "content",
+        "content_version",
+        "description",
+        "name",
+        "updated_at",
+        "validity_months",
+        "warn_days",
+      ],
+      training_record: ["void_reason", "voided_at", "voided_by"],
+      training_requirement: [
+        "archived_at",
+        "due_days",
+        "mandatory",
+        "updated_at",
+      ],
     });
   });
 });
@@ -278,6 +302,9 @@ describe("row-level security coverage", () => {
       "team_member",
       "tenant",
       "tenant_membership",
+      "training_course",
+      "training_record",
+      "training_requirement",
       "user",
     ]);
     for (const r of rows) {

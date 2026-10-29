@@ -31,7 +31,8 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate, formatTime } from "@/lib/format";
-import { onboardingApi } from "@/lib/workspace";
+import { STATUS as TRAINING_STATUS } from "@/features/training/labels";
+import { onboardingApi, trainingApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Onboarding" };
 export const instant = false;
@@ -49,6 +50,13 @@ export default async function OnboardingCasePage({
   if (!c) notFound();
   const p = c.progress;
   const gaps = clearanceGaps(c.clearance);
+  // M8.1: training, for information only (doesn't change clearance or sign-off).
+  const training = ws.grants.has("training.view")
+    ? await trainingApi.person(ws, c.employeeId)
+    : null;
+  const outstanding = (training?.required ?? []).filter(
+    (r) => r.status !== "up_to_date",
+  );
   const signOffBlockedReason =
     c.status !== "active" || !c.can.signOffAuthorised
       ? null
@@ -187,6 +195,44 @@ export default async function OnboardingCasePage({
             </Card>
           </div>
         </section>
+      ) : null}
+
+      {training && training.required.length ? (
+        <Card aria-labelledby="training-heading">
+          <CardHeader>
+            <div>
+              <CardTitle id="training-heading">Training</CardTitle>
+              <CardDescription>
+                For information. Training doesn&rsquo;t change &ldquo;cleared to
+                start&rdquo; or sign-off.
+              </CardDescription>
+            </div>
+            <Badge tone={training.upToDate ? "success" : "warning"}>
+              {training.upToDate ? "Up to date" : "Training needed"}
+            </Badge>
+          </CardHeader>
+          {outstanding.length ? (
+            <ul className="flex flex-col gap-1 text-sm">
+              {outstanding.map((r) => (
+                <li key={r.courseId}>
+                  {r.courseName} ({r.mandatory ? "mandatory" : "recommended"}
+                  ): {TRAINING_STATUS[r.status].label.toLowerCase()}
+                  {r.dueOn && (r.status === "due" || r.status === "overdue")
+                    ? `, due ${formatDate(r.dueOn)}`
+                    : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm">All required training is done.</p>
+          )}
+          <Link
+            href={`/people/${c.employeeId}/training`}
+            className="w-fit text-sm font-semibold text-forest underline-offset-4 hover:underline"
+          >
+            Open training
+          </Link>
+        </Card>
       ) : null}
 
       {c.status === "active" ? (
