@@ -132,6 +132,36 @@ export default async function EmployeePage({
               </div>
             ))}
           </dl>
+          {hiredFrom ? (
+            <div className="flex flex-col gap-2 text-sm">
+              <Link
+                href={`/recruitment/applications/${hiredFrom.applicationId}`}
+                className="w-fit font-semibold text-forest underline-offset-4 hover:underline"
+              >
+                Open their application
+              </Link>
+              {hiredFrom.cvs.length ? (
+                <ul className="flex flex-col gap-1">
+                  {hiredFrom.cvs.map((cv) => (
+                    <li key={cv.id}>
+                      <a
+                        href={`/recruitment/cv/${cv.id}`}
+                        download
+                        className="font-semibold text-forest underline-offset-4 hover:underline"
+                      >
+                        Download CV<span className="sr-only">:</span>{" "}
+                        <span className="font-normal break-all">
+                          {cv.fileName}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-ink-muted">No CV on their application.</p>
+              )}
+            </div>
+          ) : null}
         </Card>
         <Card aria-labelledby="contact-heading">
           <CardHeader>

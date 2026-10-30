@@ -1495,6 +1495,11 @@ export async function hiredFrom(
       id: true,
       hiredAt: true,
       vacancy: { select: { title: true, siteId: true } },
+      documents: {
+        where: { status: "stored" },
+        orderBy: { uploadedAt: "desc" },
+        select: { id: true, fileName: true },
+      },
     },
   });
   if (!a || !canAt(actor, "recruitment.view", a.vacancy.siteId)) return null;
@@ -1502,6 +1507,8 @@ export async function hiredFrom(
     applicationId: a.id,
     vacancyTitle: a.vacancy.title,
     hiredAt: a.hiredAt,
+    // Their CVs stay on the application; downloads go through the same check and audit.
+    cvs: a.documents.map((d) => ({ id: d.id, fileName: d.fileName! })),
   };
 }
 
@@ -1515,8 +1522,14 @@ export async function retentionReview(
   if (!orgWide(actor, "recruitment.settings")) return null;
   const s = await settingsRow(tx, actor);
   const months = s?.retentionMonths ?? 6;
+  // Hired candidates are never offered for anonymisation: their details and
+  // CV now belong with their employee record (see the privacy notice).
   const candidates = await tx.candidate.findMany({
-    where: { tenantId: actor.tenantId, anonymisedAt: null },
+    where: {
+      tenantId: actor.tenantId,
+      anonymisedAt: null,
+      applications: { none: { outcome: "hired" } },
+    },
     select: {
       id: true,
       givenName: true,
