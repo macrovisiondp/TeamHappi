@@ -651,7 +651,42 @@ describe("hire → employee → onboarding (D3, D4)", () => {
     expect(team).toHaveLength(1);
     expect(
       await run(owner, (tx, a) => rc.hiredFrom(tx, a, employeeId)),
-    ).toMatchObject({ applicationId: app, vacancyTitle: "Weekend bartender" });
+    ).toMatchObject({
+      applicationId: app,
+      vacancyTitle: "Weekend bartender",
+      cvs: [],
+    });
+    // Their CV shows on the People record (for people with recruitment access).
+    const doc = ok(
+      await run(owner, (tx, a) =>
+        rc.recordUpload(tx, a, app, {
+          fileName: "Dee CV.pdf",
+          contentType: rc.CV_TYPES.pdf,
+          sizeBytes: 100,
+          sha256: "d".repeat(64),
+          providerId: "local-disk",
+          storageKey: `tenants/${A.tenantId}/objects/${"d".repeat(32)}`,
+        }),
+      ),
+    ).id;
+    expect(
+      (await run(owner, (tx, a) => rc.hiredFrom(tx, a, employeeId)))!.cvs,
+    ).toEqual([{ id: doc, fileName: "Dee CV.pdf" }]);
+    // Hired people are never offered for anonymisation, however long ago.
+    const candidateId = (await run(owner, (tx, a) =>
+      rc.getApplication(tx, a, app, TZ),
+    ))!.candidate.id;
+    const muchLater = "2030-01-01";
+    expect(
+      (await run(owner, (tx, a) =>
+        rc.retentionReview(tx, a, muchLater),
+      ))!.due.map((c) => c.id),
+    ).not.toContain(candidateId);
+    expect(
+      await run(owner, (tx, a) =>
+        rc.anonymiseCandidate(tx, a, candidateId, muchLater),
+      ),
+    ).toMatchObject({ ok: false, code: "conflict" });
     const events = await auditFor(app);
     expect(events.map((e) => e.action)).toContain("recruitment.hired");
     expect(
