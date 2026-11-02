@@ -57,7 +57,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: GraduationCap,
     stage: "live",
   },
-  { href: "/rota", label: "Rota", icon: CalendarDays, stage: "planned" },
+  { href: "/rota", label: "Rota", icon: CalendarDays, stage: "live" },
   { href: "/attendance", label: "Attendance", icon: Clock, stage: "planned" },
   { href: "/settings", label: "Settings", icon: Settings, stage: "live" },
 ];

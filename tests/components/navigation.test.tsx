@@ -31,6 +31,11 @@ describe("SidebarNav", () => {
 
   it("labels modules that are not built yet as planned, in text", () => {
     render(<SidebarNav />);
-    expect(screen.getByRole("link", { name: /^Rota.*Planned/ })).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /^Attendance.*Planned/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /^Rota/ }),
+    ).not.toHaveAccessibleName(/Planned/);
   });
 });

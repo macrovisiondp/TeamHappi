@@ -136,6 +136,11 @@ describe("application role posture", () => {
       interview: "INSERT,SELECT",
       interview_interviewer: "INSERT,SELECT",
       recruitment_settings: "INSERT,SELECT",
+      // M10.1: rota. UPDATE is column-level (see below). No DELETE.
+      rota_week: "INSERT,SELECT",
+      shift: "INSERT,SELECT",
+      shift_assignment: "INSERT,SELECT",
+      shift_change: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -168,7 +173,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'training_requirement', 'training_record', 'recruitment_settings',
                                   'vacancy', 'candidate', 'application', 'application_event',
                                   'application_note', 'interview', 'interview_interviewer',
-                                  'application_document')
+                                  'application_document', 'rota_week', 'shift',
+                                  'shift_assignment', 'shift_change')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -233,6 +239,21 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "updated_at",
       ],
       interview_interviewer: ["removed_at"],
+      rota_week: ["published_at", "published_by", "status", "updated_at"],
+      shift: [
+        "break_minutes",
+        "cancelled_at",
+        "cancelled_by",
+        "ends_at",
+        "note",
+        "role_label",
+        "starts_at",
+        "status",
+        "team_id",
+        "updated_at",
+        "updated_by",
+      ],
+      shift_assignment: ["removed_at", "removed_by"],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -382,7 +403,11 @@ describe("row-level security coverage", () => {
       "role",
       "role_assignment",
       "role_permission",
+      "rota_week",
       "rtw_check",
+      "shift",
+      "shift_assignment",
+      "shift_change",
       "site",
       "team",
       "team_member",

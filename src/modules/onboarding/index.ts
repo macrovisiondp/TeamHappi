@@ -10,6 +10,7 @@ export {
   archiveTemplateTask,
   cancelCase,
   caseForEmployee,
+  openRequiredTasks,
   changeCaseOwner,
   dashboard,
   getCase,
@@ -33,6 +34,7 @@ export { completeMyTask, myOnboarding } from "./self";
 export {
   getRightToWork,
   isClearedToWork,
+  rtwCoverage,
   recordRtwCheck,
   rtwAttentionCount,
   rtwFollowUps,

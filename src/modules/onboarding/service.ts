@@ -898,6 +898,36 @@ export async function caseForEmployee(
   );
 }
 
+/**
+ * For Rota (M10.1): how many required onboarding tasks are still open for each
+ * person with an active onboarding (people with none open are left out). Only
+ * onboardings the actor can view count; nothing else about them is returned.
+ */
+export async function openRequiredTasks(
+  tx: TenantTx,
+  actor: Actor,
+  employeeIds: readonly string[],
+  today: string,
+): Promise<Map<string, number>> {
+  const ids = employeeIds.filter(isUuid);
+  if (ids.length === 0) return new Map();
+  const cases = await tx.onboardingCase.findMany({
+    where: {
+      tenantId: actor.tenantId,
+      employeeId: { in: ids },
+      status: "active",
+    },
+    select: caseSelect,
+  });
+  const out = new Map<string, number>();
+  for (const c of cases) {
+    if (!canAt(actor, "onboarding.view", c.siteId)) continue;
+    const open = progressOf(taskFacts(c), today).requiredOutstanding;
+    if (open > 0) out.set(c.employeeId, (out.get(c.employeeId) ?? 0) + open);
+  }
+  return out;
+}
+
 async function loadCase(tx: TenantTx, actor: Actor, caseId: string) {
   if (!isUuid(caseId)) return null;
   const c = await findCase(tx, actor.tenantId, caseId);

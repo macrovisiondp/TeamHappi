@@ -31,6 +31,10 @@ export const PERMISSIONS = {
   "recruitment.hire": "Hire candidates (creates employee records)",
   "recruitment.settings":
     "Manage recruitment settings and candidate data retention",
+  // M10.1 rota.
+  "rota.view": "View rotas and shifts",
+  "rota.manage": "Create and change shifts and assign people",
+  "rota.publish": "Publish rotas so staff can see them",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -66,6 +70,9 @@ export const SYSTEM_ROLES: readonly {
       "recruitment.manage",
       "recruitment.hire",
       "recruitment.settings",
+      "rota.view",
+      "rota.manage",
+      "rota.publish",
     ],
   },
   {
@@ -86,6 +93,9 @@ export const SYSTEM_ROLES: readonly {
       "training.record",
       "recruitment.view",
       "recruitment.manage",
+      "rota.view",
+      "rota.manage",
+      "rota.publish",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

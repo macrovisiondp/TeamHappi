@@ -12,6 +12,7 @@ import { invitationLink } from "@/lib/invitations/token";
 import * as onboarding from "@/modules/onboarding";
 import * as training from "@/modules/training";
 import * as recruitment from "@/modules/recruitment";
+import * as rota from "@/modules/rota";
 
 import * as cv from "./cv-documents";
 import * as invites from "./invitations";
@@ -526,6 +527,46 @@ export const recruitmentApi = {
     if (r.ok) await cv.purgeDeletedCvs(ws);
     return r;
   },
+};
+
+// --- Rota (M10.1) ------------------------------------------------------------------------
+
+const inRota = <T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: rota.Actor) => Promise<T>,
+) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+
+export const rotaApi = {
+  sites: (ws: Ready) => inRota(ws, rota.rotaSites),
+  week: (ws: Ready, siteId: unknown, weekStart: unknown) =>
+    inRota(ws, (tx, a) => rota.getWeek(tx, a, siteId, weekStart)),
+  saveShift: (
+    ws: Ready,
+    siteId: unknown,
+    weekStart: unknown,
+    shiftId: string | null,
+    raw: rota.ShiftInput,
+  ) =>
+    inRota(ws, (tx, a) =>
+      rota.saveShift(tx, a, siteId, weekStart, shiftId, raw),
+    ),
+  cancelShift: (ws: Ready, shiftId: unknown) =>
+    inRota(ws, (tx, a) => rota.cancelShift(tx, a, shiftId)),
+  assign: (
+    ws: Ready,
+    shiftId: unknown,
+    employeeId: unknown,
+    overrideReason: unknown,
+  ) =>
+    inRota(ws, (tx, a) =>
+      rota.assignShift(tx, a, shiftId, employeeId, overrideReason),
+    ),
+  unassign: (ws: Ready, shiftId: unknown) =>
+    inRota(ws, (tx, a) => rota.unassignShift(tx, a, shiftId)),
+  copyPreviousWeek: (ws: Ready, siteId: unknown, weekStart: unknown) =>
+    inRota(ws, (tx, a) => rota.copyPreviousWeek(tx, a, siteId, weekStart)),
+  publish: (ws: Ready, siteId: unknown, weekStart: unknown) =>
+    inRota(ws, (tx, a) => rota.publishWeek(tx, a, siteId, weekStart)),
 };
 
 // --- CVs (M9.2b) ---------------------------------------------------------------------
