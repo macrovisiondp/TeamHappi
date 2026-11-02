@@ -8,6 +8,7 @@ export {
   archiveRule,
   getCourse,
   listCourses,
+  mandatoryGapsOn,
   matrix,
   personTraining,
   recordTraining,

@@ -282,6 +282,8 @@ model Site {
   onboardingCases     OnboardingCase[]
   vacancies           Vacancy[]
 
+  rotaWeeks RotaWeek[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@map("site")
@@ -305,6 +307,8 @@ model Team {
 
   site    Site         @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
   members TeamMember[]
+
+  shifts Shift[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, siteId, name])
@@ -352,6 +356,8 @@ model Employee {
   onboardingCases OnboardingCase[]
   rtwChecks       RtwCheck[]
   invitations     Invitation[]
+
+  shiftAssignments ShiftAssignment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
@@ -1249,4 +1255,91 @@ model PublicApplyThrottle {
 
   @@id([clientHash, windowStart])
   @@map("public_apply_throttle")
+}
+
+// --- M10.1 Rota -------------------------------------------------------------------
+
+model RotaWeek {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  siteId      String    @map("site_id") @db.Uuid
+  weekStart   DateTime  @map("week_start") @db.Date
+  status      String    @default("draft")
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  publishedBy String?   @map("published_by") @db.Uuid
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  site   Site    @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "rota_week_site_fkey")
+  shifts Shift[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, siteId], map: "rota_week_tenant_id_id_site_id_key")
+  @@unique([tenantId, siteId, weekStart], map: "rota_week_one_per_site_week")
+  @@map("rota_week")
+}
+
+model Shift {
+  id           String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  rotaWeekId   String    @map("rota_week_id") @db.Uuid
+  siteId       String    @map("site_id") @db.Uuid
+  teamId       String?   @map("team_id") @db.Uuid
+  roleLabel    String?   @map("role_label")
+  startsAt     DateTime  @map("starts_at") @db.Timestamptz
+  endsAt       DateTime  @map("ends_at") @db.Timestamptz
+  breakMinutes Int       @default(0) @map("break_minutes")
+  note         String?
+  status       String    @default("active")
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz
+  cancelledBy  String?   @map("cancelled_by") @db.Uuid
+  createdBy    String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  week        RotaWeek          @relation(fields: [tenantId, rotaWeekId, siteId], references: [tenantId, id, siteId], onDelete: Restrict, onUpdate: Restrict, map: "shift_week_fkey")
+  team        Team?             @relation(fields: [tenantId, teamId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "shift_team_fkey")
+  assignments ShiftAssignment[]
+  changes     ShiftChange[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, rotaWeekId, startsAt], map: "shift_week")
+  @@index([tenantId, siteId, startsAt], map: "shift_site_time")
+  @@map("shift")
+}
+
+model ShiftAssignment {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  shiftId        String    @map("shift_id") @db.Uuid
+  employeeId     String    @map("employee_id") @db.Uuid
+  assignedBy     String    @map("assigned_by") @db.Uuid
+  assignedAt     DateTime  @default(now()) @map("assigned_at") @db.Timestamptz
+  overrideReason String?   @map("override_reason")
+  removedAt      DateTime? @map("removed_at") @db.Timestamptz
+  removedBy      String?   @map("removed_by") @db.Uuid
+
+  shift    Shift    @relation(fields: [tenantId, shiftId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "shift_assignment_shift_fkey")
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "shift_assignment_employee_fkey")
+
+  @@unique([tenantId, id])
+  @@map("shift_assignment")
+}
+
+model ShiftChange {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  shiftId     String   @map("shift_id") @db.Uuid
+  kind        String
+  detail      Json     @default("{}")
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  shift Shift @relation(fields: [tenantId, shiftId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "shift_change_shift_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, shiftId, occurredAt], map: "shift_change_shift")
+  @@map("shift_change")
 }

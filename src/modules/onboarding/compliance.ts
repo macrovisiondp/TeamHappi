@@ -117,6 +117,24 @@ export async function isClearedToWork(
   return rtwCovers(rtwStateOn(facts ?? null, onDate));
 }
 
+/**
+ * Batch form of isClearedToWork for Rota (M10.1): a yes/no check per person
+ * and date, never the record itself.
+ */
+export async function rtwCoverage(
+  tx: TenantTx,
+  actor: Actor,
+  employeeIds: readonly string[],
+): Promise<(employeeId: string, onDate: string) => boolean> {
+  const facts = await rtwFactsFor(
+    tx,
+    actor.tenantId,
+    employeeIds.filter(isUuid),
+  );
+  return (employeeId, onDate) =>
+    rtwCovers(rtwStateOn(facts.get(employeeId) ?? null, onDate));
+}
+
 const nameOf = (e: {
   givenName: string;
   familyName: string;

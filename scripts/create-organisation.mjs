@@ -42,6 +42,9 @@ const ALL = [
   "recruitment.manage",
   "recruitment.hire",
   "recruitment.settings",
+  "rota.view",
+  "rota.manage",
+  "rota.publish",
 ];
 
 export const SCRIPT_SYSTEM_ROLES = [
@@ -67,6 +70,9 @@ export const SCRIPT_SYSTEM_ROLES = [
       "recruitment.manage",
       "recruitment.hire",
       "recruitment.settings",
+      "rota.view",
+      "rota.manage",
+      "rota.publish",
     ],
   },
   {
@@ -87,6 +93,9 @@ export const SCRIPT_SYSTEM_ROLES = [
       "training.record",
       "recruitment.view",
       "recruitment.manage",
+      "rota.view",
+      "rota.manage",
+      "rota.publish",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

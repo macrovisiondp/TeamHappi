@@ -762,6 +762,44 @@ function statusesFor(person: Person, basis: Basis, today: string) {
   return out;
 }
 
+/**
+ * For Rota (M10.1): mandatory courses that will be overdue or expired on a
+ * date, per person (course names only; people with none are left out). Only
+ * people whose training the actor can view are checked.
+ */
+export async function mandatoryGapsOn(
+  tx: TenantTx,
+  actor: Actor,
+  employeeIds: readonly string[],
+  onDate: string,
+): Promise<Map<string, string[]>> {
+  const ids = employeeIds.filter(isUuid);
+  if (ids.length === 0) return new Map();
+  const people = (
+    (await tx.employee.findMany({
+      where: { tenantId: actor.tenantId, id: { in: ids } },
+      select: personSelect,
+    })) as PersonRow[]
+  ).filter((e) => canAt(actor, "training.view", e.primarySiteId));
+  const basis = await loadBasis(
+    tx,
+    actor,
+    people.map((e) => e.id),
+  );
+  const names = new Map(basis.courses.map((c) => [c.id, c.name]));
+  const out = new Map<string, string[]>();
+  for (const e of people) {
+    const gaps = [...statusesFor(toPerson(e), basis, onDate)]
+      .filter(
+        ([, st]) =>
+          st.mandatory && (st.status === "overdue" || st.status === "expired"),
+      )
+      .map(([courseId]) => names.get(courseId) ?? "A course");
+    if (gaps.length) out.set(e.id, gaps);
+  }
+  return out;
+}
+
 // --- Matrix ---------------------------------------------------------------------------
 
 export type MatrixStatusFilter = Exclude<TrainingStatus, "not_required">;

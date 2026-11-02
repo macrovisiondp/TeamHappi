@@ -80,13 +80,17 @@ export default async function setup(project: TestProject) {
 
   if (!adminServerUrl) {
     // embedded-postgres registers async-exit-hook, which calls process.exit(0)
-    // on "beforeExit" and so turned failed runs into exit code 0. Load it only
-    // when we need a local server, and drop that hook: the teardown below
-    // stops the server itself.
-    const before = new Set(process.listeners("beforeExit"));
+    // on "beforeExit" (turning failed runs into exit code 0) and runs its
+    // callback-style hook without a callback on "exit". Load it only when we
+    // need a local server and drop both: the teardown below stops the server.
+    // Its Ctrl+C (signal) handling is kept.
+    const beforeExit = new Set(process.listeners("beforeExit"));
+    const exit = new Set(process.listeners("exit"));
     const { default: EmbeddedPostgres } = await import("embedded-postgres");
-    for (const listener of process.listeners("beforeExit"))
-      if (!before.has(listener)) process.off("beforeExit", listener);
+    for (const l of process.listeners("beforeExit"))
+      if (!beforeExit.has(l)) process.off("beforeExit", l);
+    for (const l of process.listeners("exit"))
+      if (!exit.has(l)) process.off("exit", l);
     const dir = mkdtempSync(join(tmpdir(), "teamhappi-pg-"));
     const password = secret();
     const port = 55000 + Math.floor(Math.random() * 2000);
