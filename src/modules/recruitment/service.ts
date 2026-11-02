@@ -1375,7 +1375,12 @@ export async function hire(
   applicationId: string,
   raw: { startDate?: unknown; startOnboarding?: unknown; templateId?: unknown },
 ): Promise<
-  Result<{ employeeId: string; caseId: string | null; alreadyHired: boolean }>
+  Result<{
+    employeeId: string;
+    caseId: string | null;
+    alreadyHired: boolean;
+    vacancyFilled: boolean;
+  }>
 > {
   const a = await loadApplication(tx, actor, applicationId);
   if (!a || !canAt(actor, "recruitment.view", a.vacancy.siteId))
@@ -1383,7 +1388,12 @@ export async function hire(
   if (a.outcome === "hired" && a.hiredEmployeeId)
     return {
       ok: true,
-      data: { employeeId: a.hiredEmployeeId, caseId: null, alreadyHired: true },
+      data: {
+        employeeId: a.hiredEmployeeId,
+        caseId: null,
+        alreadyHired: true,
+        vacancyFilled: false,
+      },
     };
   if (
     !canAt(actor, "recruitment.hire", a.vacancy.siteId) ||
@@ -1477,7 +1487,42 @@ export async function hire(
     if (!started.ok) throw new Rollback(started as Result<never>);
     caseId = started.data.id;
   }
-  return { ok: true, data: { employeeId, caseId, alreadyHired: false } };
+  // The last opening is filled: mark the vacancy Filled so its share link
+  // stops taking applications. Done in the same transaction as the hire.
+  const vacancy = await tx.vacancy.findUnique({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: a.vacancy.id } },
+    select: { status: true, openings: true },
+  });
+  const hiredCount = await tx.application.count({
+    where: {
+      tenantId: actor.tenantId,
+      vacancyId: a.vacancy.id,
+      outcome: "hired",
+    },
+  });
+  const vacancyFilled =
+    !!vacancy &&
+    (vacancy.status === "open" || vacancy.status === "paused") &&
+    hiredCount >= vacancy.openings;
+  if (vacancyFilled) {
+    await tx.vacancy.update({
+      where: { tenantId_id: { tenantId: actor.tenantId, id: a.vacancy.id } },
+      data: { status: "filled", updatedAt: new Date() },
+      select: { id: true },
+    });
+    await audit(
+      tx,
+      actor,
+      "recruitment.vacancy_status_changed",
+      "vacancy",
+      a.vacancy.id,
+      { from: vacancy.status, to: "filled", automatic: true },
+    );
+  }
+  return {
+    ok: true,
+    data: { employeeId, caseId, alreadyHired: false, vacancyFilled },
+  };
 }
 
 export { Rollback };

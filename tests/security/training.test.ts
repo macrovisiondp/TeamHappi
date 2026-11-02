@@ -316,10 +316,17 @@ describe("rules and automatic requirements", () => {
     const p = (await personOf(owner, bartender))!;
     const f = p.required.filter((r) => r.courseId === food);
     expect(f).toHaveLength(1);
+    // Due 7 days after the start date (1 Nov), or after today once they've started.
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/London",
+    }).format(new Date());
+    const from = today > "2026-11-01" ? today : "2026-11-01";
+    const due = new Date(`${from}T00:00:00Z`);
+    due.setUTCDate(due.getUTCDate() + 7);
     expect(f[0]).toMatchObject({
       mandatory: true,
       status: "due",
-      dueOn: "2026-11-08",
+      dueOn: due.toISOString().slice(0, 10),
     });
   });
 
