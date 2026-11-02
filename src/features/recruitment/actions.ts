@@ -155,12 +155,17 @@ export async function applicationCommandAction(
       startOnboarding: form.get("startOnboarding") === "on",
       templateId: str(form, "templateId") || undefined,
     });
+    const data = r.ok
+      ? (r.data as { alreadyHired: boolean; vacancyFilled: boolean })
+      : null;
     return r.ok
       ? {
           status: "saved",
-          message: (r.data as { alreadyHired: boolean }).alreadyHired
+          message: data!.alreadyHired
             ? "This candidate was already hired."
-            : "Hired. Their employee record has been created.",
+            : data!.vacancyFilled
+              ? "Hired. Their employee record has been created, and the vacancy is now Filled, so its link no longer takes applications."
+              : "Hired. Their employee record has been created.",
           href: `/people/${(r.data as { employeeId: string }).employeeId}`,
         }
       : { status: "error", message: r.message, fieldErrors: r.fieldErrors };

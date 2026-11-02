@@ -624,6 +624,7 @@ describe("hire → employee → onboarding (D3, D4)", () => {
       employeeId,
       caseId: null,
       alreadyHired: true,
+      vacancyFilled: false,
     });
     const linked = await admin(
       async (c) =>
@@ -692,6 +693,56 @@ describe("hire → employee → onboarding (D3, D4)", () => {
     expect(
       events.find((e) => e.action === "recruitment.hired")!.detail,
     ).not.toMatch(/Dee|dee@/);
+    // Two openings, one hired: the vacancy stays open.
+    const still = await admin(
+      async (c) =>
+        (await c.query(`SELECT status FROM vacancy WHERE id = $1`, [vacancy]))
+          .rows[0].status,
+    );
+    expect(still).toBe("open");
+  });
+
+  it("hiring into the last opening marks the vacancy Filled (audited), so it stops taking applications", async () => {
+    const single = ok(
+      await run(owner, (tx, a) =>
+        rc.saveVacancy(
+          tx,
+          a,
+          null,
+          vacancyRaw(A.siteId, { title: "One-off porter", openings: 1 }),
+        ),
+      ),
+    ).id;
+    ok(await run(owner, (tx, a) => rc.setVacancyStatus(tx, a, single, "open")));
+    const one = ok(
+      await run(owner, (tx, a) =>
+        rc.addApplication(tx, a, single, applicant("Fin", "fin@example.test")),
+      ),
+    ).id;
+    ok(await run(owner, (tx, a) => rc.moveStage(tx, a, one, "offer")));
+    const r = ok(
+      await run(owner, (tx, a) =>
+        rc.hire(tx, a, one, { startDate: "2026-11-20" }),
+      ),
+    );
+    expect(r).toMatchObject({ alreadyHired: false, vacancyFilled: true });
+    const status = await admin(
+      async (c) =>
+        (await c.query(`SELECT status FROM vacancy WHERE id = $1`, [single]))
+          .rows[0].status,
+    );
+    expect(status).toBe("filled");
+    const events = await auditFor(single);
+    expect(events.map((e) => e.action)).toContain(
+      "recruitment.vacancy_status_changed",
+    );
+    expect(
+      JSON.parse(
+        events
+          .filter((e) => e.action === "recruitment.vacancy_status_changed")
+          .at(-1)!.detail,
+      ),
+    ).toEqual({ from: "open", to: "filled", automatic: true });
   });
 });
 

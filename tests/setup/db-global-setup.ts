@@ -13,7 +13,6 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
 import type { TestProject } from "vitest/node";
 
@@ -80,6 +79,14 @@ export default async function setup(project: TestProject) {
   let stopServer = async () => {};
 
   if (!adminServerUrl) {
+    // embedded-postgres registers async-exit-hook, which calls process.exit(0)
+    // on "beforeExit" and so turned failed runs into exit code 0. Load it only
+    // when we need a local server, and drop that hook: the teardown below
+    // stops the server itself.
+    const before = new Set(process.listeners("beforeExit"));
+    const { default: EmbeddedPostgres } = await import("embedded-postgres");
+    for (const listener of process.listeners("beforeExit"))
+      if (!before.has(listener)) process.off("beforeExit", listener);
     const dir = mkdtempSync(join(tmpdir(), "teamhappi-pg-"));
     const password = secret();
     const port = 55000 + Math.floor(Math.random() * 2000);
