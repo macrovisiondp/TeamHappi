@@ -10,6 +10,9 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { Submit, textareaClass } from "@/features/onboarding/controls";
 
 import {
+  markShiftsSeenAction,
+  myShiftAction,
+  requestCommandAction,
   saveShiftAction,
   shiftCommandAction,
   weekCommandAction,
@@ -430,4 +433,147 @@ export function WeekActions({
       </Dialog>
     </div>
   );
+}
+
+// --- M10.2: requests ---------------------------------------------------------------------
+
+/** A manager answers one request to take an open shift. */
+export function RequestActions({
+  requestId,
+  name,
+  summary,
+}: {
+  requestId: string;
+  name: string;
+  summary: string;
+}) {
+  const [state, action] = useActionState(requestCommandAction, IDLE);
+  // A blocked or warned approval opens the dialog to explain, until closed.
+  const [closedFor, setClosedFor] = useState<RotaFormState | null>(null);
+  useReloadOnSave(state);
+  const err = state.status === "error" ? state : null;
+  const open = !!err?.warnings?.length && closedFor !== state;
+  const close = () => setClosedFor(state);
+  return (
+    <li className="flex flex-wrap items-center gap-2">
+      <span className="font-semibold">{name}</span>
+      <form action={action} className="flex flex-wrap gap-2">
+        <input type="hidden" name="requestId" value={requestId} />
+        <Button size="sm" type="submit" name="decision" value="approve">
+          Approve
+          <span className="sr-only">
+            {" "}
+            {name} for {summary}
+          </span>
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          type="submit"
+          name="decision"
+          value="decline"
+        >
+          Decline
+          <span className="sr-only">
+            {" "}
+            {name} for {summary}
+          </span>
+        </Button>
+      </form>
+      {err && !err.warnings?.length ? <Problem state={state} /> : null}
+      <Dialog
+        open={open}
+        onClose={close}
+        title={`Approve ${name}?`}
+        description={summary}
+      >
+        <form action={action} className="flex flex-col gap-4">
+          <input type="hidden" name="requestId" value={requestId} />
+          <input type="hidden" name="decision" value="approve" />
+          {err?.warnings?.length ? (
+            <Alert
+              tone={err.needsReason ? "warning" : "danger"}
+              title={
+                err.needsReason
+                  ? "Check before going ahead"
+                  : "This can't be approved"
+              }
+              role="alert"
+            >
+              <WarningList warnings={err.warnings} />
+            </Alert>
+          ) : null}
+          {err?.needsReason ? (
+            <Field
+              id={`req-reason-${requestId}`}
+              label="Why is it OK to go ahead?"
+              error={err.fieldErrors?.overrideReason}
+            >
+              <textarea
+                id={`req-reason-${requestId}`}
+                name="overrideReason"
+                required
+                maxLength={300}
+                rows={2}
+                className={textareaClass}
+              />
+            </Field>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={close}>
+              Back
+            </Button>
+            {err?.needsReason ? <Submit label="Approve anyway" /> : null}
+          </div>
+        </form>
+      </Dialog>
+    </li>
+  );
+}
+
+// --- M10.2: My shifts --------------------------------------------------------------------
+
+/** Ask for an open shift, or withdraw the request. */
+export function MyShiftButton({
+  shiftId,
+  requestId,
+  summary,
+}: {
+  shiftId: string;
+  requestId: string | null;
+  summary: string;
+}) {
+  const [state, action] = useActionState(myShiftAction, IDLE);
+  useReloadOnSave(state);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="shiftId" value={shiftId} />
+      {requestId ? (
+        <input type="hidden" name="requestId" value={requestId} />
+      ) : null}
+      <input
+        type="hidden"
+        name="intent"
+        value={requestId ? "withdraw" : "request"}
+      />
+      {state.status === "error" ? <Problem state={state} /> : null}
+      <div>
+        <Submit
+          label={requestId ? "Withdraw request" : "Ask for this shift"}
+          variant={requestId ? "secondary" : "primary"}
+          size="sm"
+        >
+          <span className="sr-only">{summary}: </span>
+        </Submit>
+      </div>
+    </form>
+  );
+}
+
+/** Marks My shifts as seen once shown, so highlights clear next time. */
+export function MarkShiftsSeen() {
+  useEffect(() => {
+    void markShiftsSeenAction();
+  }, []);
+  return null;
 }

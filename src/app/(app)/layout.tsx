@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { AccountMenu } from "@/components/layout/header-controls";
 import { AppShell } from "@/components/layout/app-shell";
 import { Skeleton } from "@/components/ui/misc";
+import { ShiftUpdatesLink } from "@/features/rota/updates-link";
 import { OrganisationSwitcher } from "@/features/workspace/components";
 import { getCurrentUser } from "@/lib/auth";
 import { getPlatformAccess } from "@/lib/platform-access";
@@ -26,6 +27,11 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       organisation={
         <Suspense fallback={<Skeleton className="h-11 w-40" />}>
           <OrganisationSwitcher />
+        </Suspense>
+      }
+      notices={
+        <Suspense fallback={null}>
+          <ShiftUpdatesLink />
         </Suspense>
       }
       accountMenu={

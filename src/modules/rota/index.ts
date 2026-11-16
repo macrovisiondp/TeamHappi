@@ -6,6 +6,7 @@ export {
   assignShift,
   cancelShift,
   copyPreviousWeek,
+  decideRequest,
   getWeek,
   publishWeek,
   rotaSites,
@@ -14,6 +15,13 @@ export {
   type Result,
   type ShiftInput,
 } from "./service";
+export {
+  markShiftsSeen,
+  myShiftUpdates,
+  myShifts,
+  requestShift,
+  withdrawRequest,
+} from "./self";
 export {
   addDays,
   formatMinutes,

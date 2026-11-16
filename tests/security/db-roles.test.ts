@@ -141,6 +141,9 @@ describe("application role posture", () => {
       shift: "INSERT,SELECT",
       shift_assignment: "INSERT,SELECT",
       shift_change: "INSERT,SELECT",
+      // M10.2: requests and last-seen. UPDATE is column-level. No DELETE.
+      shift_request: "INSERT,SELECT",
+      rota_seen: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -174,7 +177,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'vacancy', 'candidate', 'application', 'application_event',
                                   'application_note', 'interview', 'interview_interviewer',
                                   'application_document', 'rota_week', 'shift',
-                                  'shift_assignment', 'shift_change')
+                                  'shift_assignment', 'shift_change', 'shift_request',
+                                  'rota_seen')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -254,6 +258,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "updated_by",
       ],
       shift_assignment: ["removed_at", "removed_by"],
+      shift_request: ["decided_at", "decided_by", "status"],
+      rota_seen: ["seen_at"],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -403,11 +409,13 @@ describe("row-level security coverage", () => {
       "role",
       "role_assignment",
       "role_permission",
+      "rota_seen",
       "rota_week",
       "rtw_check",
       "shift",
       "shift_assignment",
       "shift_change",
+      "shift_request",
       "site",
       "team",
       "team_member",
