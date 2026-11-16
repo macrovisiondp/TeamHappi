@@ -359,6 +359,9 @@ model Employee {
 
   shiftAssignments ShiftAssignment[]
 
+  shiftRequests ShiftRequest[]
+  rotaSeen      RotaSeen[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
   @@unique([tenantId, membershipId])
@@ -1304,6 +1307,8 @@ model Shift {
   assignments ShiftAssignment[]
   changes     ShiftChange[]
 
+  requests ShiftRequest[]
+
   @@unique([tenantId, id])
   @@index([tenantId, rotaWeekId, startsAt], map: "shift_week")
   @@index([tenantId, siteId, startsAt], map: "shift_site_time")
@@ -1342,4 +1347,37 @@ model ShiftChange {
   @@unique([tenantId, id])
   @@index([tenantId, shiftId, occurredAt], map: "shift_change_shift")
   @@map("shift_change")
+}
+
+// --- M10.2 My shifts ----------------------------------------------------------------
+
+model ShiftRequest {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  shiftId     String    @map("shift_id") @db.Uuid
+  employeeId  String    @map("employee_id") @db.Uuid
+  status      String    @default("pending")
+  requestedBy String    @map("requested_by") @db.Uuid
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz
+  decidedBy   String?   @map("decided_by") @db.Uuid
+  decidedAt   DateTime? @map("decided_at") @db.Timestamptz
+
+  shift    Shift    @relation(fields: [tenantId, shiftId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "shift_request_shift_fkey")
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "shift_request_employee_fkey")
+
+  @@unique([tenantId, id])
+  @@map("shift_request")
+}
+
+model RotaSeen {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  seenAt     DateTime @default(now()) @map("seen_at") @db.Timestamptz
+
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "rota_seen_employee_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeId], map: "rota_seen_one_per_person")
+  @@map("rota_seen")
 }

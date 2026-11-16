@@ -343,6 +343,25 @@ export async function getWeek(
     }),
   ]);
   const active = shifts.filter((s) => s.status === "active");
+  // Staff asking to take open shifts (M10.2), for people who manage the rota.
+  const requests = canAt(actor, "rota.manage", site.id)
+    ? await tx.shiftRequest.findMany({
+        where: {
+          tenantId: actor.tenantId,
+          status: "pending",
+          shiftId: { in: active.map((s) => s.id) },
+        },
+        orderBy: { requestedAt: "asc" },
+        select: {
+          id: true,
+          shiftId: true,
+          employeeId: true,
+          employee: {
+            select: { givenName: true, familyName: true, preferredName: true },
+          },
+        },
+      })
+    : [];
   const timed = active.map((s) => ({
     id: s.id,
     startsAt: s.startsAt,
@@ -406,6 +425,13 @@ export async function getWeek(
           a && s.status === "active"
             ? check(a.employeeId, timedById.get(s.id)!)
             : [],
+        requests: requests
+          .filter((r) => r.shiftId === s.id)
+          .map((r) => ({
+            id: r.id,
+            employeeId: r.employeeId,
+            name: nameOf(r.employee),
+          })),
       };
     }),
     people: people.map((p) => ({
@@ -418,6 +444,7 @@ export async function getWeek(
     teams,
     totalMinutes: active.reduce((sum, s) => sum + workedMinutes(s), 0),
     openShifts: active.filter((s) => s.assignments.length === 0).length,
+    pendingRequests: requests.length,
     can: {
       manage: canManage,
       publish: canAt(actor, "rota.publish", site.id),
@@ -714,6 +741,22 @@ export async function assignShift(
       employeeId: person.id,
       previousEmployeeId: previous?.employeeId ?? null,
     });
+  // The shift is filled: the person's own request (if any) is approved and
+  // everyone else's is declined (M10.2).
+  await tx.shiftRequest.updateMany({
+    where: { tenantId: actor.tenantId, shiftId: s.id, status: "pending" },
+    data: { status: "declined", decidedBy: actor.userId, decidedAt: now },
+  });
+  await tx.shiftRequest.updateMany({
+    where: {
+      tenantId: actor.tenantId,
+      shiftId: s.id,
+      employeeId: person.id,
+      status: "declined",
+      decidedAt: now,
+    },
+    data: { status: "approved" },
+  });
   await audit(tx, actor, "rota.shift_assigned", "shift", s.id, {
     employeeId: person.id,
     previousEmployeeId: previous?.employeeId ?? null,
@@ -955,4 +998,53 @@ export async function publishWeek(
     shifts: count,
   });
   return { ok: true, data: { id: week.id } };
+}
+
+// --- Requests to take open shifts (M10.2) ---------------------------------------------
+
+/**
+ * A manager answers a request. Approving assigns the person through
+ * assignShift, so every check applies (warnings need `overrideReason`).
+ */
+export async function decideRequest(
+  tx: TenantTx,
+  actor: Actor,
+  requestId: unknown,
+  decision: unknown,
+  overrideReason: unknown,
+): Promise<Result> {
+  if (typeof requestId !== "string" || !isUuid(requestId))
+    return notFound("request");
+  const r = await tx.shiftRequest.findUnique({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: requestId } },
+    select: {
+      id: true,
+      status: true,
+      shiftId: true,
+      employeeId: true,
+      shift: { select: { siteId: true } },
+    },
+  });
+  if (!r || !canAt(actor, "rota.view", r.shift.siteId))
+    return notFound("request");
+  if (!canAt(actor, "rota.manage", r.shift.siteId)) return forbidden();
+  if (r.status !== "pending")
+    return conflict("This request has already been answered.");
+  if (decision === "approve")
+    return assignShift(tx, actor, r.shiftId, r.employeeId, overrideReason);
+  if (decision !== "decline") return invalid({ decision: "Choose an answer" });
+  await tx.shiftRequest.update({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: r.id } },
+    data: {
+      status: "declined",
+      decidedBy: actor.userId,
+      decidedAt: new Date(),
+    },
+    select: { id: true },
+  });
+  await audit(tx, actor, "rota.shift_request_declined", "shift", r.shiftId, {
+    requestId: r.id,
+    employeeId: r.employeeId,
+  });
+  return { ok: true, data: { id: r.id } };
 }

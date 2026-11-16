@@ -12,11 +12,14 @@ import { SidebarNav } from "./sidebar-nav";
 export function AppShell({
   children,
   accountMenu,
+  notices,
   organisation,
   navSet = "tenant",
 }: {
   children: ReactNode;
   accountMenu?: ReactNode;
+  /** Small header links such as "2 shift updates", rendered by the layout. */
+  notices?: ReactNode;
   /** The platform name, or the organisation switcher rendered by the layout. */
   organisation: ReactNode;
   navSet?: NavSet;
@@ -53,6 +56,7 @@ export function AppShell({
                 <div className="min-w-0">{organisation}</div>
               )}
               {navSet === "demo" ? <NotificationsMenu /> : null}
+              {notices}
               {accountMenu}
             </div>
           </div>

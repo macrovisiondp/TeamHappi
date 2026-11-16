@@ -142,3 +142,50 @@ export async function weekCommandAction(
   }
   return { status: "error", message: "Unknown action." };
 }
+
+// --- M10.2: requests and My shifts -------------------------------------------------------
+
+export async function requestCommandAction(
+  _prev: RotaFormState,
+  form: FormData,
+): Promise<RotaFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const decision = str(form, "decision");
+  return toState(
+    await rotaApi.decideRequest(
+      ws,
+      str(form, "requestId"),
+      decision,
+      str(form, "overrideReason"),
+    ),
+    decision === "approve"
+      ? "Approved: they're on the shift."
+      : "Request declined.",
+  );
+}
+
+export async function myShiftAction(
+  _prev: RotaFormState,
+  form: FormData,
+): Promise<RotaFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  if (str(form, "intent") === "request")
+    return toState(
+      await rotaApi.requestShift(ws, str(form, "shiftId")),
+      "Asked. If your manager approves, the shift will appear in your shifts.",
+    );
+  if (str(form, "intent") === "withdraw")
+    return toState(
+      await rotaApi.withdrawRequest(ws, str(form, "requestId")),
+      "Request withdrawn.",
+    );
+  return { status: "error", message: "Unknown action." };
+}
+
+/** Called once My shifts has been shown, so highlights clear next time. */
+export async function markShiftsSeenAction(): Promise<void> {
+  const ws = await ready();
+  if (ws) await rotaApi.markSeen(ws);
+}

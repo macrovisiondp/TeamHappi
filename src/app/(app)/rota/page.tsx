@@ -1,6 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Field, Select } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
 import {
+  RequestActions,
   ShiftActions,
   ShiftDialog,
   WeekActions,
@@ -30,6 +32,8 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
   const p = await searchParams;
   const sites = await rotaApi.sites(ws);
+  // Staff without rota access go to their own shifts (M10.2).
+  if (sites.length === 0 && (await rotaApi.mine(ws))) redirect("/rota/me");
   if (sites.length === 0)
     return (
       <div className="flex flex-col gap-6">
@@ -152,6 +156,9 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
         <p className="text-sm text-ink-muted">
           {active.length} shift{active.length === 1 ? "" : "s"} ·{" "}
           {minutesLabel(w.totalMinutes)} planned · {w.openShifts} open
+          {w.pendingRequests
+            ? ` · ${w.pendingRequests} request${w.pendingRequests === 1 ? "" : "s"} to take open shifts`
+            : ""}
           {w.status === "draft"
             ? " · Staff can't see this week until it's published."
             : ""}
@@ -211,6 +218,23 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
                               <Badge tone="warning">Open</Badge>
                             )}
                           </p>
+                          {w.can.manage && s.requests.length ? (
+                            <div className="flex flex-col gap-1">
+                              <p className="text-xs font-semibold text-ink-muted">
+                                Asked to take it:
+                              </p>
+                              <ul className="flex flex-col gap-2">
+                                {s.requests.map((r) => (
+                                  <RequestActions
+                                    key={r.id}
+                                    requestId={r.id}
+                                    name={r.name}
+                                    summary={summary}
+                                  />
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
                           {s.note ? (
                             <p className="whitespace-pre-line text-ink-muted">
                               {s.note}

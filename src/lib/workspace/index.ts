@@ -567,6 +567,23 @@ export const rotaApi = {
     inRota(ws, (tx, a) => rota.copyPreviousWeek(tx, a, siteId, weekStart)),
   publish: (ws: Ready, siteId: unknown, weekStart: unknown) =>
     inRota(ws, (tx, a) => rota.publishWeek(tx, a, siteId, weekStart)),
+  decideRequest: (
+    ws: Ready,
+    requestId: unknown,
+    decision: unknown,
+    overrideReason: unknown,
+  ) =>
+    inRota(ws, (tx, a) =>
+      rota.decideRequest(tx, a, requestId, decision, overrideReason),
+    ),
+  // My shifts (M10.2): the signed-in person's own record only.
+  mine: (ws: Ready) => inRota(ws, (tx, a) => rota.myShifts(tx, a)),
+  myUpdates: (ws: Ready) => inRota(ws, rota.myShiftUpdates),
+  markSeen: (ws: Ready) => inRota(ws, rota.markShiftsSeen),
+  requestShift: (ws: Ready, shiftId: unknown) =>
+    inRota(ws, (tx, a) => rota.requestShift(tx, a, shiftId)),
+  withdrawRequest: (ws: Ready, requestId: unknown) =>
+    inRota(ws, (tx, a) => rota.withdrawRequest(tx, a, requestId)),
 };
 
 // --- CVs (M9.2b) ---------------------------------------------------------------------
