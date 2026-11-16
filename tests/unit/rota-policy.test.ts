@@ -4,6 +4,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clashesWithUnavailability,
+  describeUnavailability,
   formatMinutes,
   mondayOf,
   shiftTimes,
@@ -136,5 +138,104 @@ describe("working-time checks (warnings, except overlaps)", () => {
 
   it("ignores the shift itself (editing)", () => {
     expect(codes([s])).toEqual([]);
+  });
+});
+
+describe("unavailability (M10.3)", () => {
+  const weekly = (
+    weekday: number,
+    startTime: string | null = null,
+    endTime: string | null = null,
+  ) => ({
+    kind: "weekly" as const,
+    weekday,
+    startsOn: null,
+    endsOn: null,
+    startTime,
+    endTime,
+  });
+  const dates = (
+    startsOn: string,
+    endsOn: string,
+    startTime: string | null = null,
+    endTime: string | null = null,
+  ) => ({
+    kind: "dates" as const,
+    weekday: null,
+    startsOn,
+    endsOn,
+    startTime,
+    endTime,
+  });
+
+  it("weekly, all day: any shift touching that weekday", () => {
+    // 8 Nov 2026 is a Sunday (7).
+    expect(
+      clashesWithUnavailability(
+        weekly(7),
+        "2026-11-08T10:00",
+        "2026-11-08T16:00",
+      ),
+    ).toBe(true);
+    expect(
+      clashesWithUnavailability(
+        weekly(7),
+        "2026-11-09T10:00",
+        "2026-11-09T16:00",
+      ),
+    ).toBe(false);
+    // Saturday night into Sunday morning touches Sunday.
+    expect(
+      clashesWithUnavailability(
+        weekly(7),
+        "2026-11-07T20:00",
+        "2026-11-08T02:00",
+      ),
+    ).toBe(true);
+  });
+
+  it("weekly between times: only overlapping shifts", () => {
+    // Tuesdays 18:00 to 23:00; 3 Nov 2026 is a Tuesday.
+    const r = weekly(2, "18:00", "23:00");
+    expect(
+      clashesWithUnavailability(r, "2026-11-03T09:00", "2026-11-03T17:00"),
+    ).toBe(false);
+    expect(
+      clashesWithUnavailability(r, "2026-11-03T12:00", "2026-11-03T18:30"),
+    ).toBe(true);
+    expect(
+      clashesWithUnavailability(r, "2026-11-03T23:00", "2026-11-04T03:00"),
+    ).toBe(false);
+  });
+
+  it("date ranges include both ends", () => {
+    const r = dates("2026-12-20", "2026-12-24");
+    expect(
+      clashesWithUnavailability(r, "2026-12-20T09:00", "2026-12-20T12:00"),
+    ).toBe(true);
+    expect(
+      clashesWithUnavailability(r, "2026-12-24T09:00", "2026-12-24T12:00"),
+    ).toBe(true);
+    expect(
+      clashesWithUnavailability(r, "2026-12-25T09:00", "2026-12-25T12:00"),
+    ).toBe(false);
+    expect(
+      clashesWithUnavailability(r, "2026-12-19T20:00", "2026-12-20T01:00"),
+    ).toBe(true);
+  });
+
+  it("describes entries plainly", () => {
+    expect(describeUnavailability(weekly(7))).toBe("Sundays, all day");
+    expect(describeUnavailability(weekly(2, "18:00", "23:00"))).toBe(
+      "Tuesdays, 18:00 to 23:00",
+    );
+    expect(describeUnavailability(dates("2026-12-20", "2026-12-24"))).toBe(
+      "20 Dec 2026 to 24 Dec 2026, all day",
+    );
+    expect(
+      describeUnavailability(
+        dates("2026-12-25", "2026-12-25", "09:00", "12:00"),
+      ),
+    ).toBe("25 Dec 2026, 09:00 to 12:00");
   });
 });

@@ -189,3 +189,91 @@ export async function markShiftsSeenAction(): Promise<void> {
   const ws = await ready();
   if (ws) await rotaApi.markSeen(ws);
 }
+
+// --- M10.3: availability, drops and swaps ---------------------------------------------------
+
+export async function changeCommandAction(
+  _prev: RotaFormState,
+  form: FormData,
+): Promise<RotaFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const decision = str(form, "decision");
+  return toState(
+    await rotaApi.decideChange(
+      ws,
+      str(form, "requestId"),
+      decision,
+      str(form, "overrideReason"),
+    ),
+    decision === "approve" ? "Approved." : "Request declined.",
+  );
+}
+
+export async function myChangeAction(
+  _prev: RotaFormState,
+  form: FormData,
+): Promise<RotaFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  switch (str(form, "intent")) {
+    case "drop":
+    case "swap":
+      return toState(
+        await rotaApi.requestChange(
+          ws,
+          str(form, "shiftId"),
+          str(form, "intent"),
+          str(form, "targetEmployeeId"),
+        ),
+        str(form, "intent") === "drop"
+          ? "Asked to drop this shift. Your manager decides."
+          : "Asked. Your colleague accepts first, then your manager decides.",
+      );
+    case "withdraw":
+      return toState(
+        await rotaApi.withdrawChange(ws, str(form, "requestId")),
+        "Request withdrawn.",
+      );
+    case "accept":
+    case "refuse":
+      return toState(
+        await rotaApi.respondToSwap(
+          ws,
+          str(form, "requestId"),
+          str(form, "intent") === "accept",
+        ),
+        str(form, "intent") === "accept"
+          ? "Accepted. Your manager decides; if approved, it appears in your shifts."
+          : "Declined.",
+      );
+    default:
+      return { status: "error", message: "Unknown action." };
+  }
+}
+
+export async function availabilityAction(
+  _prev: RotaFormState,
+  form: FormData,
+): Promise<RotaFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  if (str(form, "intent") === "remove")
+    return toState(
+      await rotaApi.removeUnavailability(ws, str(form, "id")),
+      "Removed.",
+    );
+  return toState(
+    await rotaApi.addUnavailability(ws, {
+      kind: str(form, "kind"),
+      weekday: str(form, "weekday"),
+      startsOn: str(form, "startsOn"),
+      endsOn: str(form, "endsOn"),
+      allDay: str(form, "allDay"),
+      startTime: str(form, "startTime"),
+      endTime: str(form, "endTime"),
+      note: str(form, "note"),
+    }),
+    "Saved. Managers will see this when they plan the rota.",
+  );
+}

@@ -20,6 +20,8 @@ import * as training from "@/modules/training";
 import {
   addDays,
   canAt,
+  clashesWithUnavailability,
+  describeUnavailability,
   formatMinutes,
   isIsoDate,
   mondayOf,
@@ -33,6 +35,7 @@ import {
   zonedToUtc,
   type Actor,
   type TimedShift,
+  type UnavailableRule,
   type Warning,
 } from "./policy";
 
@@ -206,6 +209,7 @@ async function checker(
   weekStartAt: Date,
   weekEndAt: Date,
   today: string,
+  timeZone: string,
 ) {
   const ids = [...new Set(employeeIds)];
   if (ids.length === 0) return () => [] as Warning[];
@@ -221,7 +225,8 @@ async function checker(
     Math.max(weekEndAt.getTime(), ...shifts.map((s) => s.endsAt.getTime())) +
       24 * 3600_000,
   );
-  const [rtw, openTasks, gapsByDay, theirs] = await Promise.all([
+  const [unavailable, rtw, openTasks, gapsByDay, theirs] = await Promise.all([
+    unavailabilityFor(tx, actor, ids),
     onboarding.rtwCoverage(tx, actor, ids),
     onboarding.openRequiredTasks(tx, actor, ids, today),
     Promise.all(
@@ -295,8 +300,71 @@ async function checker(
         blocking: false,
         message: `Mandatory training overdue or expired by then: ${missing.join(", ")}.`,
       });
+    const clash = (unavailable.get(employeeId) ?? []).find((r) =>
+      clashesWithUnavailability(
+        r,
+        utcToZoned(shift.startsAt, timeZone),
+        utcToZoned(shift.endsAt, timeZone),
+      ),
+    );
+    if (clash)
+      out.push({
+        code: "unavailable",
+        blocking: false,
+        message: `They said they can't work then (${describeUnavailability(clash)}).`,
+      });
     return out;
   };
+}
+
+const hhmm = (t: Date | null) => (t ? t.toISOString().slice(11, 16) : null);
+
+/** Current unavailability per person (M10.3), as rules. */
+export async function unavailabilityFor(
+  tx: TenantTx,
+  actor: Actor,
+  employeeIds: readonly string[],
+) {
+  const rows = employeeIds.length
+    ? await tx.unavailability.findMany({
+        where: {
+          tenantId: actor.tenantId,
+          employeeId: { in: [...employeeIds] },
+          removedAt: null,
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          employeeId: true,
+          kind: true,
+          weekday: true,
+          startsOn: true,
+          endsOn: true,
+          startTime: true,
+          endTime: true,
+          note: true,
+        },
+      })
+    : [];
+  const out = new Map<
+    string,
+    (UnavailableRule & { id: string; note: string | null })[]
+  >();
+  for (const r of rows)
+    out.set(r.employeeId, [
+      ...(out.get(r.employeeId) ?? []),
+      {
+        id: r.id,
+        kind: r.kind as "weekly" | "dates",
+        weekday: r.weekday,
+        startsOn: r.startsOn ? isoOf(r.startsOn) : null,
+        endsOn: r.endsOn ? isoOf(r.endsOn) : null,
+        startTime: hhmm(r.startTime),
+        endTime: hhmm(r.endTime),
+        note: r.note,
+      },
+    ]);
+  return out;
 }
 
 export async function getWeek(
@@ -362,6 +430,46 @@ export async function getWeek(
         },
       })
     : [];
+  // Drop and swap requests (M10.3) on this week's shifts, for managers.
+  const changeRows = canAt(actor, "rota.manage", site.id)
+    ? await tx.shiftChangeRequest.findMany({
+        where: {
+          tenantId: actor.tenantId,
+          status: { in: ["pending", "accepted"] },
+          shiftId: { in: active.map((s) => s.id) },
+        },
+        select: {
+          id: true,
+          shiftId: true,
+          kind: true,
+          status: true,
+          employee: {
+            select: { givenName: true, familyName: true, preferredName: true },
+          },
+          target: {
+            select: { givenName: true, familyName: true, preferredName: true },
+          },
+        },
+      })
+    : [];
+  const changes = new Map(
+    changeRows.map((c) => [
+      c.shiftId,
+      {
+        id: c.id,
+        kind: c.kind as "drop" | "swap",
+        status: c.status as "pending" | "accepted",
+        from: nameOf(c.employee),
+        to: c.target ? nameOf(c.target) : null,
+      },
+    ]),
+  );
+  const unavailableRules = await unavailabilityFor(
+    tx,
+    actor,
+    people.map((p) => p.id),
+  );
+  const peopleNames = new Map(people.map((p) => [p.id, nameOf(p)]));
   const timed = active.map((s) => ({
     id: s.id,
     startsAt: s.startsAt,
@@ -382,6 +490,7 @@ export async function getWeek(
         weekStartAt,
         weekEndAt,
         today,
+        tz,
       )
     : () => [];
   const timedById = new Map(timed.map((t) => [t.id, t]));
@@ -425,6 +534,7 @@ export async function getWeek(
           a && s.status === "active"
             ? check(a.employeeId, timedById.get(s.id)!)
             : [],
+        change: changes.get(s.id) ?? null,
         requests: requests
           .filter((r) => r.shiftId === s.id)
           .map((r) => ({
@@ -445,6 +555,28 @@ export async function getWeek(
     totalMinutes: active.reduce((sum, s) => sum + workedMinutes(s), 0),
     openShifts: active.filter((s) => s.assignments.length === 0).length,
     pendingRequests: requests.length,
+    pendingChanges: changeRows.length,
+    unavailable: weekDays(weekStart).flatMap((day) =>
+      [...unavailableRules].flatMap(([employeeId, list]) =>
+        list
+          .filter((r) =>
+            clashesWithUnavailability(
+              r,
+              `${day}T00:00`,
+              `${addDays(day, 1)}T00:00`,
+            ),
+          )
+          .map((r) => ({
+            day,
+            employeeId,
+            name: peopleNames.get(employeeId) ?? "Someone",
+            when:
+              r.startTime && r.endTime
+                ? `${r.startTime} to ${r.endTime}`
+                : "all day",
+          })),
+      ),
+    ),
     can: {
       manage: canManage,
       publish: canAt(actor, "rota.publish", site.id),
@@ -587,6 +719,7 @@ export async function saveShift(
       zonedToUtc(`${weekStart}T00:00`, site.timezone)!,
       zonedToUtc(`${addDays(weekStart, 7)}T00:00`, site.timezone)!,
       day,
+      site.timezone,
     );
     const blocking = check(who.employeeId, timed).filter((w) => w.blocking);
     if (blocking.length)
@@ -608,6 +741,22 @@ export async function saveShift(
       endsAt: times.endsAt.toISOString(),
     });
   return { ok: true, data: { id: existing.id } };
+}
+
+/** The shift changed some other way: open drop/swap requests no longer apply. */
+async function cancelOpenChanges(tx: TenantTx, actor: Actor, shiftId: string) {
+  await tx.shiftChangeRequest.updateMany({
+    where: {
+      tenantId: actor.tenantId,
+      shiftId,
+      status: { in: ["pending", "accepted"] },
+    },
+    data: {
+      status: "cancelled",
+      decidedBy: actor.userId,
+      decidedAt: new Date(),
+    },
+  });
 }
 
 /** Cancels a shift (kept for history; it no longer counts anywhere). */
@@ -633,6 +782,7 @@ export async function cancelShift(
     },
     select: { id: true },
   });
+  await cancelOpenChanges(tx, actor, s.id);
   if (s.week.status === "published") {
     await change(tx, actor, s.id, "cancelled", {
       employeeId: s.assignments[0]?.employeeId ?? null,
@@ -693,6 +843,7 @@ export async function assignShift(
     zonedToUtc(`${weekStart}T00:00`, site.timezone)!,
     zonedToUtc(`${addDays(weekStart, 7)}T00:00`, site.timezone)!,
     day,
+    site.timezone,
   );
   const warnings = check(person.id, timed);
   const blocking = warnings.filter((w) => w.blocking);
@@ -741,6 +892,7 @@ export async function assignShift(
       employeeId: person.id,
       previousEmployeeId: previous?.employeeId ?? null,
     });
+  await cancelOpenChanges(tx, actor, s.id);
   // The shift is filled: the person's own request (if any) is approved and
   // everyone else's is declined (M10.2).
   await tx.shiftRequest.updateMany({
@@ -782,6 +934,7 @@ export async function unassignShift(
     data: { removedAt: new Date(), removedBy: actor.userId },
     select: { id: true },
   });
+  await cancelOpenChanges(tx, actor, s.id);
   if (s.week.status === "published")
     await change(tx, actor, s.id, "unassigned", {
       employeeId: current.employeeId,
@@ -929,6 +1082,7 @@ export async function copyPreviousWeek(
             weekStartAt,
             weekEndAt,
             c.timed.day,
+            tz,
           )
         : null;
     if (!check || check(c.employeeId, c.timed).length) {
@@ -1045,6 +1199,85 @@ export async function decideRequest(
   await audit(tx, actor, "rota.shift_request_declined", "shift", r.shiftId, {
     requestId: r.id,
     employeeId: r.employeeId,
+  });
+  return { ok: true, data: { id: r.id } };
+}
+
+// --- Drop and swap requests (M10.3) -----------------------------------------------------
+
+/**
+ * A manager answers a drop or swap request. Approving a drop takes the person
+ * off (the shift becomes open); approving a swap the colleague has accepted
+ * assigns the colleague through assignShift, so every check applies.
+ */
+export async function decideChange(
+  tx: TenantTx,
+  actor: Actor,
+  requestId: unknown,
+  decision: unknown,
+  overrideReason: unknown,
+): Promise<Result> {
+  if (typeof requestId !== "string" || !isUuid(requestId))
+    return notFound("request");
+  const r = await tx.shiftChangeRequest.findUnique({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: requestId } },
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      shiftId: true,
+      targetEmployeeId: true,
+      shift: { select: { siteId: true } },
+    },
+  });
+  if (!r || !canAt(actor, "rota.view", r.shift.siteId))
+    return notFound("request");
+  if (!canAt(actor, "rota.manage", r.shift.siteId)) return forbidden();
+  if (r.status !== "pending" && r.status !== "accepted")
+    return conflict("This request has already been answered.");
+  if (decision === "decline") {
+    await tx.shiftChangeRequest.update({
+      where: { tenantId_id: { tenantId: actor.tenantId, id: r.id } },
+      data: {
+        status: "declined",
+        decidedBy: actor.userId,
+        decidedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    await audit(tx, actor, "rota.change_declined", "shift", r.shiftId, {
+      requestId: r.id,
+      kind: r.kind,
+    });
+    return { ok: true, data: { id: r.id } };
+  }
+  if (decision !== "approve") return invalid({ decision: "Choose an answer" });
+  if (r.kind === "swap" && r.status !== "accepted")
+    return conflict("The colleague hasn't accepted this swap yet.");
+  const done =
+    r.kind === "drop"
+      ? await unassignShift(tx, actor, r.shiftId)
+      : await assignShift(
+          tx,
+          actor,
+          r.shiftId,
+          r.targetEmployeeId,
+          overrideReason,
+        );
+  if (!done.ok) return done;
+  // assign/unassign cancelled open requests for the shift; this one was approved.
+  await tx.shiftChangeRequest.update({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: r.id } },
+    data: {
+      status: "approved",
+      decidedBy: actor.userId,
+      decidedAt: new Date(),
+    },
+    select: { id: true },
+  });
+  await audit(tx, actor, "rota.change_approved", "shift", r.shiftId, {
+    requestId: r.id,
+    kind: r.kind,
   });
   return { ok: true, data: { id: r.id } };
 }

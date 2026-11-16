@@ -238,6 +238,44 @@ test("staff see their published shifts, ask for an open one, and the manager app
     .filter({ hasText: `O${run}` });
   await expect(approved.getByText("New", { exact: true })).toBeVisible(SLOW);
 
+  // M10.3: they add a time they can't work (shown back to them).
+  await me.getByLabel("Specific dates").check();
+  await me.getByLabel("From", { exact: true }).fill(nextWeekDay(20));
+  await me.getByLabel("Note for your manager (optional)").fill("Exams");
+  await me.getByRole("button", { name: "Save" }).click();
+  await expect(me.getByText("Exams")).toBeVisible(SLOW);
+  await axe(me, "my shifts with availability");
+
+  // They ask to drop their first shift; the manager approves; it's no longer theirs.
+  await me
+    .getByRole("listitem")
+    .filter({ hasText: `R${run}` })
+    .getByRole("button", { name: /Ask to drop/ })
+    .click();
+  await me
+    .getByRole("dialog", { name: "Drop this shift?" })
+    .getByRole("button", { name: "Ask to drop" })
+    .click();
+  await expect(me.getByText(/You.ve asked to drop this shift/)).toBeVisible(
+    SLOW,
+  );
+  await page.goto(rota, SLOW);
+  await expect(page.getByText(`${name} asked to drop this shift.`)).toBeVisible(
+    SLOW,
+  );
+  await page
+    .getByRole("button", { name: new RegExp(`^Approve change to .*R${run}`) })
+    .click();
+  await expect(page.getByText(`${name} asked to drop this shift.`)).toHaveCount(
+    0,
+    SLOW,
+  );
+  await me.goto("/rota/me", SLOW);
+  await expect(
+    me.getByRole("heading", { name: "No longer yours" }),
+  ).toBeVisible(SLOW);
+  await shot(me, info, "my-shifts-after-drop");
+
   await fresh.close();
   await context.close();
 });

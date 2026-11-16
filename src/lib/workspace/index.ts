@@ -584,6 +584,33 @@ export const rotaApi = {
     inRota(ws, (tx, a) => rota.requestShift(tx, a, shiftId)),
   withdrawRequest: (ws: Ready, requestId: unknown) =>
     inRota(ws, (tx, a) => rota.withdrawRequest(tx, a, requestId)),
+  // M10.3: availability, drops and swaps.
+  decideChange: (
+    ws: Ready,
+    requestId: unknown,
+    decision: unknown,
+    overrideReason: unknown,
+  ) =>
+    inRota(ws, (tx, a) =>
+      rota.decideChange(tx, a, requestId, decision, overrideReason),
+    ),
+  addUnavailability: (ws: Ready, raw: rota.UnavailabilityInput) =>
+    inRota(ws, (tx, a) => rota.addUnavailability(tx, a, raw)),
+  removeUnavailability: (ws: Ready, id: unknown) =>
+    inRota(ws, (tx, a) => rota.removeUnavailability(tx, a, id)),
+  requestChange: (
+    ws: Ready,
+    shiftId: unknown,
+    kind: unknown,
+    targetEmployeeId: unknown,
+  ) =>
+    inRota(ws, (tx, a) =>
+      rota.requestChange(tx, a, shiftId, kind, targetEmployeeId),
+    ),
+  withdrawChange: (ws: Ready, requestId: unknown) =>
+    inRota(ws, (tx, a) => rota.withdrawChange(tx, a, requestId)),
+  respondToSwap: (ws: Ready, requestId: unknown, accept: boolean) =>
+    inRota(ws, (tx, a) => rota.respondToSwap(tx, a, requestId, accept)),
 };
 
 // --- CVs (M9.2b) ---------------------------------------------------------------------

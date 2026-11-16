@@ -257,7 +257,12 @@ describe("asking for open shifts", () => {
     const ids = me.openShifts.map((s) => s.id);
     expect(ids).toEqual(expect.arrayContaining([open1, open2]));
     expect(ids).not.toContain(other);
-    expect(JSON.stringify(me)).not.toMatch(/Ben/);
+    // Open shifts and their own shifts never say who else is working. (The
+    // M10.3 swap list does name linked colleagues at their own site.)
+    expect(JSON.stringify([me.openShifts, me.shifts, me.removed])).not.toMatch(
+      /Ben/,
+    );
+    expect(me.colleagues.map((c) => c.name)).toEqual(["Ben Shifts"]);
   });
 
   it("asks once per shift; other sites, drafts and filled shifts are refused", async () => {
