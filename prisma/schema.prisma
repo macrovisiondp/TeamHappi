@@ -284,6 +284,8 @@ model Site {
 
   rotaWeeks RotaWeek[]
 
+  timeEntries TimeEntry[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@map("site")
@@ -365,6 +367,8 @@ model Employee {
   unavailability      Unavailability[]
   changeRequests      ShiftChangeRequest[] @relation("ChangeRequester")
   changeRequestsForMe ShiftChangeRequest[] @relation("ChangeTarget")
+
+  timeEntries TimeEntry[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
@@ -1315,7 +1319,10 @@ model Shift {
 
   changeRequests ShiftChangeRequest[]
 
+  timeEntries TimeEntry[]
+
   @@unique([tenantId, id])
+  @@unique([tenantId, id, siteId], map: "shift_tenant_id_id_site_id_key")
   @@index([tenantId, rotaWeekId, startsAt], map: "shift_week")
   @@index([tenantId, siteId, startsAt], map: "shift_site_time")
   @@map("shift")
@@ -1432,4 +1439,81 @@ model ShiftChangeRequest {
 
   @@unique([tenantId, id])
   @@map("shift_change_request")
+}
+
+// --- M11.1 Attendance: clocking ------------------------------------------------------
+
+model AttendanceSettings {
+  id                  String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId            String   @unique(map: "attendance_settings_one_per_tenant") @map("tenant_id") @db.Uuid
+  toleranceMinutes    Int      @default(10) @map("tolerance_minutes") @db.SmallInt
+  missedClockOutHours Int      @default(2) @map("missed_clock_out_hours") @db.SmallInt
+  updatedBy           String?  @map("updated_by") @db.Uuid
+  updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, id])
+  @@map("attendance_settings")
+}
+
+model TimeEntry {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  employeeId String    @map("employee_id") @db.Uuid
+  siteId     String    @map("site_id") @db.Uuid
+  shiftId    String?   @map("shift_id") @db.Uuid
+  clockInAt  DateTime  @map("clock_in_at") @db.Timestamptz
+  clockOutAt DateTime? @map("clock_out_at") @db.Timestamptz
+  source     String
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  removedAt  DateTime? @map("removed_at") @db.Timestamptz
+  removedBy  String?   @map("removed_by") @db.Uuid
+
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "time_entry_employee_fkey")
+  site     Site     @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "time_entry_site_fkey")
+  shift    Shift?   @relation(fields: [tenantId, shiftId, siteId], references: [tenantId, id, siteId], onDelete: Restrict, onUpdate: Restrict, map: "time_entry_shift_fkey")
+
+  breaks  TimeBreak[]
+  changes TimeEntryChange[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, siteId, clockInAt], map: "time_entry_site_time")
+  @@index([tenantId, employeeId, clockInAt], map: "time_entry_employee_time")
+  @@map("time_entry")
+}
+
+model TimeBreak {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  timeEntryId String    @map("time_entry_id") @db.Uuid
+  startsAt    DateTime  @map("starts_at") @db.Timestamptz
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz
+
+  entry TimeEntry @relation(fields: [tenantId, timeEntryId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "time_break_entry_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, timeEntryId], map: "time_break_entry")
+  @@map("time_break")
+}
+
+model TimeEntryChange {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  timeEntryId String    @map("time_entry_id") @db.Uuid
+  kind        String
+  oldClockIn  DateTime? @map("old_clock_in") @db.Timestamptz
+  oldClockOut DateTime? @map("old_clock_out") @db.Timestamptz
+  newClockIn  DateTime? @map("new_clock_in") @db.Timestamptz
+  newClockOut DateTime? @map("new_clock_out") @db.Timestamptz
+  reason      String
+  actorUserId String    @map("actor_user_id") @db.Uuid
+  occurredAt  DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+
+  entry TimeEntry @relation(fields: [tenantId, timeEntryId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "time_entry_change_entry_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, timeEntryId, occurredAt], map: "time_entry_change_entry")
+  @@map("time_entry_change")
 }

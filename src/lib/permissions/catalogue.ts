@@ -35,6 +35,9 @@ export const PERMISSIONS = {
   "rota.view": "View rotas and shifts",
   "rota.manage": "Create and change shifts and assign people",
   "rota.publish": "Publish rotas so staff can see them",
+  // M11.1 attendance.
+  "attendance.view": "View who's in and clocked times",
+  "attendance.manage": "Record and correct clocked times",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -73,6 +76,8 @@ export const SYSTEM_ROLES: readonly {
       "rota.view",
       "rota.manage",
       "rota.publish",
+      "attendance.view",
+      "attendance.manage",
     ],
   },
   {
@@ -96,6 +101,8 @@ export const SYSTEM_ROLES: readonly {
       "rota.view",
       "rota.manage",
       "rota.publish",
+      "attendance.view",
+      "attendance.manage",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

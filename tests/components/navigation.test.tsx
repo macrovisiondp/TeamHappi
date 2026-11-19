@@ -29,13 +29,11 @@ describe("SidebarNav", () => {
     ).not.toHaveAttribute("aria-current");
   });
 
-  it("labels modules that are not built yet as planned, in text", () => {
+  it("shows every Release 1 module as built, none labelled planned (M11.1)", () => {
     render(<SidebarNav />);
-    expect(
-      screen.getByRole("link", { name: /^Attendance.*Planned/ }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("link", { name: /^Rota/ }),
-    ).not.toHaveAccessibleName(/Planned/);
+    for (const name of [/^Rota/, /^Attendance/])
+      expect(screen.getByRole("link", { name })).not.toHaveAccessibleName(
+        /Planned/,
+      );
   });
 });

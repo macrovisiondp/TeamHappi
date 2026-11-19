@@ -29,6 +29,7 @@ export {
   requestShift,
   withdrawRequest,
 } from "./self";
+export { publishedShifts, type PublishedShift } from "./feed";
 export {
   addDays,
   clashesWithUnavailability,

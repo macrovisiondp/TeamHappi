@@ -86,6 +86,9 @@ describe("application role posture", () => {
       "document",
       "site",
       "tenant_membership",
+      "time_break",
+      "time_entry",
+      "time_entry_change",
     ]) {
       await expect(
         asApp((c) => c.query(`DELETE FROM ${table}`)),
@@ -147,6 +150,11 @@ describe("application role posture", () => {
       // M10.3: availability, drops and swaps. UPDATE is column-level. No DELETE.
       unavailability: "INSERT,SELECT",
       shift_change_request: "INSERT,SELECT",
+      // M11.1: clocking. UPDATE is column-level. No DELETE; the change history is append-only.
+      attendance_settings: "INSERT,SELECT",
+      time_entry: "INSERT,SELECT",
+      time_break: "INSERT,SELECT",
+      time_entry_change: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -181,7 +189,9 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'application_note', 'interview', 'interview_interviewer',
                                   'application_document', 'rota_week', 'shift',
                                   'shift_assignment', 'shift_change', 'shift_request',
-                                  'rota_seen', 'unavailability', 'shift_change_request')
+                                  'rota_seen', 'unavailability', 'shift_change_request',
+                                  'attendance_settings', 'time_entry', 'time_break',
+                                  'time_entry_change')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -270,6 +280,22 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "status",
         "target_responded_at",
       ],
+      attendance_settings: [
+        "missed_clock_out_hours",
+        "tolerance_minutes",
+        "updated_at",
+        "updated_by",
+      ],
+      time_entry: [
+        "clock_in_at",
+        "clock_out_at",
+        "removed_at",
+        "removed_by",
+        "shift_id",
+        "updated_at",
+        "updated_by",
+      ],
+      time_break: ["ends_at"],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -403,6 +429,7 @@ describe("row-level security coverage", () => {
       "application_document",
       "application_event",
       "application_note",
+      "attendance_settings",
       "audit_event",
       "candidate",
       "document",
@@ -432,6 +459,9 @@ describe("row-level security coverage", () => {
       "team_member",
       "tenant",
       "tenant_membership",
+      "time_break",
+      "time_entry",
+      "time_entry_change",
       "training_course",
       "training_record",
       "training_requirement",
