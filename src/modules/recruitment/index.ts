@@ -43,6 +43,14 @@ export {
   type CvContentType,
 } from "./documents";
 export {
+  OFFER_DAYS,
+  mayOffer,
+  offersFor,
+  openOffer,
+  recordOffer,
+  withdrawOffer,
+} from "./offers";
+export {
   PRIVACY_NOTICE_VERSION,
   parsePublicApplication,
   publicApplicationSchema,

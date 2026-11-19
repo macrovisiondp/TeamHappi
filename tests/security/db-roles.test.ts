@@ -168,6 +168,8 @@ describe("application role posture", () => {
       starter_pack_document: "INSERT,SELECT",
       // M14.2: personal details. UPDATE is column-level. No DELETE.
       employee_personal: "INSERT,SELECT",
+      // M14.3: offer letters. Responses only through app.offer_respond.
+      offer_letter: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -207,7 +209,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'time_entry_change', 'timesheet', 'timesheet_event',
                                   'push_subscription', 'sign_document', 'sign_request',
                                   'starter_pack', 'starter_pack_document',
-                                  'employee_personal')
+                                  'employee_personal', 'offer_letter')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -316,6 +318,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       push_subscription: ["last_sent_at", "removed_at"],
       sign_document: ["archived_at", "archived_by"],
       starter_pack: ["archived_at", "archived_by"],
+      offer_letter: ["status", "withdrawn_at", "withdrawn_by"],
       employee_personal: [
         "address_line1",
         "address_line2",
@@ -489,6 +492,7 @@ describe("row-level security coverage", () => {
       "interview",
       "interview_interviewer",
       "invitation",
+      "offer_letter",
       "onboarding_case",
       "onboarding_document",
       "onboarding_task",

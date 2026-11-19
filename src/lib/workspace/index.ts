@@ -26,6 +26,7 @@ import * as cv from "./cv-documents";
 import * as push from "./push";
 import { pushKeys, webPushSender } from "./push-sender";
 import * as signingFiles from "./signing-files";
+import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
 import * as invites from "./invitations";
 import * as members from "./members";
@@ -995,4 +996,49 @@ export const personalApi = {
     inPersonal(ws, (tx, a) =>
       personal.reveal(tx, a, employeeId, field, personalCipher()),
     ),
+};
+
+// --- Offer letters (M14.3) -------------------------------------------------------------
+
+const offerDeps = async (): Promise<offerFiles.OfferDeps> => ({
+  client: db(),
+  store: await blobStore(),
+  storeFor: blobStoreFor,
+  email: appEmailProvider(serverEnv()),
+  appUrl: serverEnv().APP_URL,
+});
+
+export const offerApi = {
+  list: (ws: Ready, applicationId: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.offersFor(tx, a, applicationId)),
+  send: async (
+    ws: Ready,
+    applicationId: unknown,
+    title: unknown,
+    file: { name: string; bytes: Uint8Array },
+  ) => offerFiles.sendOffer(await offerDeps(), ws, applicationId, title, file),
+  withdraw: (ws: Ready, offerId: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.withdrawOffer(tx, a, offerId)),
+  staffFile: async (
+    ws: Ready,
+    offerId: unknown,
+    which: "original" | "signed",
+  ) => offerFiles.staffOfferFile(await offerDeps(), ws, offerId, which),
+};
+
+/** The applicant's private offer link (no login). */
+export const publicOffer = {
+  view: (token: unknown) =>
+    serverEnv().DATABASE_URL
+      ? offerFiles.viewOffer(db(), token)
+      : Promise.resolve({ state: "missing" } as const),
+  file: async (token: unknown) =>
+    offerFiles.offerFile(await offerDeps(), token),
+  respond: async (
+    token: unknown,
+    decision: unknown,
+    name: unknown,
+    agreed: unknown,
+  ) =>
+    offerFiles.respondToOffer(await offerDeps(), token, decision, name, agreed),
 };

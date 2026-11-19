@@ -10,6 +10,8 @@ export interface SignatureInfo {
   documentSha256: string;
   employee: { name: string; at: Date };
   countersign: { name: string; at: Date } | null;
+  /** Who signed and how (defaults: an employee signed in to TeamHappi). */
+  signer?: { heading: string; statement: string };
 }
 
 /** Whether TeamHappi can add a page to this PDF (it opens and isn't locked). */
@@ -123,9 +125,10 @@ export async function appendSignaturePage(
   text(info.documentSha256, { size: 9, color: muted, gap: 8 });
 
   block(
-    "Employee",
+    info.signer?.heading ?? "Employee",
     info.employee,
-    'Signed electronically in TeamHappi while signed in with their own verified login, by typing their name and confirming: "I have read this document and I agree to sign it electronically."',
+    info.signer?.statement ??
+      'Signed electronically in TeamHappi while signed in with their own verified login, by typing their name and confirming: "I have read this document and I agree to sign it electronically."',
   );
   if (info.countersign)
     block(

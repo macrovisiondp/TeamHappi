@@ -32,7 +32,8 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate, formatTime } from "@/lib/format";
-import { cvApi, recruitmentApi } from "@/lib/workspace";
+import { OfferCard } from "@/features/offers/offer-card";
+import { cvApi, offerApi, recruitmentApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Application" };
 
@@ -55,6 +56,7 @@ export default async function ApplicationPage({
   const a = await recruitmentApi.application(ws, applicationId);
   if (!a || "ok" in a) notFound();
   const outcome = OUTCOME[a.outcome]!;
+  const offers = await offerApi.list(ws, a.id);
   const [cvs, storageReady] = await Promise.all([
     cvApi.list(ws, a.id),
     cvApi.storageReady(),
@@ -173,6 +175,14 @@ export default async function ApplicationPage({
             )
           ) : null}
         </section>
+      ) : null}
+
+      {offers && "offers" in offers && !a.candidate.anonymised ? (
+        <OfferCard
+          applicationId={a.id}
+          data={offers}
+          storageReady={storageReady}
+        />
       ) : null}
 
       {a.can.manage && !a.candidate.anonymised ? (

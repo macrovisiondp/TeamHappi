@@ -1164,6 +1164,7 @@ model Application {
   notes      ApplicationNote[]
   documents  ApplicationDocument[]
   interviews Interview[]
+  offers     OfferLetter[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, candidateId, vacancyId], map: "application_one_per_vacancy")
@@ -1694,4 +1695,37 @@ model EmployeePersonal {
   @@unique([tenantId, id])
   @@unique([tenantId, employeeId], map: "employee_personal_one_per_person")
   @@map("employee_personal")
+}
+
+// --- M14.3 offer letters ----------------------------------------------------------------
+
+model OfferLetter {
+  id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  applicationId   String    @map("application_id") @db.Uuid
+  title           String
+  fileName        String    @map("file_name")
+  sizeBytes       Int       @map("size_bytes")
+  sha256          String
+  providerId      String    @map("provider_id")
+  storageKey      String    @unique(map: "offer_letter_storage_key_key") @map("storage_key")
+  sentTo          String    @map("sent_to")
+  tokenHash       String    @unique(map: "offer_letter_token_hash_key") @map("token_hash")
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz
+  status          String    @default("sent")
+  sentBy          String    @map("sent_by") @db.Uuid
+  sentAt          DateTime  @default(now()) @map("sent_at") @db.Timestamptz
+  respondedAt     DateTime? @map("responded_at") @db.Timestamptz
+  signedName      String?   @map("signed_name")
+  finalProviderId String?   @map("final_provider_id")
+  finalStorageKey String?   @map("final_storage_key")
+  finalSha256     String?   @map("final_sha256")
+  withdrawnBy     String?   @map("withdrawn_by") @db.Uuid
+  withdrawnAt     DateTime? @map("withdrawn_at") @db.Timestamptz
+
+  application Application @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "offer_letter_application_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, applicationId], map: "offer_letter_application")
+  @@map("offer_letter")
 }
