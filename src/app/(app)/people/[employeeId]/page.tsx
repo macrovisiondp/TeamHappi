@@ -20,6 +20,7 @@ import {
   getPerson,
   onboardingApi,
   recruitmentApi,
+  signingApi,
   trainingApi,
 } from "@/lib/workspace";
 import { STATUS as TRAINING_STATUS } from "@/features/training/labels";
@@ -27,6 +28,8 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
+import { RequestList } from "@/features/signing/request-list";
+import { SendDocumentsDialog } from "@/features/signing/controls";
 import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Employee" };
@@ -76,6 +79,11 @@ export default async function EmployeePage({
     : null;
   const hiredFrom =
     hiredFromRes && !("ok" in hiredFromRes) ? hiredFromRes : null;
+  const signingRequests = await signingApi.personRequests(ws, person.id);
+  const signingLibrary = signingRequests ? await signingApi.library(ws) : null;
+  const signingStorage = signingRequests
+    ? await signingApi.storageReady()
+    : false;
   const status = EMPLOYMENT_STATUSES[person.status]!;
   const canEdit =
     person.primarySiteId === null
@@ -185,6 +193,39 @@ export default async function EmployeePage({
             </div>
           </dl>
         </Card>
+        {signingRequests ? (
+          <Card aria-labelledby="signing-heading">
+            <CardHeader>
+              <div>
+                <CardTitle id="signing-heading">Documents to sign</CardTitle>
+                <CardDescription>
+                  Policies and contracts {name} signs in TeamHappi.
+                </CardDescription>
+              </div>
+              {signingStorage ? (
+                <SendDocumentsDialog
+                  employeeId={person.id}
+                  name={name}
+                  library={signingLibrary ?? []}
+                />
+              ) : null}
+            </CardHeader>
+            {signingRequests.length ? (
+              <RequestList requests={signingRequests} side="manager" />
+            ) : (
+              <p className="text-sm text-ink-muted">
+                {signingStorage
+                  ? "Nothing sent yet."
+                  : "Document storage isn't switched on yet."}
+              </p>
+            )}
+            {!person.membershipId ? (
+              <p className="text-sm text-ink-muted">
+                They sign after accepting their invite to TeamHappi.
+              </p>
+            ) : null}
+          </Card>
+        ) : null}
         {onboarding || canStartOnboarding ? (
           <Card aria-labelledby="onboarding-heading">
             <CardHeader>

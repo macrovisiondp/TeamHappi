@@ -1,0 +1,28 @@
+// Public API of the signing module (M13). Other code uses only this file.
+
+export {
+  MAX_PDF_BYTES,
+  archivePolicy,
+  canManage,
+  inspectPdf,
+  library,
+  mayUploadContract,
+  mayUploadPolicy,
+  myRequests,
+  openFile,
+  personRequests,
+  prepareCountersign,
+  prepareSign,
+  recordContract,
+  recordCountersign,
+  recordPolicy,
+  recordSign,
+  sendPolicies,
+  sha256Of,
+  withdrawRequest,
+  type Actor,
+  type FileMeta,
+  type RequestView,
+  type Result,
+  type SigningContext,
+} from "./service";

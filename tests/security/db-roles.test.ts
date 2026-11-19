@@ -158,6 +158,9 @@ describe("application role posture", () => {
       // M11.2: timesheets. UPDATE is column-level; events are append-only.
       timesheet: "INSERT,SELECT",
       timesheet_event: "INSERT,SELECT",
+      // M13: documents to sign. UPDATE is column-level. No DELETE.
+      sign_document: "INSERT,SELECT",
+      sign_request: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -194,7 +197,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'shift_assignment', 'shift_change', 'shift_request',
                                   'rota_seen', 'unavailability', 'shift_change_request',
                                   'attendance_settings', 'time_entry', 'time_break',
-                                  'time_entry_change', 'timesheet', 'timesheet_event')
+                                  'time_entry_change', 'timesheet', 'timesheet_event',
+                                  'sign_document', 'sign_request')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -300,6 +304,22 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       ],
       time_break: ["ends_at"],
       timesheet: ["approved_at", "approved_by", "status", "updated_at"],
+      sign_document: ["archived_at", "archived_by"],
+      sign_request: [
+        "countersigned_at",
+        "countersigned_by",
+        "countersigned_name",
+        "final_provider_id",
+        "final_sha256",
+        "final_storage_key",
+        "signed_at",
+        "signed_by",
+        "signed_name",
+        "signed_sha256",
+        "status",
+        "withdrawn_at",
+        "withdrawn_by",
+      ],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -458,6 +478,8 @@ describe("row-level security coverage", () => {
       "shift_change",
       "shift_change_request",
       "shift_request",
+      "sign_document",
+      "sign_request",
       "site",
       "team",
       "team_member",

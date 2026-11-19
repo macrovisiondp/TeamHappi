@@ -41,6 +41,9 @@ export const PERMISSIONS = {
   // M11.2 / M11.3.
   "attendance.approve": "Approve and reopen weekly timesheets",
   "attendance.export": "Export approved hours (no pay)",
+  // M13 documents to sign.
+  "documents.manage":
+    "Upload documents, send them for signing, countersign and view signed copies",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -83,6 +86,7 @@ export const SYSTEM_ROLES: readonly {
       "attendance.manage",
       "attendance.approve",
       "attendance.export",
+      "documents.manage",
     ],
   },
   {

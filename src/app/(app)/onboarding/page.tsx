@@ -60,6 +60,7 @@ export default async function OnboardingPage({
   }
   const canStart = ws.grants.has("onboarding.manage");
   const canTemplates = ws.grants.get("onboarding.template.manage") === "all";
+  const canDocuments = ws.grants.get("documents.manage") === "all";
   // A count only (not audited); the list itself is on the audited Right to work tab.
   const rtwAttention = ws.grants.has("rtw.view")
     ? await onboardingApi.rtwAttentionCount(ws)
@@ -84,6 +85,7 @@ export default async function OnboardingPage({
         current="people"
         showTemplates={canTemplates}
         showRightToWork={rtwAttention !== null}
+        showDocuments={canDocuments}
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="In progress" value={data.stats.active} icon={Users} />
