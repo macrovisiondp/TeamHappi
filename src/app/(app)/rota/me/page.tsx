@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
+import { ClockButtons } from "@/features/attendance/controls";
 import {
   MarkShiftsSeen,
   MyChangeControls,
@@ -19,7 +20,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { rotaApi } from "@/lib/workspace";
+import { attendanceApi, rotaApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "My shifts" };
 
@@ -33,7 +34,10 @@ export const instant = false;
 export default async function MyShiftsPage() {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
-  const me = await rotaApi.mine(ws);
+  const [me, clock] = await Promise.all([
+    rotaApi.mine(ws),
+    attendanceApi.mine(ws),
+  ]);
 
   if (!me)
     return (
@@ -56,6 +60,64 @@ export default async function MyShiftsPage() {
         title="My shifts"
         description={`Hi ${me.firstName}. Your published shifts for the next four weeks.`}
       />
+
+      {clock ? (
+        <Card id="clock" aria-labelledby="clock-heading" className="gap-3">
+          <CardTitle id="clock-heading">
+            {clock.open
+              ? clock.open.onBreak
+                ? `On a break · in since ${clock.open.since}`
+                : `Clocked in since ${clock.open.since}`
+              : "Not clocked in"}
+          </CardTitle>
+          <p className="text-sm text-ink-muted">
+            {clock.open
+              ? `At ${clock.open.siteName}. Breaks are optional; record them if you take one.`
+              : clock.next
+                ? `Next shift: ${dayLabel(clock.next.day)}, ${clock.next.start}–${clock.next.end} at ${clock.next.siteName}.`
+                : "No shift coming up. You can still clock in; your manager will see it has no shift."}
+          </p>
+          {clock.open?.tooLong ? (
+            <Alert tone="warning" title="Clocked in for over 24 hours">
+              Ask your manager to enter the time you left.
+            </Alert>
+          ) : clock.canClock ? (
+            <ClockButtons
+              clockedIn={Boolean(clock.open)}
+              onBreak={Boolean(clock.open?.onBreak)}
+            />
+          ) : (
+            <p className="text-sm">
+              You have no home site yet, so ask your manager to record your
+              times.
+            </p>
+          )}
+          {clock.recent.length ? (
+            <details className="text-sm">
+              <summary className="cursor-pointer font-semibold">
+                Your times, last 14 days
+              </summary>
+              <ul className="mt-2 flex flex-col gap-1">
+                {clock.recent.map((r) => (
+                  <li key={r.id}>
+                    {dayLabel(r.day)}, {r.clockIn}–{r.clockOut ?? "now"} ·{" "}
+                    {minutesLabel(r.workedMinutes)}
+                    {r.breakMinutes
+                      ? ` · ${r.breakMinutes} min break`
+                      : ""} · {r.siteName}
+                    {r.flags.includes("corrected")
+                      ? " · corrected by your manager"
+                      : ""}
+                    {r.flags.includes("missed_clock_out")
+                      ? " · missed clock-out"
+                      : ""}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </Card>
+      ) : null}
 
       {me.updates ? (
         <Alert

@@ -45,6 +45,8 @@ const ALL = [
   "rota.view",
   "rota.manage",
   "rota.publish",
+  "attendance.view",
+  "attendance.manage",
 ];
 
 export const SCRIPT_SYSTEM_ROLES = [
@@ -73,6 +75,8 @@ export const SCRIPT_SYSTEM_ROLES = [
       "rota.view",
       "rota.manage",
       "rota.publish",
+      "attendance.view",
+      "attendance.manage",
     ],
   },
   {
@@ -96,6 +100,8 @@ export const SCRIPT_SYSTEM_ROLES = [
       "rota.view",
       "rota.manage",
       "rota.publish",
+      "attendance.view",
+      "attendance.manage",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

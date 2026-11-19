@@ -276,6 +276,47 @@ test("staff see their published shifts, ask for an open one, and the manager app
   ).toBeVisible(SLOW);
   await shot(me, info, "my-shifts-after-drop");
 
+  // M11.1: they clock in now (no shift today, so it's flagged), take a break
+  // and clock out; their time shows in their own list.
+  const clock = me.getByRole("region", { name: /Not clocked in|Clocked in/ });
+  await me.getByRole("button", { name: "Clock in" }).click();
+  await expect(
+    me.getByRole("heading", { name: /Clocked in since/ }),
+  ).toBeVisible(SLOW);
+  await me.getByRole("button", { name: "Start break" }).click();
+  await expect(me.getByRole("heading", { name: /On a break/ })).toBeVisible(
+    SLOW,
+  );
+  await me.getByRole("button", { name: "End break" }).click();
+  await expect(me.getByRole("button", { name: "Start break" })).toBeVisible(
+    SLOW,
+  );
+  await axe(me, "my shifts while clocked in");
+  await me.getByRole("button", { name: "Clock out" }).click();
+  await expect(me.getByRole("heading", { name: "Not clocked in" })).toBeVisible(
+    SLOW,
+  );
+  await expect(clock.getByText("Your times, last 14 days")).toBeVisible();
+
+  // The manager sees it on Who's in, flagged "No shift", and corrects it.
+  await page.goto(`/attendance?site=${siteId}`, SLOW);
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await expect(row.getByText("No shift", { exact: true })).toBeVisible(SLOW);
+  await axe(page, "attendance");
+  await row.getByRole("button", { name: /^Correct/ }).click();
+  const fix = page.getByRole("dialog", { name: "Correct times" });
+  const clockIn = await fix.getByLabel("Clock in").inputValue();
+  await fix.getByLabel("Clock in").fill(`${clockIn.slice(0, 11)}00:01`);
+  await fix.getByLabel("Reason").fill("Synthetic correction");
+  await fix.getByRole("button", { name: "Save" }).click();
+  await expect(
+    page
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByText("Corrected", { exact: true }),
+  ).toBeVisible(SLOW);
+  await shot(page, info, "attendance");
+
   await fresh.close();
   await context.close();
 });

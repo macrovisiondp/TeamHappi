@@ -13,6 +13,7 @@ import * as onboarding from "@/modules/onboarding";
 import * as training from "@/modules/training";
 import * as recruitment from "@/modules/recruitment";
 import * as rota from "@/modules/rota";
+import * as attendance from "@/modules/attendance";
 
 import * as cv from "./cv-documents";
 import * as invites from "./invitations";
@@ -611,6 +612,36 @@ export const rotaApi = {
     inRota(ws, (tx, a) => rota.withdrawChange(tx, a, requestId)),
   respondToSwap: (ws: Ready, requestId: unknown, accept: boolean) =>
     inRota(ws, (tx, a) => rota.respondToSwap(tx, a, requestId, accept)),
+};
+
+// --- Attendance (M11.1) ------------------------------------------------------------------
+
+export const attendanceApi = {
+  sites: (ws: Ready) => inRota(ws, attendance.attendanceSites),
+  whosIn: (ws: Ready, siteId: unknown, day: unknown) =>
+    inRota(ws, (tx, a) => attendance.whosIn(tx, a, siteId, day)),
+  record: (
+    ws: Ready,
+    siteId: unknown,
+    employeeId: unknown,
+    raw: attendance.TimesInput,
+  ) =>
+    inRota(ws, (tx, a) =>
+      attendance.recordEntry(tx, a, siteId, employeeId, raw),
+    ),
+  correct: (ws: Ready, entryId: unknown, raw: attendance.TimesInput) =>
+    inRota(ws, (tx, a) => attendance.correctEntry(tx, a, entryId, raw)),
+  remove: (ws: Ready, entryId: unknown, reason: unknown) =>
+    inRota(ws, (tx, a) => attendance.removeEntry(tx, a, entryId, reason)),
+  saveSettings: (
+    ws: Ready,
+    raw: { toleranceMinutes?: unknown; missedClockOutHours?: unknown },
+  ) => inRota(ws, (tx, a) => attendance.saveSettings(tx, a, raw)),
+  mine: (ws: Ready) => inRota(ws, (tx, a) => attendance.myClock(tx, a)),
+  clockIn: (ws: Ready) => inRota(ws, (tx, a) => attendance.clockIn(tx, a)),
+  clockOut: (ws: Ready) => inRota(ws, (tx, a) => attendance.clockOut(tx, a)),
+  toggleBreak: (ws: Ready, start: boolean) =>
+    inRota(ws, (tx, a) => attendance.toggleBreak(tx, a, start)),
 };
 
 // --- CVs (M9.2b) ---------------------------------------------------------------------
