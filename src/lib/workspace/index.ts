@@ -19,6 +19,7 @@ import * as recruitment from "@/modules/recruitment";
 import * as rota from "@/modules/rota";
 import * as attendance from "@/modules/attendance";
 import * as signing from "@/modules/signing";
+import * as personal from "@/modules/personal";
 import { blobStore, blobStoreFor } from "@/integrations/storage/blob";
 
 import * as cv from "./cv-documents";
@@ -956,3 +957,42 @@ export async function welcomeNewStarter(
   }
   return { invite, pack };
 }
+
+// --- Personal and bank details (M14.2) ------------------------------------------------
+
+const personalCipher = () => personal.cipherFromEnv(serverEnv());
+const inPersonal = <T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: personal.Actor) => Promise<T>,
+) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+
+export const personalApi = {
+  /** Whether NI and bank fields are switched on (the key is set). */
+  sensitiveOn: () => personalCipher() !== null,
+  ownId: (ws: Ready) => inPersonal(ws, personal.ownEmployeeId),
+  view: (ws: Ready, employeeId: unknown) =>
+    inPersonal(ws, (tx, a) => personal.viewDetails(tx, a, employeeId)),
+  saveAbout: (ws: Ready, employeeId: unknown, raw: personal.AboutInput) =>
+    inPersonal(ws, (tx, a) =>
+      personal.saveAbout(
+        tx,
+        a,
+        employeeId,
+        raw,
+        personalCipher(),
+        onboarding.todayIn(ws.tenant.timezone),
+      ),
+    ),
+  saveBank: (
+    ws: Ready,
+    employeeId: unknown,
+    raw: Parameters<typeof personal.saveBank>[3],
+  ) =>
+    inPersonal(ws, (tx, a) =>
+      personal.saveBank(tx, a, employeeId, raw, personalCipher()),
+    ),
+  reveal: (ws: Ready, employeeId: unknown, field: unknown) =>
+    inPersonal(ws, (tx, a) =>
+      personal.reveal(tx, a, employeeId, field, personalCipher()),
+    ),
+};

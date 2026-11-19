@@ -34,6 +34,13 @@ export const serverEnvSchema = z.object({
       /^([^<>@]{1,80} <[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>|[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)$/,
     )
     .optional(),
+  // M14.2: encrypts NI numbers and bank details (32 random bytes, base64).
+  // Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+  // Without it, those fields are switched off.
+  PERSONAL_DATA_KEY: z
+    .string()
+    .regex(/^[A-Za-z0-9+/]{43}=$/)
+    .optional(),
   // M12 push notifications (Web Push, VAPID). Generate a pair with
   // `npx web-push generate-vapid-keys`. All three, or none (push stays off).
   VAPID_PUBLIC_KEY: z
@@ -78,6 +85,7 @@ const SECRET_VARS = [
   "BETTER_AUTH_SECRET",
   "VAPID_PRIVATE_KEY",
   "RESEND_API_KEY",
+  "PERSONAL_DATA_KEY",
 ] as const;
 const DATABASE_VARS = new Set([
   "DATABASE_URL",

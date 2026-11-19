@@ -20,6 +20,7 @@ import {
   can,
   getPerson,
   onboardingApi,
+  personalApi,
   recruitmentApi,
   signingApi,
   trainingApi,
@@ -29,6 +30,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
+import { PersonalDetails } from "@/features/personal/details-card";
 import { RequestList } from "@/features/signing/request-list";
 import {
   SendDocumentsDialog,
@@ -87,6 +89,7 @@ export default async function EmployeePage({
     : null;
   const hiredFrom =
     hiredFromRes && !("ok" in hiredFromRes) ? hiredFromRes : null;
+  const details = await personalApi.view(ws, person.id);
   const signingRequests = await signingApi.personRequests(ws, person.id);
   const signingLibrary = signingRequests ? await signingApi.library(ws) : null;
   const signingStorage = signingRequests
@@ -228,6 +231,14 @@ export default async function EmployeePage({
             </div>
           </dl>
         </Card>
+        {details && details.level !== "self" ? (
+          <PersonalDetails
+            employeeId={person.id}
+            view={details}
+            sensitiveOn={personalApi.sensitiveOn()}
+            self={false}
+          />
+        ) : null}
         {signingRequests ? (
           <Card aria-labelledby="signing-heading">
             <CardHeader>

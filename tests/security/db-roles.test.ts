@@ -166,6 +166,8 @@ describe("application role posture", () => {
       // M14.1: starter packs. Archived, never deleted.
       starter_pack: "INSERT,SELECT",
       starter_pack_document: "INSERT,SELECT",
+      // M14.2: personal details. UPDATE is column-level. No DELETE.
+      employee_personal: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -204,7 +206,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'attendance_settings', 'time_entry', 'time_break',
                                   'time_entry_change', 'timesheet', 'timesheet_event',
                                   'push_subscription', 'sign_document', 'sign_request',
-                                  'starter_pack', 'starter_pack_document')
+                                  'starter_pack', 'starter_pack_document',
+                                  'employee_personal')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -313,6 +316,22 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       push_subscription: ["last_sent_at", "removed_at"],
       sign_document: ["archived_at", "archived_by"],
       starter_pack: ["archived_at", "archived_by"],
+      employee_personal: [
+        "address_line1",
+        "address_line2",
+        "bank_ciphertext",
+        "bank_last4",
+        "date_of_birth",
+        "emergency_name",
+        "emergency_phone",
+        "emergency_relationship",
+        "ni_ciphertext",
+        "ni_last4",
+        "postcode",
+        "town",
+        "updated_at",
+        "updated_by",
+      ],
       sign_request: [
         "countersigned_at",
         "countersigned_by",
@@ -466,6 +485,7 @@ describe("row-level security coverage", () => {
       "candidate",
       "document",
       "employee",
+      "employee_personal",
       "interview",
       "interview_interviewer",
       "invitation",
