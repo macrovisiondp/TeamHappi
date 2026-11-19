@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
+import { CreateOrganisation } from "@/features/platform-admin/create-organisation";
 import {
   OrganisationStatusBadge,
   SubscriptionBadge,
@@ -40,12 +41,14 @@ export default async function OrganisationsPage({
       </Alert>
     );
   const orgs = result.data;
+  const canCreate = await organisationAdmin.canCreate();
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Client organisations"
         description="Every organisation on TeamHappi, with summary figures. Employee records stay private to each organisation."
+        actions={canCreate ? <CreateOrganisation /> : null}
       />
       <form
         role="search"

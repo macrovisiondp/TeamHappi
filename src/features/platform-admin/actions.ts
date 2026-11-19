@@ -8,6 +8,7 @@ import {
   AI_FEATURES,
   getPlatformAccess,
   integrationAdmin,
+  newOrganisationErrors,
   organisationAdmin,
   regenerateMyRecoveryCodes,
   staffAdmin,
@@ -331,4 +332,42 @@ export async function saveAiControls(
     }),
     "AI controls saved.",
   );
+}
+
+export type CreateOrganisationState =
+  | { status: "idle" }
+  | { status: "ok"; tenantId: string; inviteLink: string | null }
+  | {
+      status: "error";
+      message: string;
+      stepUp?: boolean;
+      fieldErrors?: Record<string, string>;
+    };
+
+/** Creates an organisation (tenant.create, MFA within 15 minutes). */
+export async function createOrganisationAction(
+  _prev: CreateOrganisationState,
+  form: FormData,
+): Promise<CreateOrganisationState> {
+  if (!(await requireStaff()))
+    return { status: "error", message: "Platform access is required." };
+  const input = {
+    legalName: String(form.get("legalName") ?? ""),
+    slug: String(form.get("slug") ?? "")
+      .trim()
+      .toLowerCase(),
+    timezone: String(form.get("timezone") ?? ""),
+    ownerEmail: String(form.get("ownerEmail") ?? "").trim(),
+  };
+  const fieldErrors = newOrganisationErrors(input);
+  if (fieldErrors)
+    return {
+      status: "error",
+      message: "Check the highlighted fields.",
+      fieldErrors,
+    };
+  const r = await organisationAdmin.create(input);
+  return r.ok
+    ? { status: "ok", tenantId: r.data.tenantId, inviteLink: r.data.inviteLink }
+    : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
 }

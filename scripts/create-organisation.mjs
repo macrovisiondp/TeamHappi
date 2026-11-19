@@ -13,8 +13,9 @@
 // fails if the roles here drift from src/lib/permissions/catalogue.ts.
 //
 // Uses DATABASE_MIGRATION_URL (owner role) from .env.local and refuses any
-// host other than localhost or the approved Neon dev endpoint. This is the
-// interim path until Platform Admin can create organisations (M3.5).
+// host other than localhost or the approved Neon dev endpoint. Platform Admin
+// (Organisations > Create organisation) is now the normal way; keep this for
+// emergencies and local set-up.
 
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";

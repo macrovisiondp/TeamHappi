@@ -225,3 +225,15 @@ export async function updateStaff(
   });
   return { ok: true };
 }
+
+/** The id of a VERIFIED account with this email, or null (same for missing and unverified). */
+export async function verifiedAccountId(
+  db: AuthDbClient,
+  email: string,
+): Promise<string | null> {
+  const user = await db.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { id: true, emailVerified: true },
+  });
+  return user?.emailVerified ? user.id : null;
+}
