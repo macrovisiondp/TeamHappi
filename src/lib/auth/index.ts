@@ -185,6 +185,9 @@ export const platformStaffAdmin = {
     withDeps((d) => mfa.regenerateRecoveryCodes(d, userId)),
   audit: (limit?: number, target?: { type: string; id: string }) =>
     withDeps((d) => listPlatformEvents(d.db, limit, target)),
+  /** For creating an organisation: an existing verified owner, if any. */
+  verifiedAccountId: (email: string) =>
+    withDeps((d) => staff.verifiedAccountId(d.db, email)),
 };
 
 async function withDeps<T>(fn: (deps: mfa.MfaDeps) => Promise<T>): Promise<T> {

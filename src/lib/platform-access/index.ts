@@ -18,6 +18,9 @@ import {
 import { createPlatformDbClient, type PlatformDbClient } from "@/platform/db";
 import * as integrationStore from "@/platform/integrations/store";
 import * as organisations from "@/platform/tenants/organisations";
+import { createOrganisationWithAudit } from "@/platform/tenants/create";
+import { invitationLink, newInvitationToken } from "@/lib/invitations/token";
+import { INVITATION_DAYS } from "@/lib/workspace/member-policy";
 import { deploymentEnvironment } from "@/integrations/core/environment";
 import {
   SERVICE_CATEGORIES,
@@ -206,6 +209,38 @@ async function viewOrganisations<T>(
 }
 
 /** Client organisation management (view: tenant.view; changes: tenant.suspend + MFA within 15 minutes). */
+export interface NewOrganisation {
+  legalName: string;
+  slug: string;
+  timezone: string;
+  ownerEmail: string;
+}
+
+export type CreateOrganisationOutcome = {
+  tenantId: string;
+  /** Set when the owner has no verified login yet: share it with them. */
+  inviteLink: string | null;
+};
+
+const SLUG = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Field problems in a new-organisation form, or null. */
+export function newOrganisationErrors(
+  input: NewOrganisation,
+): Record<string, string> | null {
+  const e: Record<string, string> = {};
+  const name = input.legalName.trim();
+  if (!name || name.length > 200) e.legalName = "Enter the organisation's name";
+  if (!SLUG.test(input.slug))
+    e.slug = "Use 3–63 lower-case letters, numbers and hyphens";
+  if (!Intl.supportedValuesOf("timeZone").includes(input.timezone))
+    e.timezone = "Choose a time zone";
+  if (!EMAIL.test(input.ownerEmail.trim()) || input.ownerEmail.length > 254)
+    e.ownerEmail = "Enter the owner's email address";
+  return Object.keys(e).length ? e : null;
+}
+
 export const organisationAdmin = {
   list: (query?: string) =>
     viewOrganisations((db) => organisations.listOrganisations(db, query)),
@@ -234,6 +269,65 @@ export const organisationAdmin = {
     if (!r.ok) return r;
     return r.data.ok
       ? { ok: true, data: null }
+      : { ok: false, reason: "rejected", message: r.data.message };
+  },
+  /** Whether the signed-in staff member may create organisations. */
+  async canCreate(): Promise<boolean> {
+    return hasGrant(await getPlatformAccess(), "tenant.create");
+  },
+  /**
+   * Creates an organisation (grant: tenant.create; MFA within 15 minutes).
+   * An owner with a verified login becomes the active owner; otherwise they get
+   * an owner invitation link (shown once, never stored or logged).
+   */
+  async create(
+    input: NewOrganisation,
+  ): Promise<PrivilegedResult<CreateOrganisationOutcome>> {
+    const pdb = platformDb();
+    if (!pdb || !serverEnv().DATABASE_URL)
+      return {
+        ok: false,
+        reason: "rejected",
+        message: "Organisation management isn't configured on this deployment.",
+      };
+    if (newOrganisationErrors(input))
+      return {
+        ok: false,
+        reason: "rejected",
+        message: "Check the highlighted fields.",
+      };
+    const r = await privileged("tenant.create", async (_id, actor) => {
+      const ownerId = await platformStaffAdmin.verifiedAccountId(
+        input.ownerEmail,
+      );
+      const invite = ownerId ? null : newInvitationToken();
+      const created = await createOrganisationWithAudit(pdb, actor, {
+        legalName: input.legalName.trim(),
+        slug: input.slug,
+        timezone: input.timezone,
+        owner: ownerId
+          ? { userId: ownerId }
+          : {
+              inviteEmail: input.ownerEmail,
+              tokenHash: invite!.hash,
+              expiresAt: new Date(Date.now() + INVITATION_DAYS * 86_400_000),
+            },
+      });
+      return created.ok
+        ? {
+            ...created,
+            inviteLink: invite
+              ? invitationLink(serverEnv().APP_URL, invite.token)
+              : null,
+          }
+        : created;
+    });
+    if (!r.ok) return r;
+    return r.data.ok
+      ? {
+          ok: true,
+          data: { tenantId: r.data.tenantId, inviteLink: r.data.inviteLink },
+        }
       : { ok: false, reason: "rejected", message: r.data.message };
   },
 };
