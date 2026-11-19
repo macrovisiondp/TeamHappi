@@ -1596,8 +1596,9 @@ model SignDocument {
   archivedAt DateTime? @map("archived_at") @db.Timestamptz
   archivedBy String?   @map("archived_by") @db.Uuid
 
-  employee Employee?     @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_document_employee_fkey")
+  employee Employee?             @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_document_employee_fkey")
   requests SignRequest[]
+  packs    StarterPackDocument[]
 
   @@unique([tenantId, id])
   @@map("sign_document")
@@ -1631,4 +1632,36 @@ model SignRequest {
   @@unique([tenantId, id])
   @@index([tenantId, employeeId], map: "sign_request_employee")
   @@map("sign_request")
+}
+
+// --- M14.1 starter packs ------------------------------------------------------------
+
+model StarterPack {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  jobTitle   String?   @map("job_title")
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz
+  archivedBy String?   @map("archived_by") @db.Uuid
+
+  documents StarterPackDocument[]
+
+  @@unique([tenantId, id])
+  @@map("starter_pack")
+}
+
+model StarterPackDocument {
+  id             String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId       String @map("tenant_id") @db.Uuid
+  starterPackId  String @map("starter_pack_id") @db.Uuid
+  signDocumentId String @map("sign_document_id") @db.Uuid
+
+  pack     StarterPack  @relation(fields: [tenantId, starterPackId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "starter_pack_document_pack_fkey")
+  document SignDocument @relation(fields: [tenantId, signDocumentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "starter_pack_document_document_fkey")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, starterPackId, signDocumentId], map: "starter_pack_document_once")
+  @@map("starter_pack_document")
 }

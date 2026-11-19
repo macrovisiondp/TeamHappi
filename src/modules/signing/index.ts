@@ -3,8 +3,13 @@
 export {
   MAX_PDF_BYTES,
   archivePolicy,
+  archiveStarterPack,
+  createStarterPack,
+  sendStarterPack,
+  starterPacks,
   canManage,
   inspectPdf,
+  jobTitles,
   library,
   mayUploadContract,
   mayUploadPolicy,

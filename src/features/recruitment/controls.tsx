@@ -497,6 +497,28 @@ export function ApplicationActions({
                   Onboarding can be started from their record afterwards.
                 </p>
               )}
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="inviteNow"
+                  defaultChecked
+                  className="size-5 accent-[var(--brand-forest)]"
+                />
+                <span className="text-sm font-semibold">
+                  Email them an invite to TeamHappi
+                </span>
+              </label>
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="sendPack"
+                  defaultChecked
+                  className="size-5 accent-[var(--brand-forest)]"
+                />
+                <span className="text-sm font-semibold">
+                  Send the starter pack for their job title
+                </span>
+              </label>
             </>
           ) : null}
           <div className="flex flex-wrap justify-end gap-3">

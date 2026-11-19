@@ -163,6 +163,9 @@ describe("application role posture", () => {
       // M13: documents to sign. UPDATE is column-level. No DELETE.
       sign_document: "INSERT,SELECT",
       sign_request: "INSERT,SELECT",
+      // M14.1: starter packs. Archived, never deleted.
+      starter_pack: "INSERT,SELECT",
+      starter_pack_document: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -200,7 +203,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'rota_seen', 'unavailability', 'shift_change_request',
                                   'attendance_settings', 'time_entry', 'time_break',
                                   'time_entry_change', 'timesheet', 'timesheet_event',
-                                  'push_subscription', 'sign_document', 'sign_request')
+                                  'push_subscription', 'sign_document', 'sign_request',
+                                  'starter_pack', 'starter_pack_document')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -308,6 +312,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       timesheet: ["approved_at", "approved_by", "status", "updated_at"],
       push_subscription: ["last_sent_at", "removed_at"],
       sign_document: ["archived_at", "archived_by"],
+      starter_pack: ["archived_at", "archived_by"],
       sign_request: [
         "countersigned_at",
         "countersigned_by",
@@ -485,6 +490,8 @@ describe("row-level security coverage", () => {
       "sign_document",
       "sign_request",
       "site",
+      "starter_pack",
+      "starter_pack_document",
       "team",
       "team_member",
       "tenant",

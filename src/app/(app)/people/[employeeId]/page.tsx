@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +30,10 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { RequestList } from "@/features/signing/request-list";
-import { SendDocumentsDialog } from "@/features/signing/controls";
+import {
+  SendDocumentsDialog,
+  SendStarterPackButton,
+} from "@/features/signing/controls";
 import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Employee" };
@@ -38,11 +42,15 @@ export const metadata: Metadata = { title: "Employee" };
 export const instant = false;
 
 export default async function EmployeePage({
+  searchParams,
   params,
 }: PageProps<"/people/[employeeId]">) {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
   const { employeeId } = await params;
+  const sp = await searchParams;
+  const welcomeInvite = typeof sp.invite === "string" ? sp.invite : null;
+  const welcomePack = typeof sp.pack === "string" ? sp.pack : null;
   // Other organisations' people and people outside your sites look the same as
   // people who don't exist: 404.
   const person = await getPerson(ws, employeeId);
@@ -127,6 +135,33 @@ export default async function EmployeePage({
           </Button>
         ) : null}
       </header>
+      {welcomeInvite || welcomePack ? (
+        <Alert tone="success" title="Hired" role="status">
+          <ul className="list-disc pl-5">
+            {welcomeInvite === "emailed" ? (
+              <li>We emailed them an invite to TeamHappi.</li>
+            ) : welcomeInvite === "link" ? (
+              <li>
+                Their invite was created but couldn&rsquo;t be emailed. Copy a
+                new link from Settings, Members.
+              </li>
+            ) : welcomeInvite === "skipped" ? (
+              <li>
+                They weren&rsquo;t invited yet. Use Invite on this page when
+                you&rsquo;re ready.
+              </li>
+            ) : null}
+            {welcomePack === "none" ? (
+              <li>No starter pack matches their job title.</li>
+            ) : welcomePack ? (
+              <li>
+                {welcomePack} document{welcomePack === "1" ? "" : "s"} from
+                their starter pack sent to sign.
+              </li>
+            ) : null}
+          </ul>
+        </Alert>
+      ) : null}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card aria-labelledby="employment-heading">
           <CardHeader>
@@ -203,11 +238,14 @@ export default async function EmployeePage({
                 </CardDescription>
               </div>
               {signingStorage ? (
-                <SendDocumentsDialog
-                  employeeId={person.id}
-                  name={name}
-                  library={signingLibrary ?? []}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <SendDocumentsDialog
+                    employeeId={person.id}
+                    name={name}
+                    library={signingLibrary ?? []}
+                  />
+                  <SendStarterPackButton employeeId={person.id} />
+                </div>
               ) : null}
             </CardHeader>
             {signingRequests.length ? (
