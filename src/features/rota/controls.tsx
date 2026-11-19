@@ -10,7 +10,10 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { Submit, textareaClass } from "@/features/onboarding/controls";
 
 import {
+  availabilityAction,
+  changeCommandAction,
   markShiftsSeenAction,
+  myChangeAction,
   myShiftAction,
   requestCommandAction,
   saveShiftAction,
@@ -576,4 +579,358 @@ export function MarkShiftsSeen() {
     void markShiftsSeenAction();
   }, []);
   return null;
+}
+
+// --- M10.3: drops and swaps (managers) ---------------------------------------------------
+
+/** A manager answers a drop or swap request on a shift. */
+export function ChangeActions({
+  requestId,
+  label,
+  canApprove,
+  summary,
+}: {
+  requestId: string;
+  label: string;
+  canApprove: boolean;
+  summary: string;
+}) {
+  const [state, action] = useActionState(changeCommandAction, IDLE);
+  const [closedFor, setClosedFor] = useState<RotaFormState | null>(null);
+  useReloadOnSave(state);
+  const err = state.status === "error" ? state : null;
+  const open = !!err?.warnings?.length && closedFor !== state;
+  const close = () => setClosedFor(state);
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold">{label}</p>
+      <form action={action} className="flex flex-wrap gap-2">
+        <input type="hidden" name="requestId" value={requestId} />
+        {canApprove ? (
+          <Button size="sm" type="submit" name="decision" value="approve">
+            Approve<span className="sr-only"> change to {summary}</span>
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="secondary"
+          type="submit"
+          name="decision"
+          value="decline"
+        >
+          Decline<span className="sr-only"> change to {summary}</span>
+        </Button>
+      </form>
+      {err && !err.warnings?.length ? <Problem state={state} /> : null}
+      <Dialog
+        open={open}
+        onClose={close}
+        title="Approve this change?"
+        description={summary}
+      >
+        <form action={action} className="flex flex-col gap-4">
+          <input type="hidden" name="requestId" value={requestId} />
+          <input type="hidden" name="decision" value="approve" />
+          {err?.warnings?.length ? (
+            <Alert
+              tone={err.needsReason ? "warning" : "danger"}
+              title={
+                err.needsReason
+                  ? "Check before going ahead"
+                  : "This can't be approved"
+              }
+              role="alert"
+            >
+              <WarningList warnings={err.warnings} />
+            </Alert>
+          ) : null}
+          {err?.needsReason ? (
+            <Field
+              id={`change-reason-${requestId}`}
+              label="Why is it OK to go ahead?"
+              error={err.fieldErrors?.overrideReason}
+            >
+              <textarea
+                id={`change-reason-${requestId}`}
+                name="overrideReason"
+                required
+                maxLength={300}
+                rows={2}
+                className={textareaClass}
+              />
+            </Field>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={close}>
+              Back
+            </Button>
+            {err?.needsReason ? <Submit label="Approve anyway" /> : null}
+          </div>
+        </form>
+      </Dialog>
+    </div>
+  );
+}
+
+// --- M10.3: drops and swaps (staff) ------------------------------------------------------
+
+/** On one of their own shifts: ask to drop or swap, or withdraw the request. */
+export function MyChangeControls({
+  shiftId,
+  summary,
+  change,
+  colleagues,
+}: {
+  shiftId: string;
+  summary: string;
+  change: {
+    id: string;
+    kind: "drop" | "swap";
+    status: "pending" | "accepted";
+    to: string | null;
+  } | null;
+  colleagues: readonly { id: string; name: string }[];
+}) {
+  const [state, action] = useActionState(myChangeAction, IDLE);
+  const [dialog, setDialog] = useState<null | "drop" | "swap">(null);
+  useReloadOnSave(state);
+  const e = state.status === "error" ? (state.fieldErrors ?? {}) : {};
+  if (change)
+    return (
+      <form action={action} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="requestId" value={change.id} />
+        <input type="hidden" name="intent" value="withdraw" />
+        <p className="text-sm font-semibold text-forest">
+          {change.kind === "drop"
+            ? "You've asked to drop this shift."
+            : change.status === "accepted"
+              ? `${change.to} accepted your swap. Waiting for your manager.`
+              : `Waiting for ${change.to} to accept your swap.`}
+        </p>
+        <Submit label="Withdraw" variant="secondary" size="sm">
+          <span className="sr-only">{summary}: </span>
+        </Submit>
+        {state.status === "error" ? <Problem state={state} /> : null}
+      </form>
+    );
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button size="sm" variant="secondary" onClick={() => setDialog("drop")}>
+        Ask to drop<span className="sr-only"> {summary}</span>
+      </Button>
+      {colleagues.length ? (
+        <Button size="sm" variant="secondary" onClick={() => setDialog("swap")}>
+          Ask to swap<span className="sr-only"> {summary}</span>
+        </Button>
+      ) : null}
+      <Dialog
+        open={dialog !== null}
+        onClose={() => setDialog(null)}
+        title={dialog === "swap" ? "Swap this shift?" : "Drop this shift?"}
+        description={
+          dialog === "swap"
+            ? `${summary}. Your colleague accepts first, then your manager decides. You stay on it until then.`
+            : `${summary}. Your manager decides. You stay on it until then.`
+        }
+      >
+        <form action={action} className="flex flex-col gap-4">
+          <input type="hidden" name="shiftId" value={shiftId} />
+          <input type="hidden" name="intent" value={dialog ?? ""} />
+          {state.status === "error" ? <Problem state={state} /> : null}
+          {dialog === "swap" ? (
+            <Field
+              id={`swap-${shiftId}`}
+              label="Colleague"
+              error={e.targetEmployeeId}
+            >
+              <Select
+                id={`swap-${shiftId}`}
+                name="targetEmployeeId"
+                required
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Choose a colleague
+                </option>
+                {colleagues.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDialog(null)}
+            >
+              Back
+            </Button>
+            <Submit label={dialog === "swap" ? "Ask to swap" : "Ask to drop"} />
+          </div>
+        </form>
+      </Dialog>
+    </div>
+  );
+}
+
+/** A colleague offered them a shift: accept or decline. */
+export function SwapOfferButtons({
+  requestId,
+  summary,
+}: {
+  requestId: string;
+  summary: string;
+}) {
+  const [state, action] = useActionState(myChangeAction, IDLE);
+  useReloadOnSave(state);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="requestId" value={requestId} />
+      {state.status === "error" ? <Problem state={state} /> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" type="submit" name="intent" value="accept">
+          Accept<span className="sr-only"> {summary}</span>
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          type="submit"
+          name="intent"
+          value="refuse"
+        >
+          Decline<span className="sr-only"> {summary}</span>
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// --- M10.3: availability (staff) ----------------------------------------------------------
+
+const WEEKDAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+/** Add a time they can't work. */
+export function UnavailabilityForm() {
+  const [state, action] = useActionState(availabilityAction, IDLE);
+  const [kind, setKind] = useState<"weekly" | "dates">("weekly");
+  const [allDay, setAllDay] = useState(true);
+  useReloadOnSave(state);
+  const e = state.status === "error" ? (state.fieldErrors ?? {}) : {};
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <input type="hidden" name="intent" value="add" />
+      <Problem state={state} />
+      <fieldset className="flex flex-wrap gap-4">
+        <legend className="mb-1 text-sm font-semibold">When</legend>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="radio"
+            name="kind"
+            value="weekly"
+            checked={kind === "weekly"}
+            onChange={() => setKind("weekly")}
+            className="size-5 accent-[var(--brand-forest)]"
+          />
+          Every week
+        </label>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="radio"
+            name="kind"
+            value="dates"
+            checked={kind === "dates"}
+            onChange={() => setKind("dates")}
+            className="size-5 accent-[var(--brand-forest)]"
+          />
+          Specific dates
+        </label>
+      </fieldset>
+      {kind === "weekly" ? (
+        <Field id="unav-weekday" label="Day" error={e.weekday}>
+          <Select id="unav-weekday" name="weekday" defaultValue="7">
+            {WEEKDAYS.map((d, i) => (
+              <option key={d} value={i + 1}>
+                {d}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field id="unav-from" label="From" error={e.startsOn}>
+            <Input id="unav-from" name="startsOn" type="date" required />
+          </Field>
+          <Field id="unav-to" label="To (optional)" error={e.endsOn}>
+            <Input id="unav-to" name="endsOn" type="date" />
+          </Field>
+        </div>
+      )}
+      <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+        <input
+          type="checkbox"
+          name="allDay"
+          checked={allDay}
+          onChange={(ev) => setAllDay(ev.currentTarget.checked)}
+          className="size-5 accent-[var(--brand-forest)]"
+        />
+        All day
+      </label>
+      {allDay ? null : (
+        <div className="grid grid-cols-2 gap-3">
+          <Field id="unav-start" label="From time" error={e.startTime}>
+            <Input id="unav-start" name="startTime" type="time" required />
+          </Field>
+          <Field id="unav-end" label="Until" error={e.endTime}>
+            <Input id="unav-end" name="endTime" type="time" required />
+          </Field>
+        </div>
+      )}
+      <Field
+        id="unav-note"
+        label="Note for your manager (optional)"
+        error={e.note}
+      >
+        <Input
+          id="unav-note"
+          name="note"
+          maxLength={200}
+          placeholder="For example: college"
+        />
+      </Field>
+      <div>
+        <Submit label="Save" />
+      </div>
+    </form>
+  );
+}
+
+export function RemoveUnavailability({
+  id,
+  label,
+}: {
+  id: string;
+  label: string;
+}) {
+  const [state, action] = useActionState(availabilityAction, IDLE);
+  useReloadOnSave(state);
+  return (
+    <form action={action}>
+      <input type="hidden" name="intent" value="remove" />
+      <input type="hidden" name="id" value={id} />
+      <Submit label="Remove" variant="secondary" size="sm">
+        <span className="sr-only">{label}: </span>
+      </Submit>
+    </form>
+  );
 }

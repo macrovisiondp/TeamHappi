@@ -6,7 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
-import { MarkShiftsSeen, MyShiftButton } from "@/features/rota/controls";
+import {
+  MarkShiftsSeen,
+  MyChangeControls,
+  MyShiftButton,
+  RemoveUnavailability,
+  SwapOfferButtons,
+  UnavailabilityForm,
+} from "@/features/rota/controls";
 import { dayLabel, minutesLabel, weekLabel } from "@/features/rota/labels";
 import {
   NoOrganisation,
@@ -124,6 +131,14 @@ export default async function MyShiftsPage() {
                     {s.note ? (
                       <p className="whitespace-pre-line">{s.note}</p>
                     ) : null}
+                    {s.past ? null : (
+                      <MyChangeControls
+                        shiftId={s.id}
+                        summary={`${dayLabel(s.day)}, ${s.start} to ${s.end}`}
+                        change={s.change}
+                        colleagues={me.colleagues}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -135,6 +150,41 @@ export default async function MyShiftsPage() {
         {minutesLabel(total)} still to work in these weeks. Changes your manager
         makes show up here; ask them if anything looks wrong.
       </p>
+
+      {me.swapOffers.length ? (
+        <section
+          aria-labelledby="offers-heading"
+          className="flex flex-col gap-2"
+        >
+          <h2 id="offers-heading" className="text-lg font-semibold">
+            Shifts offered to you
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {me.swapOffers.map((o) => {
+              const summary = `${dayLabel(o.day)}, ${o.start} to ${o.end}`;
+              return (
+                <li
+                  key={o.requestId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-forest p-3 text-sm"
+                >
+                  <div>
+                    <p className="font-semibold">
+                      {dayLabel(o.day)}, {o.start}–{o.end}
+                    </p>
+                    <p className="text-ink-muted">
+                      {[o.siteName, o.roleLabel, minutesLabel(o.minutes)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <p>{o.from} would like you to take this shift.</p>
+                  </div>
+                  <SwapOfferButtons requestId={o.requestId} summary={summary} />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-labelledby="open-heading" className="flex flex-col gap-2">
         <h2 id="open-heading" className="text-lg font-semibold">
@@ -176,6 +226,44 @@ export default async function MyShiftsPage() {
             })}
           </ul>
         )}
+      </section>
+
+      <section
+        aria-labelledby="availability-heading"
+        className="flex flex-col gap-3"
+      >
+        <h2 id="availability-heading" className="text-lg font-semibold">
+          When you can&rsquo;t work
+        </h2>
+        <p className="text-sm text-ink-muted">
+          Your manager sees a warning if they plan you then. They can still put
+          you on a shift with a recorded reason, so tell them about anything
+          important.
+        </p>
+        {me.unavailability.length ? (
+          <ul className="flex flex-col gap-2">
+            {me.unavailability.map((u) => (
+              <li
+                key={u.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-strong p-3 text-sm"
+              >
+                <div>
+                  <p className="font-semibold">{u.label}</p>
+                  {u.note ? <p className="text-ink-muted">{u.note}</p> : null}
+                </div>
+                <RemoveUnavailability id={u.id} label={u.label} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm">Nothing added yet.</p>
+        )}
+        <Card aria-labelledby="add-unav-heading" className="gap-3">
+          <CardTitle id="add-unav-heading">
+            Add a time you can&rsquo;t work
+          </CardTitle>
+          <UnavailabilityForm />
+        </Card>
       </section>
     </div>
   );

@@ -208,7 +208,8 @@ export type Warning =
   | { code: "training"; blocking: false; message: string }
   | { code: "short_rest"; blocking: false; message: string }
   | { code: "no_break"; blocking: false; message: string }
-  | { code: "over_48"; blocking: false; message: string };
+  | { code: "over_48"; blocking: false; message: string }
+  | { code: "unavailable"; blocking: false; message: string };
 
 export const REST_MINUTES = 11 * 60;
 export const BREAK_AFTER_MINUTES = 6 * 60;
@@ -276,4 +277,81 @@ export function workingTimeWarnings(
       message: `Over 48 hours this week (${formatMinutes(week)}).`,
     });
   return out;
+}
+
+// --- Unavailability (M10.3) -----------------------------------------------------------
+
+/** When someone said they can't work: weekly or a date range, all day or between times. */
+export interface UnavailableRule {
+  kind: "weekly" | "dates";
+  /** ISO weekday, 1 = Monday ... 7 = Sunday (weekly only). */
+  weekday: number | null;
+  startsOn: string | null;
+  endsOn: string | null;
+  /** "HH:MM" local times, both null for all day. */
+  startTime: string | null;
+  endTime: string | null;
+}
+
+const isoWeekday = (iso: string) =>
+  ((new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+const localMinutes = (local: string) => Date.parse(`${local}:00Z`) / 60000;
+
+/**
+ * Whether a shift (local "YYYY-MM-DDTHH:MM" start and end at its site) falls in
+ * a period the person marked as unavailable. Overnight shifts are checked on
+ * both days they touch.
+ */
+export function clashesWithUnavailability(
+  rule: UnavailableRule,
+  localStart: string,
+  localEnd: string,
+): boolean {
+  const s = localMinutes(localStart);
+  const e = localMinutes(localEnd);
+  const firstDay = localStart.slice(0, 10);
+  const lastDay = localEnd.slice(0, 10);
+  for (let d = firstDay; d <= lastDay; d = addDays(d, 1)) {
+    const applies =
+      rule.kind === "weekly"
+        ? isoWeekday(d) === rule.weekday
+        : d >= rule.startsOn! && d <= rule.endsOn!;
+    if (!applies) continue;
+    const from = localMinutes(`${d}T${rule.startTime ?? "00:00"}`);
+    const to = rule.endTime
+      ? localMinutes(`${d}T${rule.endTime}`)
+      : localMinutes(`${addDays(d, 1)}T00:00`);
+    if (s < to && from < e) return true;
+  }
+  return false;
+}
+
+const WEEKDAY_NAMES = [
+  "Mondays",
+  "Tuesdays",
+  "Wednesdays",
+  "Thursdays",
+  "Fridays",
+  "Saturdays",
+  "Sundays",
+];
+
+/** "Sundays, all day", "Tuesdays, 18:00 to 23:00", "20 Dec to 24 Dec, all day". */
+export function describeUnavailability(rule: UnavailableRule): string {
+  const when =
+    rule.startTime && rule.endTime
+      ? `${rule.startTime} to ${rule.endTime}`
+      : "all day";
+  if (rule.kind === "weekly")
+    return `${WEEKDAY_NAMES[(rule.weekday ?? 1) - 1]}, ${when}`;
+  const day = (iso: string) =>
+    new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(`${iso}T00:00:00Z`));
+  return rule.startsOn === rule.endsOn
+    ? `${day(rule.startsOn!)}, ${when}`
+    : `${day(rule.startsOn!)} to ${day(rule.endsOn!)}, ${when}`;
 }

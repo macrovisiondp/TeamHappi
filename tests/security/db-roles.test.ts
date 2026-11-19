@@ -144,6 +144,9 @@ describe("application role posture", () => {
       // M10.2: requests and last-seen. UPDATE is column-level. No DELETE.
       shift_request: "INSERT,SELECT",
       rota_seen: "INSERT,SELECT",
+      // M10.3: availability, drops and swaps. UPDATE is column-level. No DELETE.
+      unavailability: "INSERT,SELECT",
+      shift_change_request: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -178,7 +181,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'application_note', 'interview', 'interview_interviewer',
                                   'application_document', 'rota_week', 'shift',
                                   'shift_assignment', 'shift_change', 'shift_request',
-                                  'rota_seen')
+                                  'rota_seen', 'unavailability', 'shift_change_request')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -260,6 +263,13 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       shift_assignment: ["removed_at", "removed_by"],
       shift_request: ["decided_at", "decided_by", "status"],
       rota_seen: ["seen_at"],
+      unavailability: ["removed_at", "removed_by"],
+      shift_change_request: [
+        "decided_at",
+        "decided_by",
+        "status",
+        "target_responded_at",
+      ],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -415,6 +425,7 @@ describe("row-level security coverage", () => {
       "shift",
       "shift_assignment",
       "shift_change",
+      "shift_change_request",
       "shift_request",
       "site",
       "team",
@@ -424,6 +435,7 @@ describe("row-level security coverage", () => {
       "training_course",
       "training_record",
       "training_requirement",
+      "unavailability",
       "user",
       "vacancy",
     ]);

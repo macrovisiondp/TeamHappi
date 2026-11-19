@@ -10,6 +10,7 @@ import { Field, Select } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
 import {
+  ChangeActions,
   RequestActions,
   ShiftActions,
   ShiftDialog,
@@ -159,6 +160,9 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
           {w.pendingRequests
             ? ` · ${w.pendingRequests} request${w.pendingRequests === 1 ? "" : "s"} to take open shifts`
             : ""}
+          {w.pendingChanges
+            ? ` · ${w.pendingChanges} drop or swap request${w.pendingChanges === 1 ? "" : "s"}`
+            : ""}
           {w.status === "draft"
             ? " · Staff can't see this week until it's published."
             : ""}
@@ -184,6 +188,15 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
                 <h2 id={`day-${day}`} className="text-sm font-semibold">
                   {dayLabel(day)}
                 </h2>
+                {w.unavailable.some((u) => u.day === day) ? (
+                  <p className="text-xs text-ink-muted">
+                    Unavailable:{" "}
+                    {w.unavailable
+                      .filter((u) => u.day === day)
+                      .map((u) => `${u.name} (${u.when})`)
+                      .join(", ")}
+                  </p>
+                ) : null}
                 {dayShifts.length === 0 ? (
                   <p className="text-sm text-ink-muted">No shifts</p>
                 ) : (
@@ -218,6 +231,23 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
                               <Badge tone="warning">Open</Badge>
                             )}
                           </p>
+                          {w.can.manage && s.change ? (
+                            <ChangeActions
+                              requestId={s.change.id}
+                              summary={summary}
+                              canApprove={
+                                s.change.kind === "drop" ||
+                                s.change.status === "accepted"
+                              }
+                              label={
+                                s.change.kind === "drop"
+                                  ? `${s.change.from} asked to drop this shift.`
+                                  : s.change.status === "accepted"
+                                    ? `${s.change.from} wants to swap this to ${s.change.to}, who accepted.`
+                                    : `${s.change.from} offered this to ${s.change.to} (waiting for them to accept).`
+                              }
+                            />
+                          ) : null}
                           {w.can.manage && s.requests.length ? (
                             <div className="flex flex-col gap-1">
                               <p className="text-xs font-semibold text-ink-muted">

@@ -6,6 +6,7 @@ export {
   assignShift,
   cancelShift,
   copyPreviousWeek,
+  decideChange,
   decideRequest,
   getWeek,
   publishWeek,
@@ -16,7 +17,13 @@ export {
   type ShiftInput,
 } from "./service";
 export {
+  addUnavailability,
   markShiftsSeen,
+  removeUnavailability,
+  requestChange,
+  respondToSwap,
+  withdrawChange,
+  type UnavailabilityInput,
   myShiftUpdates,
   myShifts,
   requestShift,
@@ -24,6 +31,9 @@ export {
 } from "./self";
 export {
   addDays,
+  clashesWithUnavailability,
+  describeUnavailability,
+  type UnavailableRule,
   formatMinutes,
   mondayOf,
   shiftTimes,
