@@ -12,7 +12,8 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, StatCard } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
-import { dashboardData } from "@/lib/workspace";
+import { GetStarted } from "@/features/dashboard/get-started";
+import { dashboardData, getStartedSteps } from "@/lib/workspace";
 import {
   NoOrganisation,
   requireWorkspace,
@@ -27,7 +28,10 @@ export const instant = false;
 export default async function DashboardPage() {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
-  const data = await dashboardData(ws);
+  const [data, steps] = await Promise.all([
+    dashboardData(ws),
+    getStartedSteps(ws),
+  ]);
   const empty = data.counts.sites === 0 && data.counts.active === 0;
 
   return (
@@ -36,6 +40,8 @@ export default async function DashboardPage() {
         title="Dashboard"
         description={`Welcome back, ${ws.user.name.split(" ")[0]}. Here's ${ws.tenant.name} today.`}
       />
+
+      {steps ? <GetStarted steps={steps} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

@@ -176,27 +176,69 @@ export async function saveProviderConfig(
   });
 }
 
+/** A live check of a real provider's saved settings (network; outside transactions). */
+export type LiveTest = (
+  settings: Record<string, unknown>,
+) => Promise<{ ok: true } | { ok: false; message: string }>;
+
 /**
- * Checks the latest configuration. Synthetic providers are checked locally;
- * real providers need a live adapter, which is a separately approved
- * increment, so their check is refused for now (no network calls).
+ * Checks the latest configuration. Synthetic providers are checked locally.
+ * Real ("adapter-ready") providers are checked only with a live test, which
+ * Platform Admin supplies only when the owner has approved the provider for
+ * live use and its credentials are set (ADR-0015); otherwise the check is
+ * refused and no request is sent.
  */
 export async function validateLatestConfig(
   db: PlatformDbClient,
   actor: PlatformStaffActor,
   providerId: string,
   environment: DeploymentEnvironment,
+  liveTest?: LiveTest,
 ): Promise<StoreResult> {
   assertPlatformGrant(actor, "integrations.manage");
   const provider = getProvider(providerId);
   if (!provider)
     return { ok: false, code: "not_found", message: "Unknown provider." };
-  if (provider.readiness !== "synthetic")
+  if (
+    provider.readiness === "planned" ||
+    (provider.readiness !== "synthetic" && !liveTest)
+  )
     return {
       ok: false,
       code: "refused",
       message: `Testing ${provider.name} needs a live connection, which requires your separate approval. No request was sent.`,
     };
+  if (liveTest) {
+    const latest = await db.integrationConfig.findFirst({
+      where: { category: provider.category, providerId, environment },
+      orderBy: { version: "desc" },
+      select: { id: true, version: true, settings: true },
+    });
+    if (!latest)
+      return {
+        ok: false,
+        code: "refused",
+        message: `Save ${provider.name}'s settings first, then test.`,
+      };
+    const result = await liveTest(
+      (latest.settings ?? {}) as Record<string, unknown>,
+    );
+    if (!result.ok)
+      return { ok: false, code: "refused", message: result.message };
+    return db.$transaction(async (tx) => {
+      await tx.integrationConfig.update({
+        where: { id: latest.id },
+        data: { validatedAt: new Date() },
+        select: { id: true },
+      });
+      await audit(tx, actor, "integration.validated", providerId, {
+        environment,
+        version: latest.version,
+        live: true,
+      });
+      return { ok: true } as const;
+    });
+  }
   return db.$transaction(async (tx) => {
     const latest = await tx.integrationConfig.findFirst({
       where: { category: provider.category, providerId, environment },

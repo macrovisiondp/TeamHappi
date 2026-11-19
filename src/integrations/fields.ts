@@ -118,7 +118,8 @@ export const PROVIDER_FIELDS: Record<string, readonly FieldDef[]> = {
 
 /** Environment variables that hold each provider's credentials. */
 export const CREDENTIAL_ENV: Record<string, readonly string[]> = {
-  resend: ["RESEND_API_KEY"],
+  // EMAIL_FROM isn't secret, but live sending needs it too (ADR-0015).
+  resend: ["RESEND_API_KEY", "EMAIL_FROM"],
   "amazon-ses": ["SES_ACCESS_KEY_ID", "SES_SECRET_ACCESS_KEY"],
   "aws-s3": ["STORAGE_S3_ACCESS_KEY_ID", "STORAGE_S3_SECRET_ACCESS_KEY"],
   cloudinary: ["CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"],

@@ -336,7 +336,13 @@ export async function saveAiControls(
 
 export type CreateOrganisationState =
   | { status: "idle" }
-  | { status: "ok"; tenantId: string; inviteLink: string | null }
+  | {
+      status: "ok";
+      tenantId: string;
+      inviteLink: string | null;
+      emailed: boolean;
+      email: string;
+    }
   | {
       status: "error";
       message: string;
@@ -368,6 +374,51 @@ export async function createOrganisationAction(
     };
   const r = await organisationAdmin.create(input);
   return r.ok
-    ? { status: "ok", tenantId: r.data.tenantId, inviteLink: r.data.inviteLink }
+    ? {
+        status: "ok",
+        tenantId: r.data.tenantId,
+        inviteLink: r.data.inviteLink,
+        emailed: r.data.emailed,
+        email: input.ownerEmail,
+      }
+    : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
+}
+
+export type OwnerInviteState =
+  | { status: "idle" }
+  | { status: "ok"; message: string; inviteLink?: string }
+  | { status: "error"; message: string; stepUp?: boolean };
+
+/** Resends (new link) or cancels the owner's invitation (tenant.create, MFA). */
+export async function ownerInviteAction(
+  _prev: OwnerInviteState,
+  form: FormData,
+): Promise<OwnerInviteState> {
+  if (!(await requireStaff()))
+    return { status: "error", message: "Platform access is required." };
+  const tenantId = String(form.get("tenantId") ?? "");
+  if (form.get("intent") === "cancel") {
+    const r = await organisationAdmin.cancelOwnerInvite(tenantId);
+    return r.ok
+      ? {
+          status: "ok",
+          message: "Invitation cancelled. The link no longer works.",
+        }
+      : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
+  }
+  const email = String(form.get("email") ?? "").trim();
+  const r = await organisationAdmin.renewOwnerInvite(
+    tenantId,
+    email,
+    String(form.get("organisation") ?? ""),
+  );
+  return r.ok
+    ? {
+        status: "ok",
+        message: r.data.emailed
+          ? `A new invitation was emailed to ${email}. The old link no longer works.`
+          : "A new invitation link was made, but email isn't set up, so copy the link below and send it yourself.",
+        inviteLink: r.data.emailed ? undefined : r.data.inviteLink,
+      }
     : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
 }
