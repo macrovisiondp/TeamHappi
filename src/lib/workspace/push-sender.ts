@@ -1,6 +1,6 @@
 import "server-only";
 
-import webpush from "web-push";
+import { sendNotification } from "web-push";
 
 import { serverEnv } from "@/lib/env";
 
@@ -24,7 +24,7 @@ export function pushKeys(): PushKeys | null {
 export function webPushSender(keys: PushKeys): PushSender {
   return async (sub, payload) => {
     try {
-      const r = await webpush.sendNotification(
+      const r = await sendNotification(
         {
           endpoint: sub.endpoint,
           keys: { p256dh: sub.p256dh, auth: sub.auth },
