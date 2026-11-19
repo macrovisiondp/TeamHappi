@@ -197,13 +197,15 @@ describe("platform and integration guards", () => {
       .map((f) => f.path);
     expect(offenders).toEqual([]);
     // The platform role writes audit events in the same transaction as an
-    // organisation status change (ADR-0009) or an integration change (M5.3);
-    // nothing else outside auth does.
+    // organisation status change (ADR-0009) or an integration change (M5.3),
+    // and right after creating an organisation (Platform Admin); nothing else
+    // outside auth does.
     const audit = SRC.filter((f) => /\.platformAuditEvent\./.test(f.text))
       .filter(
         (f) =>
           !f.path.startsWith("src/lib/auth/") &&
           f.path !== "src/platform/tenants/organisations.ts" &&
+          f.path !== "src/platform/tenants/create.ts" &&
           f.path !== "src/platform/integrations/store.ts",
       )
       .map((f) => f.path);

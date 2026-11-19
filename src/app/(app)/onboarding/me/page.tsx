@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
+import { RequestList } from "@/features/signing/request-list";
 import { Progress } from "@/components/ui/progress";
 import { MyTaskAction } from "@/features/onboarding/my-controls";
 import {
@@ -13,7 +14,7 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate } from "@/lib/format";
-import { onboardingApi, trainingApi } from "@/lib/workspace";
+import { onboardingApi, signingApi, trainingApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "My onboarding" };
 
@@ -28,6 +29,19 @@ export default async function MyOnboardingPage() {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
   const me = await onboardingApi.mine(ws);
+  const docs = await signingApi.mine(ws);
+  const docsSection = docs?.length ? (
+    <section aria-labelledby="docs-heading" className="flex flex-col gap-3">
+      <h2 id="docs-heading" className="text-lg font-semibold">
+        Documents to sign
+      </h2>
+      <p className="text-sm text-ink-muted">
+        Read each document, then sign by typing your name. You can download a
+        signed copy afterwards.
+      </p>
+      <RequestList requests={docs} side="employee" />
+    </section>
+  ) : null;
 
   if (!me?.onboarding)
     return (
@@ -38,6 +52,7 @@ export default async function MyOnboardingPage() {
             ? "When your manager starts your onboarding, your tasks appear here."
             : "Your TeamHappi login isn't linked to a staff record yet. Ask your manager to invite you from your record."}
         </EmptyState>
+        {docsSection}
       </div>
     );
 
@@ -70,6 +85,8 @@ export default async function MyOnboardingPage() {
             : `${o.overall.finished} of ${o.overall.total} steps finished, including the ones your manager does.`}
         </CardDescription>
       </Card>
+
+      {docsSection}
 
       <section aria-labelledby="todo-heading" className="flex flex-col gap-3">
         <h2 id="todo-heading" className="text-lg font-semibold">

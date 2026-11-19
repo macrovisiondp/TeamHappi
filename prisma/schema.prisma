@@ -370,7 +370,9 @@ model Employee {
   changeRequests      ShiftChangeRequest[] @relation("ChangeRequester")
   changeRequestsForMe ShiftChangeRequest[] @relation("ChangeTarget")
 
-  timeEntries TimeEntry[]
+  timeEntries   TimeEntry[]
+  signDocuments SignDocument[]
+  signRequests  SignRequest[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeNumber])
@@ -1574,4 +1576,59 @@ model PushSubscription {
 
   @@unique([tenantId, id])
   @@map("push_subscription")
+}
+
+// --- M13 documents to sign --------------------------------------------------------------
+
+model SignDocument {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  kind       String
+  title      String
+  employeeId String?   @map("employee_id") @db.Uuid
+  fileName   String    @map("file_name")
+  sizeBytes  Int       @map("size_bytes")
+  sha256     String
+  providerId String    @map("provider_id")
+  storageKey String    @unique(map: "sign_document_storage_key_key") @map("storage_key")
+  uploadedBy String    @map("uploaded_by") @db.Uuid
+  uploadedAt DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz
+  archivedBy String?   @map("archived_by") @db.Uuid
+
+  employee Employee?     @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_document_employee_fkey")
+  requests SignRequest[]
+
+  @@unique([tenantId, id])
+  @@map("sign_document")
+}
+
+model SignRequest {
+  id                String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  employeeId        String    @map("employee_id") @db.Uuid
+  signDocumentId    String    @map("sign_document_id") @db.Uuid
+  needsCountersign  Boolean   @map("needs_countersign")
+  status            String    @default("awaiting_employee")
+  sentBy            String    @map("sent_by") @db.Uuid
+  sentAt            DateTime  @default(now()) @map("sent_at") @db.Timestamptz
+  signedName        String?   @map("signed_name")
+  signedBy          String?   @map("signed_by") @db.Uuid
+  signedAt          DateTime? @map("signed_at") @db.Timestamptz
+  signedSha256      String?   @map("signed_sha256")
+  countersignedName String?   @map("countersigned_name")
+  countersignedBy   String?   @map("countersigned_by") @db.Uuid
+  countersignedAt   DateTime? @map("countersigned_at") @db.Timestamptz
+  finalProviderId   String?   @map("final_provider_id")
+  finalStorageKey   String?   @map("final_storage_key")
+  finalSha256       String?   @map("final_sha256")
+  withdrawnBy       String?   @map("withdrawn_by") @db.Uuid
+  withdrawnAt       DateTime? @map("withdrawn_at") @db.Timestamptz
+
+  employee Employee     @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_request_employee_fkey")
+  document SignDocument @relation(fields: [tenantId, signDocumentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_request_document_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId], map: "sign_request_employee")
+  @@map("sign_request")
 }

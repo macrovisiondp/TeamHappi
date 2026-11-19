@@ -15,10 +15,13 @@ import * as training from "@/modules/training";
 import * as recruitment from "@/modules/recruitment";
 import * as rota from "@/modules/rota";
 import * as attendance from "@/modules/attendance";
+import * as signing from "@/modules/signing";
+import { blobStore, blobStoreFor } from "@/integrations/storage/blob";
 
 import * as cv from "./cv-documents";
 import * as push from "./push";
 import { pushKeys, webPushSender } from "./push-sender";
+import * as signingFiles from "./signing-files";
 import * as invites from "./invitations";
 import * as members from "./members";
 import * as mutations from "./mutations";
@@ -752,4 +755,55 @@ export const pushApi = {
   unsubscribe: (ws: Ready, endpoint: unknown) =>
     push.removeSubscription(db(), ws, endpoint),
   isOn: (ws: Ready) => push.hasSubscription(db(), ws),
+};
+
+// --- Documents to sign (M13) -------------------------------------------------------------
+
+const signingDeps = async (): Promise<signingFiles.SigningDeps> => ({
+  client: db(),
+  store: await blobStore(),
+  storeFor: blobStoreFor,
+});
+const inSigning = <T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: signing.Actor) => Promise<T>,
+) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+
+export const signingApi = {
+  storageReady: async () => (await blobStore()) !== null,
+  canManage: (ws: Ready) => signing.canManage(actorOf(ws)),
+  library: (ws: Ready) => inSigning(ws, signing.library),
+  uploadPolicy: async (
+    ws: Ready,
+    title: unknown,
+    file: { name: string; bytes: Uint8Array },
+  ) => signingFiles.uploadPolicy(await signingDeps(), ws, title, file),
+  archivePolicy: (ws: Ready, id: unknown) =>
+    inSigning(ws, (tx, a) => signing.archivePolicy(tx, a, id)),
+  personRequests: (ws: Ready, employeeId: unknown) =>
+    inSigning(ws, (tx, a) => signing.personRequests(tx, a, employeeId)),
+  sendPolicies: (ws: Ready, employeeId: unknown, ids: unknown) =>
+    inSigning(ws, (tx, a) => signing.sendPolicies(tx, a, employeeId, ids)),
+  uploadContract: async (
+    ws: Ready,
+    employeeId: unknown,
+    title: unknown,
+    file: { name: string; bytes: Uint8Array },
+  ) =>
+    signingFiles.uploadContract(
+      await signingDeps(),
+      ws,
+      employeeId,
+      title,
+      file,
+    ),
+  withdraw: (ws: Ready, requestId: unknown) =>
+    inSigning(ws, (tx, a) => signing.withdrawRequest(tx, a, requestId)),
+  mine: (ws: Ready) => inSigning(ws, signing.myRequests),
+  open: async (ws: Ready, requestId: unknown, which: "original" | "signed") =>
+    signingFiles.openFile(await signingDeps(), ws, requestId, which),
+  sign: async (ws: Ready, requestId: unknown, name: unknown, agreed: unknown) =>
+    signingFiles.sign(await signingDeps(), ws, requestId, name, agreed),
+  countersign: async (ws: Ready, requestId: unknown, name: unknown) =>
+    signingFiles.countersign(await signingDeps(), ws, requestId, name),
 };
