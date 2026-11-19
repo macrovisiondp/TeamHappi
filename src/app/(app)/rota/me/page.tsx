@@ -7,6 +7,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
 import { ClockButtons } from "@/features/attendance/controls";
+import { ShiftAlerts } from "@/features/push/shift-alerts";
 import {
   MarkShiftsSeen,
   MyChangeControls,
@@ -20,7 +21,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { attendanceApi, rotaApi } from "@/lib/workspace";
+import { attendanceApi, pushApi, rotaApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "My shifts" };
 
@@ -128,6 +129,13 @@ export default async function MyShiftsPage() {
               </ul>
             </details>
           ) : null}
+        </Card>
+      ) : null}
+
+      {pushApi.publicKey() ? (
+        <Card aria-labelledby="alerts-heading" className="gap-2">
+          <CardTitle id="alerts-heading">Shift alerts</CardTitle>
+          <ShiftAlerts publicKey={pushApi.publicKey()!} />
         </Card>
       ) : null}
 

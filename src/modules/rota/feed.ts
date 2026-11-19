@@ -63,3 +63,61 @@ export async function publishedShifts(
     .map((r) => ({ ...r.shift, employeeId: r.employeeId }))
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 }
+
+/**
+ * Members whose PUBLISHED shifts changed at or after `since`: everyone on a
+ * week published since then, and anyone a recorded change was about (assigned,
+ * taken off, or on a changed or cancelled shift). Only people with a linked
+ * login. For notifications; the caller sends nothing private.
+ */
+export async function membersWithChangedShifts(
+  tx: TenantTx,
+  tenantId: string,
+  since: Date,
+): Promise<string[]> {
+  const [published, changes] = await Promise.all([
+    tx.shiftAssignment.findMany({
+      where: {
+        tenantId,
+        removedAt: null,
+        shift: {
+          status: "active",
+          week: { status: "published", publishedAt: { gte: since } },
+        },
+      },
+      select: { employeeId: true },
+    }),
+    tx.shiftChange.findMany({
+      where: { tenantId, occurredAt: { gte: since } },
+      select: {
+        detail: true,
+        shift: {
+          select: {
+            assignments: {
+              where: { removedAt: null },
+              select: { employeeId: true },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+  const ids = new Set(published.map((a) => a.employeeId));
+  for (const c of changes) {
+    const d = (c.detail ?? {}) as Record<string, unknown>;
+    for (const k of ["employeeId", "previousEmployeeId"])
+      if (typeof d[k] === "string") ids.add(d[k] as string);
+    for (const a of c.shift.assignments) ids.add(a.employeeId);
+  }
+  if (!ids.size) return [];
+  const people = await tx.employee.findMany({
+    where: {
+      tenantId,
+      id: { in: [...ids] },
+      membershipId: { not: null },
+      status: { not: "left" },
+    },
+    select: { membershipId: true },
+  });
+  return [...new Set(people.map((p) => p.membershipId!))];
+}

@@ -158,6 +158,8 @@ describe("application role posture", () => {
       // M11.2: timesheets. UPDATE is column-level; events are append-only.
       timesheet: "INSERT,SELECT",
       timesheet_event: "INSERT,SELECT",
+      // M12: push subscriptions. UPDATE is column-level. No DELETE.
+      push_subscription: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -194,7 +196,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'shift_assignment', 'shift_change', 'shift_request',
                                   'rota_seen', 'unavailability', 'shift_change_request',
                                   'attendance_settings', 'time_entry', 'time_break',
-                                  'time_entry_change', 'timesheet', 'timesheet_event')
+                                  'time_entry_change', 'timesheet', 'timesheet_event',
+                                  'push_subscription')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -300,6 +303,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       ],
       time_break: ["ends_at"],
       timesheet: ["approved_at", "approved_by", "status", "updated_at"],
+      push_subscription: ["last_sent_at", "removed_at"],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -446,6 +450,7 @@ describe("row-level security coverage", () => {
       "onboarding_task",
       "onboarding_template",
       "onboarding_template_task",
+      "push_subscription",
       "recruitment_settings",
       "role",
       "role_assignment",

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { cache } from "react";
 
 import { getCurrentUser, invitedAccounts } from "@/lib/auth";
@@ -16,6 +17,8 @@ import * as rota from "@/modules/rota";
 import * as attendance from "@/modules/attendance";
 
 import * as cv from "./cv-documents";
+import * as push from "./push";
+import { pushKeys, webPushSender } from "./push-sender";
 import * as invites from "./invitations";
 import * as members from "./members";
 import * as mutations from "./mutations";
@@ -537,6 +540,29 @@ const inRota = <T>(
   fn: (tx: TenantTx, a: rota.Actor) => Promise<T>,
 ) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
 
+/**
+ * Runs a rota change; if it succeeded, alerts (after the response is sent)
+ * everyone whose published shifts it changed (M12). A few seconds' margin
+ * allows for clock differences between the app and the database.
+ */
+const inRotaNotify = async <T extends { ok: boolean }>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: rota.Actor) => Promise<T>,
+): Promise<T> => {
+  const since = new Date(Date.now() - 5_000);
+  const r = await inRota(ws, fn);
+  const keys = pushKeys();
+  if (r.ok && keys)
+    after(async () => {
+      try {
+        await push.notifyShiftChanges(db(), ws, since, webPushSender(keys));
+      } catch {
+        // Alerts are best-effort; the change itself has already been saved.
+      }
+    });
+  return r;
+};
+
 export const rotaApi = {
   sites: (ws: Ready) => inRota(ws, rota.rotaSites),
   week: (ws: Ready, siteId: unknown, weekStart: unknown) =>
@@ -548,33 +574,33 @@ export const rotaApi = {
     shiftId: string | null,
     raw: rota.ShiftInput,
   ) =>
-    inRota(ws, (tx, a) =>
+    inRotaNotify(ws, (tx, a) =>
       rota.saveShift(tx, a, siteId, weekStart, shiftId, raw),
     ),
   cancelShift: (ws: Ready, shiftId: unknown) =>
-    inRota(ws, (tx, a) => rota.cancelShift(tx, a, shiftId)),
+    inRotaNotify(ws, (tx, a) => rota.cancelShift(tx, a, shiftId)),
   assign: (
     ws: Ready,
     shiftId: unknown,
     employeeId: unknown,
     overrideReason: unknown,
   ) =>
-    inRota(ws, (tx, a) =>
+    inRotaNotify(ws, (tx, a) =>
       rota.assignShift(tx, a, shiftId, employeeId, overrideReason),
     ),
   unassign: (ws: Ready, shiftId: unknown) =>
-    inRota(ws, (tx, a) => rota.unassignShift(tx, a, shiftId)),
+    inRotaNotify(ws, (tx, a) => rota.unassignShift(tx, a, shiftId)),
   copyPreviousWeek: (ws: Ready, siteId: unknown, weekStart: unknown) =>
     inRota(ws, (tx, a) => rota.copyPreviousWeek(tx, a, siteId, weekStart)),
   publish: (ws: Ready, siteId: unknown, weekStart: unknown) =>
-    inRota(ws, (tx, a) => rota.publishWeek(tx, a, siteId, weekStart)),
+    inRotaNotify(ws, (tx, a) => rota.publishWeek(tx, a, siteId, weekStart)),
   decideRequest: (
     ws: Ready,
     requestId: unknown,
     decision: unknown,
     overrideReason: unknown,
   ) =>
-    inRota(ws, (tx, a) =>
+    inRotaNotify(ws, (tx, a) =>
       rota.decideRequest(tx, a, requestId, decision, overrideReason),
     ),
   // My shifts (M10.2): the signed-in person's own record only.
@@ -592,7 +618,7 @@ export const rotaApi = {
     decision: unknown,
     overrideReason: unknown,
   ) =>
-    inRota(ws, (tx, a) =>
+    inRotaNotify(ws, (tx, a) =>
       rota.decideChange(tx, a, requestId, decision, overrideReason),
     ),
   addUnavailability: (ws: Ready, raw: rota.UnavailabilityInput) =>
@@ -715,4 +741,15 @@ export const vacancySharingApi = {
     inRecruitment(ws, (tx, a) =>
       recruitment.updateSharing(tx, a, vacancyId, cmd),
     ),
+};
+
+// --- Push notifications (M12) ------------------------------------------------------
+
+export const pushApi = {
+  /** The public key the browser needs, or null when push is off. */
+  publicKey: () => pushKeys()?.publicKey ?? null,
+  subscribe: (ws: Ready, raw: unknown) => push.saveSubscription(db(), ws, raw),
+  unsubscribe: (ws: Ready, endpoint: unknown) =>
+    push.removeSubscription(db(), ws, endpoint),
+  isOn: (ws: Ready) => push.hasSubscription(db(), ws),
 };
