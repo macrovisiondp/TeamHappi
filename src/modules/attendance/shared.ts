@@ -28,7 +28,7 @@ export async function audit(
   action: string,
   targetId: string,
   detail: Record<string, string | number | null> = {},
-  targetType: "time_entry" | "attendance_settings" = "time_entry",
+  targetType: "time_entry" | "attendance_settings" | "timesheet" = "time_entry",
 ) {
   await tx.auditEvent.create({
     data: {

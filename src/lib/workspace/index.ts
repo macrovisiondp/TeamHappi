@@ -642,6 +642,16 @@ export const attendanceApi = {
   clockOut: (ws: Ready) => inRota(ws, (tx, a) => attendance.clockOut(tx, a)),
   toggleBreak: (ws: Ready, start: boolean) =>
     inRota(ws, (tx, a) => attendance.toggleBreak(tx, a, start)),
+  timesheet: (ws: Ready, siteId: unknown, week: unknown) =>
+    inRota(ws, (tx, a) => attendance.timesheet(tx, a, siteId, week)),
+  approve: (ws: Ready, siteId: unknown, week: unknown) =>
+    inRota(ws, (tx, a) => attendance.approveTimesheet(tx, a, siteId, week)),
+  reopen: (ws: Ready, siteId: unknown, week: unknown, reason: unknown) =>
+    inRota(ws, (tx, a) =>
+      attendance.reopenTimesheet(tx, a, siteId, week, reason),
+    ),
+  exportHours: (ws: Ready, from: unknown, to: unknown) =>
+    inRota(ws, (tx, a) => attendance.exportApprovedHours(tx, a, from, to)),
 };
 
 // --- CVs (M9.2b) ---------------------------------------------------------------------

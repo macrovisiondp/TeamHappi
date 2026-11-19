@@ -155,6 +155,9 @@ describe("application role posture", () => {
       time_entry: "INSERT,SELECT",
       time_break: "INSERT,SELECT",
       time_entry_change: "INSERT,SELECT",
+      // M11.2: timesheets. UPDATE is column-level; events are append-only.
+      timesheet: "INSERT,SELECT",
+      timesheet_event: "INSERT,SELECT",
       vacancy: "INSERT,SELECT",
       // M7.2: append-only right-to-work records (a trigger also blocks UPDATE/DELETE).
       rtw_check: "INSERT,SELECT",
@@ -191,7 +194,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'shift_assignment', 'shift_change', 'shift_request',
                                   'rota_seen', 'unavailability', 'shift_change_request',
                                   'attendance_settings', 'time_entry', 'time_break',
-                                  'time_entry_change')
+                                  'time_entry_change', 'timesheet', 'timesheet_event')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -296,6 +299,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "updated_by",
       ],
       time_break: ["ends_at"],
+      timesheet: ["approved_at", "approved_by", "status", "updated_at"],
       invitation: [
         "expires_at",
         "revoked_at",
@@ -462,6 +466,8 @@ describe("row-level security coverage", () => {
       "time_break",
       "time_entry",
       "time_entry_change",
+      "timesheet",
+      "timesheet_event",
       "training_course",
       "training_record",
       "training_requirement",

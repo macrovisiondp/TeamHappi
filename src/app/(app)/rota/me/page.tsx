@@ -92,6 +92,18 @@ export default async function MyShiftsPage() {
               times.
             </p>
           )}
+          {clock.approvedWeeks.length ? (
+            <div className="text-sm">
+              <p className="font-semibold">Approved hours</p>
+              <ul className="flex flex-col gap-1">
+                {clock.approvedWeeks.map((w) => (
+                  <li key={w.weekStart}>
+                    Week of {weekLabel(w.weekStart)}: {minutesLabel(w.minutes)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {clock.recent.length ? (
             <details className="text-sm">
               <summary className="cursor-pointer font-semibold">

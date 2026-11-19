@@ -285,6 +285,7 @@ model Site {
   rotaWeeks RotaWeek[]
 
   timeEntries TimeEntry[]
+  timesheets  Timesheet[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -1516,4 +1517,41 @@ model TimeEntryChange {
   @@unique([tenantId, id])
   @@index([tenantId, timeEntryId, occurredAt], map: "time_entry_change_entry")
   @@map("time_entry_change")
+}
+
+// --- M11.2 Attendance: timesheets ----------------------------------------------------
+
+model Timesheet {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  siteId     String    @map("site_id") @db.Uuid
+  weekStart  DateTime  @map("week_start") @db.Date
+  status     String    @default("open")
+  approvedBy String?   @map("approved_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  site   Site             @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "timesheet_site_fkey")
+  events TimesheetEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, siteId, weekStart], map: "timesheet_one_per_site_week")
+  @@map("timesheet")
+}
+
+model TimesheetEvent {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  timesheetId String   @map("timesheet_id") @db.Uuid
+  kind        String
+  reason      String?
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz
+
+  timesheet Timesheet @relation(fields: [tenantId, timesheetId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "timesheet_event_timesheet_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, timesheetId, occurredAt], map: "timesheet_event_timesheet")
+  @@map("timesheet_event")
 }

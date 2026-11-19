@@ -29,6 +29,7 @@ import {
   type Actor,
   type Result,
 } from "./shared";
+import { LOCKED_MESSAGE, isLockError, isLocked } from "./timesheets";
 
 const HOUR = 3_600_000;
 
@@ -397,6 +398,8 @@ export async function recordEntry(
     return invalid({
       employeeId: "Choose someone based at this site or on its rota then",
     });
+  if (await isLocked(tx, actor.tenantId, site.id, site.timezone, t.inAt))
+    return conflict(LOCKED_MESSAGE);
   if (await overlapping(tx, actor, person.id, t.inAt, t.outAt))
     return conflict(OVERLAP);
   try {
@@ -434,6 +437,7 @@ export async function recordEntry(
   } catch (e) {
     if (uniqueViolation(e))
       return conflict("This person is already clocked in.");
+    if (isLockError(e)) return conflict(LOCKED_MESSAGE);
     throw e;
   }
 }
@@ -475,6 +479,17 @@ export async function correctEntry(
     (t.outAt?.getTime() ?? null) === (e.clockOutAt?.getTime() ?? null)
   )
     return invalid({ clockIn: "Change a time, or cancel" }, "Nothing changed.");
+  if (
+    (await isLocked(
+      tx,
+      actor.tenantId,
+      e.siteId,
+      e.site.timezone,
+      e.clockInAt,
+    )) ||
+    (await isLocked(tx, actor.tenantId, e.siteId, e.site.timezone, t.inAt))
+  )
+    return conflict(LOCKED_MESSAGE);
   if (await overlapping(tx, actor, e.employeeId, t.inAt, t.outAt, e.id))
     return conflict(OVERLAP);
   const shift = await shiftFor(tx, actor, e.employeeId, e.siteId, t.inAt);
@@ -501,6 +516,7 @@ export async function correctEntry(
   } catch (err) {
     if (uniqueViolation(err))
       return conflict("This person is already clocked in.");
+    if (isLockError(err)) return conflict(LOCKED_MESSAGE);
     throw err;
   }
   await tx.timeEntryChange.create({
@@ -537,6 +553,10 @@ export async function removeEntry(
   const reason = typeof reasonRaw === "string" ? reasonRaw.trim() : "";
   if (!reason || reason.length > 300)
     return invalid({ reason: "Give a reason (up to 300 characters)" });
+  if (
+    await isLocked(tx, actor.tenantId, e.siteId, e.site.timezone, e.clockInAt)
+  )
+    return conflict(LOCKED_MESSAGE);
   for (const b of e.breaks)
     await tx.timeBreak.update({
       where: { tenantId_id: { tenantId: actor.tenantId, id: b.id } },

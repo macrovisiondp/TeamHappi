@@ -13,6 +13,7 @@ import {
   clockAction,
   entryAction,
   settingsAction,
+  timesheetAction,
   type AttendanceFormState,
 } from "./actions";
 
@@ -337,5 +338,66 @@ export function SettingsForm({
         <Submit label="Save settings" variant="secondary" />
       </div>
     </form>
+  );
+}
+
+/** Approve a finished week, or reopen an approved one with a reason. */
+export function TimesheetActions({
+  siteId,
+  weekStart,
+  approved,
+  label,
+}: {
+  siteId: string;
+  weekStart: string;
+  approved: boolean;
+  label: string;
+}) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [state, action] = useActionState(timesheetAction, IDLE);
+  useReloadOnSave(state);
+  const e = state.status === "error" ? (state.fieldErrors ?? {}) : {};
+  return (
+    <>
+      <Button
+        variant={approved ? "secondary" : "primary"}
+        onClick={() => setOpen(true)}
+      >
+        {approved ? "Reopen week" : "Approve week"}
+      </Button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={approved ? "Reopen this week?" : "Approve this week?"}
+        description={
+          approved
+            ? `${label}. Times can be changed again until it's approved again. The reason is kept.`
+            : `${label}. Approving locks every time in this week. You can reopen it later with a reason.`
+        }
+      >
+        <form action={action} className="flex flex-col gap-4">
+          <input type="hidden" name="siteId" value={siteId} />
+          <input type="hidden" name="weekStart" value={weekStart} />
+          <input
+            type="hidden"
+            name="intent"
+            value={approved ? "reopen" : "approve"}
+          />
+          <Problem state={state} />
+          {approved ? <ReasonField id={id} error={e.reason} /> : null}
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Submit label={approved ? "Reopen" : "Approve"} />
+          </div>
+        </form>
+      </Dialog>
+    </>
   );
 }

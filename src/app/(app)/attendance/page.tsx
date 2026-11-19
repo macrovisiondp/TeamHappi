@@ -8,6 +8,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Select } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/misc";
+import { AttendanceTabs } from "@/features/attendance/tabs";
 import {
   EntryActions,
   RecordEntryDialog,
@@ -88,6 +89,8 @@ export default async function AttendancePage({
           ) : null
         }
       />
+
+      <AttendanceTabs current="whos-in" siteId={w.site.id} />
 
       <div className="flex flex-wrap items-end gap-3">
         <form

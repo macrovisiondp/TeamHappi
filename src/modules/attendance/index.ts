@@ -13,6 +13,16 @@ export {
 } from "./service";
 export { clockIn, clockOut, myClock, toggleBreak } from "./self";
 export {
+  approveTimesheet,
+  csvCell,
+  exportApprovedHours,
+  hoursDecimal,
+  reopenTimesheet,
+  timesheet,
+  weekBounds,
+  type TimesheetFlag,
+} from "./timesheets";
+export {
   DEFAULT_LIMITS,
   FLAG_LABELS,
   STATUS_LABELS,
