@@ -187,13 +187,14 @@ model TenantMembership {
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant               Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  user                 User             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   roleAssignments      RoleAssignment[]
   employee             Employee?
-  ownedOnboardingCases OnboardingCase[] @relation("OnboardingCaseOwner")
+  ownedOnboardingCases OnboardingCase[]   @relation("OnboardingCaseOwner")
   onboardingTasks      OnboardingTask[]
   rtwChecksDone        RtwCheck[]
+  pushSubscriptions    PushSubscription[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, userId])
@@ -285,10 +286,7 @@ model Site {
   rotaWeeks RotaWeek[]
 
   timeEntries TimeEntry[]
-
-  signDocuments SignDocument[]
-  signRequests  SignRequest[]
-  timesheets    Timesheet[]
+  timesheets  Timesheet[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -1561,6 +1559,25 @@ model TimesheetEvent {
   @@map("timesheet_event")
 }
 
+// --- M12 push notifications ------------------------------------------------------------
+
+model PushSubscription {
+  id           String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  membershipId String    @map("membership_id") @db.Uuid
+  endpoint     String
+  p256dh       String
+  auth         String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastSentAt   DateTime? @map("last_sent_at") @db.Timestamptz
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz
+
+  membership TenantMembership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "push_subscription_membership_fkey")
+
+  @@unique([tenantId, id])
+  @@map("push_subscription")
+}
+
 // --- M13 documents to sign --------------------------------------------------------------
 
 model SignDocument {
@@ -1581,8 +1598,6 @@ model SignDocument {
 
   employee Employee?     @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_document_employee_fkey")
   requests SignRequest[]
-  site     Site?         @relation(fields: [siteId], references: [id])
-  siteId   String?       @db.Uuid
 
   @@unique([tenantId, id])
   @@map("sign_document")
@@ -1612,8 +1627,6 @@ model SignRequest {
 
   employee Employee     @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_request_employee_fkey")
   document SignDocument @relation(fields: [tenantId, signDocumentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "sign_request_document_fkey")
-  site     Site?        @relation(fields: [siteId], references: [id])
-  siteId   String?      @db.Uuid
 
   @@unique([tenantId, id])
   @@index([tenantId, employeeId], map: "sign_request_employee")

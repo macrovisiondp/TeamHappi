@@ -23,6 +23,21 @@ export const serverEnvSchema = z.object({
   APPROVED_LIVE_PROVIDERS: z.string().max(500).optional(),
   // Signs session cookies and verification tokens. At least 32 characters.
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  // M12 push notifications (Web Push, VAPID). Generate a pair with
+  // `npx web-push generate-vapid-keys`. All three, or none (push stays off).
+  VAPID_PUBLIC_KEY: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{80,100}$/)
+    .optional(),
+  VAPID_PRIVATE_KEY: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{40,50}$/)
+    .optional(),
+  // Contact for push services: "mailto:..." or an https URL.
+  VAPID_SUBJECT: z
+    .string()
+    .regex(/^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/)
+    .optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -50,6 +65,7 @@ const SECRET_VARS = [
   "AUTH_DATABASE_URL",
   "PLATFORM_DATABASE_URL",
   "BETTER_AUTH_SECRET",
+  "VAPID_PRIVATE_KEY",
 ] as const;
 const DATABASE_VARS = new Set([
   "DATABASE_URL",
