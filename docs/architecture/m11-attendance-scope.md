@@ -1,6 +1,6 @@
 # M11: Basic time and attendance (scope)
 
-**Status:** proposed on 19 November 2026, for the product owner's decision. No code, migration or deployment until it's approved.
+**Status:** **approved** by the product owner on 19 November 2026: scope and decisions D1–D11 as recommended. Each increment still needs its own Neon approval.
 
 **Requirement:** TH-DEV-02 rev 0.2, Capability 5, Release 1 boundary (approved):
 - clock-in and clock-out;
