@@ -149,10 +149,12 @@ export function OnboardingTabs({
   current,
   showTemplates,
   showRightToWork = false,
+  showDocuments = false,
 }: {
-  current: "people" | "templates" | "right-to-work";
+  current: "people" | "templates" | "right-to-work" | "documents";
   showTemplates: boolean;
   showRightToWork?: boolean;
+  showDocuments?: boolean;
 }) {
   const tabs = [
     { href: "/onboarding" as const, label: "People", id: "people" },
@@ -171,6 +173,15 @@ export function OnboardingTabs({
             href: "/onboarding/templates" as const,
             label: "Templates",
             id: "templates",
+          },
+        ]
+      : []),
+    ...(showDocuments
+      ? [
+          {
+            href: "/onboarding/documents" as const,
+            label: "Documents",
+            id: "documents",
           },
         ]
       : []),
