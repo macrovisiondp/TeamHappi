@@ -23,6 +23,17 @@ export const serverEnvSchema = z.object({
   APPROVED_LIVE_PROVIDERS: z.string().max(500).optional(),
   // Signs session cookies and verification tokens. At least 32 characters.
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  // Email (ADR-0015): Resend is used only with APPROVED_LIVE_PROVIDERS
+  // including "resend", RESEND_API_KEY and EMAIL_FROM all set.
+  RESEND_API_KEY: z.string().min(10).max(200).optional(),
+  // "TeamHappi <noreply@your-domain>" or a bare address on a domain verified in Resend.
+  EMAIL_FROM: z
+    .string()
+    .max(200)
+    .regex(
+      /^([^<>@]{1,80} <[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>|[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)$/,
+    )
+    .optional(),
   // M12 push notifications (Web Push, VAPID). Generate a pair with
   // `npx web-push generate-vapid-keys`. All three, or none (push stays off).
   VAPID_PUBLIC_KEY: z
@@ -66,6 +77,7 @@ const SECRET_VARS = [
   "PLATFORM_DATABASE_URL",
   "BETTER_AUTH_SECRET",
   "VAPID_PRIVATE_KEY",
+  "RESEND_API_KEY",
 ] as const;
 const DATABASE_VARS = new Set([
   "DATABASE_URL",

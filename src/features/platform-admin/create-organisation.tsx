@@ -61,10 +61,14 @@ export function CreateOrganisation() {
           <div className="flex flex-col gap-4">
             <Alert tone="success" title="Organisation created" role="status">
               {state.inviteLink
-                ? "The owner doesn't have a TeamHappi login yet. Send them this link (valid for 7 days). They create their login from it and become the owner."
-                : "The owner already had a TeamHappi login and can open the organisation now."}
+                ? state.emailed
+                  ? `We emailed ${state.email} an invitation to set it up (valid for 7 days). They create their login from it and become the owner.`
+                  : "The owner doesn't have a TeamHappi login yet, and email isn't set up, so send them this link yourself (valid for 7 days). They create their login from it and become the owner."
+                : state.emailed
+                  ? `${state.email} already had a TeamHappi login. We've emailed them, and they can open the organisation now.`
+                  : "The owner already had a TeamHappi login and can open the organisation now."}
             </Alert>
-            {state.inviteLink ? (
+            {state.inviteLink && !state.emailed ? (
               <Field id="owner-invite" label="Owner invite link">
                 <Input
                   id="owner-invite"

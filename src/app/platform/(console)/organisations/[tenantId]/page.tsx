@@ -13,6 +13,7 @@ import {
   SubscriptionBadge,
 } from "@/features/platform-admin/organisation-badges";
 import { OrganisationStatusControl } from "@/features/platform-admin/organisation-status";
+import { OwnerInviteControls } from "@/features/platform-admin/owner-invite";
 import { formatDate, formatTime } from "@/lib/format";
 import {
   getPlatformAccess,
@@ -27,6 +28,9 @@ export const instant = false;
 const EVENT: Record<string, string> = {
   "tenant.suspended": "Suspended",
   "tenant.reactivated": "Reactivated",
+  "tenant.created": "Created",
+  "tenant.owner_invite_renewed": "Owner invitation sent again",
+  "tenant.owner_invite_cancelled": "Owner invitation cancelled",
 };
 
 export default async function OrganisationPage({
@@ -47,10 +51,12 @@ export default async function OrganisationPage({
     );
   const org = result.data;
   if (!org) notFound();
-  const [access, history] = await Promise.all([
+  const [access, history, invite] = await Promise.all([
     getPlatformAccess(),
     organisationAdmin.history(org.id),
+    organisationAdmin.ownerInvite(org.id),
   ]);
+  const canInvite = hasGrant(access, "tenant.create");
   const canChange =
     hasGrant(access, "tenant.suspend") &&
     (org.status === "active" || org.status === "suspended");
@@ -135,6 +141,27 @@ export default async function OrganisationPage({
           ) : (
             <p className="text-sm text-ink-muted">No active owner.</p>
           )}
+          {invite && invite.state !== "owner_joined" ? (
+            <div className="flex flex-col gap-3 border-t border-line pt-3">
+              <p className="text-sm" role="status">
+                {invite.state === "pending"
+                  ? `Invitation sent to ${invite.email}, waiting for them to join (link works until ${formatDate(invite.expiresAt)}).`
+                  : invite.state === "expired"
+                    ? `The invitation to ${invite.email} has expired.`
+                    : invite.state === "revoked"
+                      ? `The invitation to ${invite.email} was cancelled.`
+                      : "No owner has been invited yet."}
+              </p>
+              {canInvite ? (
+                <OwnerInviteControls
+                  tenantId={org.id}
+                  organisation={org.name}
+                  email={invite.state === "none" ? "" : invite.email}
+                  canCancel={invite.state === "pending"}
+                />
+              ) : null}
+            </div>
+          ) : null}
           <CardDescription>
             Contact details for support. Platform staff can&apos;t see this
             organisation&apos;s employee records.

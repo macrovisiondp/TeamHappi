@@ -124,7 +124,10 @@ describe("saving provider settings", () => {
       settings: { senderName: "TeamHappi Ops" },
       validatedAt: null,
     });
-    expect(p.credentials).toEqual([{ name: "RESEND_API_KEY", present: false }]);
+    expect(p.credentials).toEqual([
+      { name: "RESEND_API_KEY", present: false },
+      { name: "EMAIL_FROM", present: false },
+    ]);
     const events = await auditFor("integration.configured");
     expect(events.map((e) => e.detail.version)).toEqual(
       expect.arrayContaining([1, 2]),
@@ -205,9 +208,19 @@ describe("testing and activating", () => {
       ok: false,
       message: expect.stringMatching(/credentials/),
     });
+    // ADR-0015: live sending also needs the sender (EMAIL_FROM).
     expect(
       await activateProvider(platform, manager, "resend", ENV, approved, {
         RESEND_API_KEY: "set",
+      }),
+    ).toMatchObject({
+      ok: false,
+      message: expect.stringMatching(/credentials/),
+    });
+    expect(
+      await activateProvider(platform, manager, "resend", ENV, approved, {
+        RESEND_API_KEY: "set",
+        EMAIL_FROM: "TeamHappi <noreply@example.test>",
       }),
     ).toMatchObject({ ok: false, message: expect.stringMatching(/Test/) });
     expect(
@@ -271,6 +284,55 @@ describe("testing and activating", () => {
       (e) => e.target_id === "dev-mailer",
     );
     expect(event!.detail).toMatchObject({ environment: ENV, previous: null });
+  });
+
+  it("tests a real provider live only when given a live test, and records a pass", async () => {
+    const keys = {
+      RESEND_API_KEY: "set",
+      EMAIL_FROM: "TeamHappi <noreply@example.test>",
+    };
+    const approved = new Set(["resend"]);
+    let seen: Record<string, unknown> | null = null;
+    // A failing live test: refused with its message; nothing is validated.
+    expect(
+      await validateLatestConfig(
+        platform,
+        manager,
+        "resend",
+        ENV,
+        async () => ({
+          ok: false,
+          message: "Resend rejected the API key.",
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      code: "refused",
+      message: "Resend rejected the API key.",
+    });
+    expect(
+      await activateProvider(platform, manager, "resend", ENV, approved, keys),
+    ).toMatchObject({ ok: false, message: expect.stringMatching(/Test/) });
+    // A passing one sees the saved settings, then activation is allowed.
+    expect(
+      await validateLatestConfig(
+        platform,
+        manager,
+        "resend",
+        ENV,
+        async (settings) => {
+          seen = settings;
+          return { ok: true };
+        },
+      ),
+    ).toEqual({ ok: true });
+    expect(seen).toMatchObject({ senderAddress: expect.any(String) });
+    expect(
+      await activateProvider(platform, manager, "resend", ENV, approved, keys),
+    ).toEqual({ ok: true });
+    expect(
+      (await categoryState(platform, "email", ENV, NO_KEYS)).activeProviderId,
+    ).toBe("resend");
   });
 
   it("needs the grant for tests and activation too", async () => {

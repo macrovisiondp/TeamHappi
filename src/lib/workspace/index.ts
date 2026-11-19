@@ -22,6 +22,7 @@ import * as cv from "./cv-documents";
 import * as push from "./push";
 import { pushKeys, webPushSender } from "./push-sender";
 import * as signingFiles from "./signing-files";
+import { getStarted } from "./get-started";
 import * as invites from "./invitations";
 import * as members from "./members";
 import * as mutations from "./mutations";
@@ -97,6 +98,8 @@ export function organisationCookieOptions() {
 
 /** Dashboard figures within the member's scope. */
 export const dashboardData = (ws: Ready) => queries.dashboardData(db(), ws);
+/** The owner's "Get started" steps, or null for members who can't manage settings. */
+export const getStartedSteps = (ws: Ready) => getStarted(db(), ws);
 /** People within the member's employee.view scope, or null without it. */
 export const listPeople = (ws: Ready) => queries.listPeople(db(), ws);
 /** One person within scope, or null (respond 404). */

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { cache } from "react";
 
 import {
@@ -18,7 +20,13 @@ import {
 import { createPlatformDbClient, type PlatformDbClient } from "@/platform/db";
 import * as integrationStore from "@/platform/integrations/store";
 import * as organisations from "@/platform/tenants/organisations";
-import { createOrganisationWithAudit } from "@/platform/tenants/create";
+import {
+  createOrganisationWithAudit,
+  ownerInvite as readOwnerInvite,
+  replaceOwnerInvite,
+  type OwnerInvite,
+} from "@/platform/tenants/app";
+import { appEmailProvider } from "@/integrations/email/runtime";
 import { invitationLink, newInvitationToken } from "@/lib/invitations/token";
 import { INVITATION_DAYS } from "@/lib/workspace/member-policy";
 import { deploymentEnvironment } from "@/integrations/core/environment";
@@ -27,6 +35,11 @@ import {
   type ServiceCategory,
 } from "@/integrations/core/types";
 import { serverEnv } from "@/lib/env";
+import {
+  RESEND_TEST_RECIPIENT,
+  explainResendFailure,
+  resendProvider,
+} from "@/integrations/email/resend";
 
 import {
   checkPrivilege,
@@ -218,9 +231,43 @@ export interface NewOrganisation {
 
 export type CreateOrganisationOutcome = {
   tenantId: string;
-  /** Set when the owner has no verified login yet: share it with them. */
+  /** Set when the owner has no verified login yet (a backup if email fails). */
   inviteLink: string | null;
+  /** Whether the owner was emailed. */
+  emailed: boolean;
 };
+
+export type { OwnerInvite };
+
+/**
+ * Emails the owner (ADR-0015): an invitation to set up the organisation, or a
+ * note that they're now its owner. Never throws: the organisation exists either
+ * way, and staff can still copy the link. Nothing about the message is logged.
+ */
+async function emailOwner(
+  to: string,
+  organisation: string,
+  inviteLink: string | null,
+): Promise<boolean> {
+  const provider = appEmailProvider(serverEnv());
+  if (!provider) return false;
+  const name = organisation.replace(/[\r\n]+/g, " ").slice(0, 200);
+  try {
+    await provider.send({
+      to,
+      subject: inviteLink
+        ? `Set up ${name} on TeamHappi`
+        : `You're now the owner of ${name} on TeamHappi`,
+      text: inviteLink
+        ? `Hello,\n\nYou've been invited to set up ${name} on TeamHappi, the workforce app for hospitality teams. You'll be its owner.\n\nCreate your login and get started here (this link works for ${INVITATION_DAYS} days):\n${inviteLink}\n\nIf you weren't expecting this, you can ignore this email.\n\nTeamHappi`
+        : `Hello,\n\nYou're now the owner of ${name} on TeamHappi. Sign in with your usual TeamHappi login to get started:\n${new URL("/sign-in", serverEnv().APP_URL).toString()}\n\nTeamHappi`,
+      idempotencyKey: `owner-${randomUUID()}`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -313,21 +360,95 @@ export const organisationAdmin = {
               expiresAt: new Date(Date.now() + INVITATION_DAYS * 86_400_000),
             },
       });
-      return created.ok
-        ? {
-            ...created,
-            inviteLink: invite
-              ? invitationLink(serverEnv().APP_URL, invite.token)
-              : null,
-          }
-        : created;
+      if (!created.ok) return created;
+      const inviteLink = invite
+        ? invitationLink(serverEnv().APP_URL, invite.token)
+        : null;
+      const emailed = await emailOwner(
+        input.ownerEmail.trim(),
+        input.legalName.trim(),
+        inviteLink,
+      );
+      return { ...created, inviteLink, emailed };
     });
     if (!r.ok) return r;
     return r.data.ok
       ? {
           ok: true,
-          data: { tenantId: r.data.tenantId, inviteLink: r.data.inviteLink },
+          data: {
+            tenantId: r.data.tenantId,
+            inviteLink: r.data.inviteLink,
+            emailed: r.data.emailed,
+          },
         }
+      : { ok: false, reason: "rejected", message: r.data.message };
+  },
+  /** Where the owner's invitation stands (grant: tenant.view). */
+  async ownerInvite(tenantId: string): Promise<OwnerInvite | null> {
+    const access = await getPlatformAccess();
+    if (access.kind !== "staff" || !hasGrant(access, "tenant.view"))
+      return null;
+    return readOwnerInvite(access.viewer.userId, tenantId);
+  },
+  /**
+   * Sends the owner a NEW invitation link (the old one stops working), or
+   * cancels it (grant: tenant.create; MFA within 15 minutes).
+   */
+  async renewOwnerInvite(
+    tenantId: string,
+    email: string,
+    organisation: string,
+  ): Promise<PrivilegedResult<{ inviteLink: string; emailed: boolean }>> {
+    const pdb = platformDb();
+    if (!pdb)
+      return {
+        ok: false,
+        reason: "rejected",
+        message: "Organisation management isn't configured on this deployment.",
+      };
+    if (!EMAIL.test(email.trim()) || email.length > 254)
+      return {
+        ok: false,
+        reason: "rejected",
+        message: "Enter the owner's email address.",
+      };
+    const r = await privileged("tenant.create", async (_id, actor) => {
+      const invite = newInvitationToken();
+      const done = await replaceOwnerInvite(pdb, actor, tenantId, {
+        email,
+        tokenHash: invite.hash,
+        expiresAt: new Date(Date.now() + INVITATION_DAYS * 86_400_000),
+      });
+      if (!done.ok) return done;
+      const inviteLink = invitationLink(serverEnv().APP_URL, invite.token);
+      return {
+        ok: true as const,
+        inviteLink,
+        emailed: await emailOwner(email.trim(), organisation, inviteLink),
+      };
+    });
+    if (!r.ok) return r;
+    return r.data.ok
+      ? {
+          ok: true,
+          data: { inviteLink: r.data.inviteLink, emailed: r.data.emailed },
+        }
+      : { ok: false, reason: "rejected", message: r.data.message };
+  },
+  async cancelOwnerInvite(tenantId: string): Promise<PrivilegedResult<null>> {
+    const pdb = platformDb();
+    if (!pdb)
+      return {
+        ok: false,
+        reason: "rejected",
+        message: "Organisation management isn't configured on this deployment.",
+      };
+    const r = await privileged("tenant.create", (_id, actor) =>
+      replaceOwnerInvite(pdb, actor, tenantId, null),
+    );
+    if (!r.ok) return r;
+    return r.data.ok
+      ? { ok: true, data: null }
       : { ok: false, reason: "rejected", message: r.data.message };
   },
 };
@@ -383,6 +504,42 @@ const approvedLive = () =>
 /** The environment is decided by the deployment, never by the browser. */
 export const integrationEnvironment = () => deploymentEnvironment();
 
+/**
+ * The live connection test for an approved real provider, or undefined (the
+ * store then refuses without sending anything). Resend: one message to
+ * Resend's own test address, from the saved sender, which checks the API key,
+ * the sender and the domain together (ADR-0015).
+ */
+function liveTestFor(
+  providerId: string,
+): integrationStore.LiveTest | undefined {
+  const env = serverEnv();
+  if (providerId !== "resend" || !approvedLive().has("resend"))
+    return undefined;
+  if (!env.RESEND_API_KEY) return undefined;
+  const apiKey = env.RESEND_API_KEY;
+  return async (settings) => {
+    const name =
+      typeof settings.senderName === "string"
+        ? settings.senderName
+        : "TeamHappi";
+    const address =
+      typeof settings.senderAddress === "string" ? settings.senderAddress : "";
+    if (!address) return { ok: false, message: "Save a sender address first." };
+    try {
+      await resendProvider({ apiKey, from: `${name} <${address}>` }).send({
+        to: RESEND_TEST_RECIPIENT,
+        subject: "TeamHappi connection test",
+        text: "This message checks that TeamHappi can send email through Resend. No action is needed.",
+        idempotencyKey: `connection-test-${randomUUID()}`,
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: explainResendFailure(e) };
+    }
+  };
+}
+
 export const integrationAdmin = {
   category: (category: ServiceCategory) =>
     viewIntegrations((db) =>
@@ -415,6 +572,7 @@ export const integrationAdmin = {
         actor,
         providerId,
         deploymentEnvironment(),
+        liveTestFor(providerId),
       ),
     ),
   activate: (providerId: string) =>
