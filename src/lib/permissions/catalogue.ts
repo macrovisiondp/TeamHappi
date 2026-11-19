@@ -38,6 +38,9 @@ export const PERMISSIONS = {
   // M11.1 attendance.
   "attendance.view": "View who's in and clocked times",
   "attendance.manage": "Record and correct clocked times",
+  // M11.2 / M11.3.
+  "attendance.approve": "Approve and reopen weekly timesheets",
+  "attendance.export": "Export approved hours (no pay)",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -78,6 +81,8 @@ export const SYSTEM_ROLES: readonly {
       "rota.publish",
       "attendance.view",
       "attendance.manage",
+      "attendance.approve",
+      "attendance.export",
     ],
   },
   {
@@ -103,6 +108,7 @@ export const SYSTEM_ROLES: readonly {
       "rota.publish",
       "attendance.view",
       "attendance.manage",
+      "attendance.approve",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },

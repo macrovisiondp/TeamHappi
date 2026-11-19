@@ -22,6 +22,7 @@ import {
   type Actor,
   type Result,
 } from "./shared";
+import { myApprovedWeeks } from "./timesheets";
 
 const HOUR = 3_600_000;
 const RECENT_DAYS = 14;
@@ -127,8 +128,17 @@ export async function myClock(tx: TenantTx, actor: Actor, now = new Date()) {
     ).map((s) => [s.id, s]),
   );
 
+  const approvedWeeks = await myApprovedWeeks(
+    tx,
+    actor.tenantId,
+    me.id,
+    new Date(now.getTime() - 35 * 24 * HOUR),
+    now,
+  );
+
   return {
     firstName: me.preferredName || me.givenName,
+    approvedWeeks,
     canClock: Boolean(open || me.primarySiteId || next),
     open: open
       ? {

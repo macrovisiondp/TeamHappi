@@ -120,3 +120,23 @@ export async function settingsAction(
     "Settings saved.",
   );
 }
+
+/** Managers: approve or reopen a site's week. */
+export async function timesheetAction(
+  _prev: AttendanceFormState,
+  form: FormData,
+): Promise<AttendanceFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  const siteId = str(form, "siteId");
+  const week = str(form, "weekStart");
+  if (str(form, "intent") === "reopen")
+    return toState(
+      await attendanceApi.reopen(ws, siteId, week, str(form, "reason")),
+      "Timesheet reopened.",
+    );
+  return toState(
+    await attendanceApi.approve(ws, siteId, week),
+    "Timesheet approved. This week's times are now locked.",
+  );
+}

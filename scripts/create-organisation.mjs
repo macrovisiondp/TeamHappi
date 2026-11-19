@@ -47,6 +47,8 @@ const ALL = [
   "rota.publish",
   "attendance.view",
   "attendance.manage",
+  "attendance.approve",
+  "attendance.export",
 ];
 
 export const SCRIPT_SYSTEM_ROLES = [
@@ -77,6 +79,8 @@ export const SCRIPT_SYSTEM_ROLES = [
       "rota.publish",
       "attendance.view",
       "attendance.manage",
+      "attendance.approve",
+      "attendance.export",
     ],
   },
   {
@@ -102,6 +106,7 @@ export const SCRIPT_SYSTEM_ROLES = [
       "rota.publish",
       "attendance.view",
       "attendance.manage",
+      "attendance.approve",
     ],
   },
   { key: "worker", name: "Worker", permissions: [] },
