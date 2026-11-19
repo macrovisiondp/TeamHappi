@@ -2,6 +2,9 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { after } from "next/server";
+import { randomUUID } from "node:crypto";
+
+import { appEmailProvider } from "@/integrations/email/runtime";
 import { cache } from "react";
 
 import { getCurrentUser, invitedAccounts } from "@/lib/auth";
@@ -16,12 +19,14 @@ import * as recruitment from "@/modules/recruitment";
 import * as rota from "@/modules/rota";
 import * as attendance from "@/modules/attendance";
 import * as signing from "@/modules/signing";
+import * as personal from "@/modules/personal";
 import { blobStore, blobStoreFor } from "@/integrations/storage/blob";
 
 import * as cv from "./cv-documents";
 import * as push from "./push";
 import { pushKeys, webPushSender } from "./push-sender";
 import * as signingFiles from "./signing-files";
+import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
 import * as invites from "./invitations";
 import * as members from "./members";
@@ -178,6 +183,44 @@ export const manageMembers = {
 /** The full link for a token: shown once, never stored. */
 export const invitationLinkFor = (token: string) =>
   invitationLink(serverEnv().APP_URL, token);
+
+/**
+ * Emails an invitation to join this organisation (ADR-0015). Returns whether it
+ * was sent; never throws, and nothing about the message is logged. The link
+ * is still shown to the person who invited, as a backup.
+ */
+export async function emailInvitation(
+  ws: Ready,
+  to: string,
+  token: string,
+): Promise<boolean> {
+  const provider = appEmailProvider(serverEnv());
+  if (!provider) return false;
+  const org = ws.tenant.name.replace(/\s+/g, " ").slice(0, 200);
+  const inviter = (ws.user.name || "Your manager")
+    .replace(/\s+/g, " ")
+    .slice(0, 100);
+  try {
+    await provider.send({
+      to,
+      subject: `${org} has invited you to TeamHappi`,
+      text: `Hello,
+
+${inviter} has invited you to join ${org} on TeamHappi, where you'll see your shifts, sign your documents and complete your training.
+
+Create your login here (this link works once, for 7 days):
+${invitationLinkFor(token)}
+
+If you weren't expecting this, you can ignore this email.
+
+TeamHappi`,
+      idempotencyKey: `invite-${randomUUID()}`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** The public invite page (signed in or not). */
 export const invitations = {
@@ -773,6 +816,16 @@ const inSigning = <T>(
 ) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
 
 export const signingApi = {
+  starterPacks: (ws: Ready) => inSigning(ws, signing.starterPacks),
+  jobTitles: (ws: Ready) => inSigning(ws, signing.jobTitles),
+  createStarterPack: (
+    ws: Ready,
+    raw: Parameters<typeof signing.createStarterPack>[2],
+  ) => inSigning(ws, (tx, a) => signing.createStarterPack(tx, a, raw)),
+  archiveStarterPack: (ws: Ready, id: unknown) =>
+    inSigning(ws, (tx, a) => signing.archiveStarterPack(tx, a, id)),
+  sendStarterPack: (ws: Ready, employeeId: unknown) =>
+    inSigning(ws, (tx, a) => signing.sendStarterPack(tx, a, employeeId)),
   storageReady: async () => (await blobStore()) !== null,
   canManage: (ws: Ready) => signing.canManage(actorOf(ws)),
   library: (ws: Ready) => inSigning(ws, signing.library),
@@ -809,4 +862,183 @@ export const signingApi = {
     signingFiles.sign(await signingDeps(), ws, requestId, name, agreed),
   countersign: async (ws: Ready, requestId: unknown, name: unknown) =>
     signingFiles.countersign(await signingDeps(), ws, requestId, name),
+};
+
+// --- Welcoming a new starter at hire (M14.1, D4) ---------------------------------
+
+export interface WelcomeOutcome {
+  invite:
+    | { state: "emailed" | "link"; link: string }
+    | { state: "skipped"; reason: string };
+  pack:
+    { state: "sent"; documents: number } | { state: "skipped"; reason: string };
+}
+
+/**
+ * After a hire: invites the new starter to TeamHappi (emailed, link kept as a
+ * backup) and sends the starter pack for their job title. Each step runs on
+ * its own and only with the right permission; a failure never undoes the hire.
+ */
+export async function welcomeNewStarter(
+  ws: Ready,
+  employeeId: string,
+  want: { invite: boolean; pack: boolean },
+): Promise<WelcomeOutcome> {
+  let invite: WelcomeOutcome["invite"] = {
+    state: "skipped",
+    reason: "Not requested.",
+  };
+  let pack: WelcomeOutcome["pack"] = {
+    state: "skipped",
+    reason: "Not requested.",
+  };
+  if (want.invite) {
+    const who = await withWorkspace(ws, async (tx) => {
+      const [e, role] = await Promise.all([
+        tx.employee.findUnique({
+          where: { tenantId_id: { tenantId: ws.tenant.id, id: employeeId } },
+          select: { email: true, primarySiteId: true, membershipId: true },
+        }),
+        tx.role.findFirst({
+          where: { tenantId: ws.tenant.id, key: "worker", isSystem: true },
+          select: { id: true },
+        }),
+      ]);
+      return { e, roleId: role?.id ?? null };
+    });
+    if (!appEmailProvider(serverEnv()))
+      invite = {
+        state: "skipped",
+        reason: "Email isn't set up yet, so invite them from their record.",
+      };
+    else if (!who.e?.email)
+      invite = {
+        state: "skipped",
+        reason: "They have no email address on their record.",
+      };
+    else if (who.e.membershipId)
+      invite = {
+        state: "skipped",
+        reason: "They already have a TeamHappi login.",
+      };
+    else if (!who.roleId || !who.e.primarySiteId)
+      invite = {
+        state: "skipped",
+        reason: "Give them a site first, then invite them from their record.",
+      };
+    else {
+      const r = await manageMembers.invite(ws, {
+        email: who.e.email,
+        roleId: who.roleId,
+        siteId: who.e.primarySiteId,
+        employeeId,
+      });
+      if (!r.ok) invite = { state: "skipped", reason: r.message };
+      else {
+        const emailed = await emailInvitation(ws, r.data.email, r.data.token);
+        invite = {
+          state: emailed ? "emailed" : "link",
+          link: invitationLinkFor(r.data.token),
+        };
+      }
+    }
+  }
+  if (want.pack) {
+    const r = await withWorkspace(ws, (tx) =>
+      signing.sendStarterPack(tx, actorOf(ws), employeeId),
+    );
+    pack = !r.ok
+      ? { state: "skipped", reason: r.message }
+      : r.data.packs === 0
+        ? {
+            state: "skipped",
+            reason: "No starter pack matches their job title.",
+          }
+        : { state: "sent", documents: r.data.sent };
+  }
+  return { invite, pack };
+}
+
+// --- Personal and bank details (M14.2) ------------------------------------------------
+
+const personalCipher = () => personal.cipherFromEnv(serverEnv());
+const inPersonal = <T>(
+  ws: Ready,
+  fn: (tx: TenantTx, a: personal.Actor) => Promise<T>,
+) => withWorkspace(ws, (tx) => fn(tx, actorOf(ws)));
+
+export const personalApi = {
+  /** Whether NI and bank fields are switched on (the key is set). */
+  sensitiveOn: () => personalCipher() !== null,
+  ownId: (ws: Ready) => inPersonal(ws, personal.ownEmployeeId),
+  view: (ws: Ready, employeeId: unknown) =>
+    inPersonal(ws, (tx, a) => personal.viewDetails(tx, a, employeeId)),
+  saveAbout: (ws: Ready, employeeId: unknown, raw: personal.AboutInput) =>
+    inPersonal(ws, (tx, a) =>
+      personal.saveAbout(
+        tx,
+        a,
+        employeeId,
+        raw,
+        personalCipher(),
+        onboarding.todayIn(ws.tenant.timezone),
+      ),
+    ),
+  saveBank: (
+    ws: Ready,
+    employeeId: unknown,
+    raw: Parameters<typeof personal.saveBank>[3],
+  ) =>
+    inPersonal(ws, (tx, a) =>
+      personal.saveBank(tx, a, employeeId, raw, personalCipher()),
+    ),
+  reveal: (ws: Ready, employeeId: unknown, field: unknown) =>
+    inPersonal(ws, (tx, a) =>
+      personal.reveal(tx, a, employeeId, field, personalCipher()),
+    ),
+};
+
+// --- Offer letters (M14.3) -------------------------------------------------------------
+
+const offerDeps = async (): Promise<offerFiles.OfferDeps> => ({
+  client: db(),
+  store: await blobStore(),
+  storeFor: blobStoreFor,
+  email: appEmailProvider(serverEnv()),
+  appUrl: serverEnv().APP_URL,
+});
+
+export const offerApi = {
+  list: (ws: Ready, applicationId: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.offersFor(tx, a, applicationId)),
+  send: async (
+    ws: Ready,
+    applicationId: unknown,
+    title: unknown,
+    file: { name: string; bytes: Uint8Array },
+  ) => offerFiles.sendOffer(await offerDeps(), ws, applicationId, title, file),
+  withdraw: (ws: Ready, offerId: unknown) =>
+    inRecruitment(ws, (tx, a) => recruitment.withdrawOffer(tx, a, offerId)),
+  staffFile: async (
+    ws: Ready,
+    offerId: unknown,
+    which: "original" | "signed",
+  ) => offerFiles.staffOfferFile(await offerDeps(), ws, offerId, which),
+};
+
+/** The applicant's private offer link (no login). */
+export const publicOffer = {
+  view: (token: unknown) =>
+    serverEnv().DATABASE_URL
+      ? offerFiles.viewOffer(db(), token)
+      : Promise.resolve({ state: "missing" } as const),
+  file: async (token: unknown) =>
+    offerFiles.offerFile(await offerDeps(), token),
+  respond: async (
+    token: unknown,
+    decision: unknown,
+    name: unknown,
+    agreed: unknown,
+  ) =>
+    offerFiles.respondToOffer(await offerDeps(), token, decision, name, agreed),
 };

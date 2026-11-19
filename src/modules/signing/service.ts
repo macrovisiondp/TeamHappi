@@ -707,3 +707,167 @@ export async function recordCountersign(
   );
   return { ok: true, data: { id: prepared.requestId } };
 }
+
+// --- Starter packs (M14.1) --------------------------------------------------------------
+
+const norm = (t: string | null | undefined) =>
+  (t ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+
+export async function starterPacks(tx: TenantTx, actor: Actor) {
+  if (!canManage(actor)) return null;
+  const packs = await tx.starterPack.findMany({
+    where: { tenantId: actor.tenantId, archivedAt: null },
+    orderBy: [{ jobTitle: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      jobTitle: true,
+      documents: {
+        where: { document: { archivedAt: null } },
+        select: { document: { select: { id: true, title: true } } },
+      },
+    },
+  });
+  return packs.map((p) => ({
+    id: p.id,
+    name: p.name,
+    jobTitle: p.jobTitle,
+    documents: p.documents.map((d) => d.document),
+  }));
+}
+
+export async function createStarterPack(
+  tx: TenantTx,
+  actor: Actor,
+  raw: { name?: unknown; jobTitle?: unknown; documentIds?: unknown },
+): Promise<Result> {
+  if (!canManage(actor)) return forbidden;
+  const errors: Record<string, string> = {};
+  const name =
+    typeof raw.name === "string" ? raw.name.replace(/\s+/g, " ").trim() : "";
+  if (!name || name.length > 80)
+    errors.name = "Give the pack a name (up to 80 characters)";
+  const job =
+    typeof raw.jobTitle === "string"
+      ? raw.jobTitle.replace(/\s+/g, " ").trim()
+      : "";
+  if (job.length > 100)
+    errors.jobTitle = "Keep the job title to 100 characters";
+  const ids = Array.isArray(raw.documentIds)
+    ? [
+        ...new Set(
+          raw.documentIds.filter(
+            (x): x is string => typeof x === "string" && isUuid(x),
+          ),
+        ),
+      ]
+    : [];
+  if (!ids.length) errors.documents = "Choose at least one document";
+  if (Object.keys(errors).length) return invalid(errors);
+  const docs = await tx.signDocument.findMany({
+    where: {
+      tenantId: actor.tenantId,
+      id: { in: ids },
+      kind: "policy",
+      archivedAt: null,
+    },
+    select: { id: true },
+  });
+  if (docs.length !== ids.length) return notFound();
+  const pack = await tx.starterPack.create({
+    data: {
+      tenantId: actor.tenantId,
+      name,
+      jobTitle: job || null,
+      createdBy: actor.userId,
+    },
+    select: { id: true },
+  });
+  await tx.starterPackDocument.createMany({
+    data: ids.map((id) => ({
+      tenantId: actor.tenantId,
+      starterPackId: pack.id,
+      signDocumentId: id,
+    })),
+  });
+  await audit(tx, actor, "documents.pack_created", "sign_document", pack.id, {
+    documents: String(ids.length),
+  });
+  return { ok: true, data: pack };
+}
+
+export async function archiveStarterPack(
+  tx: TenantTx,
+  actor: Actor,
+  id: unknown,
+): Promise<Result> {
+  if (!canManage(actor)) return forbidden;
+  if (typeof id !== "string" || !isUuid(id)) return notFound("pack");
+  const r = await tx.starterPack.updateMany({
+    where: { tenantId: actor.tenantId, id, archivedAt: null },
+    data: { archivedAt: new Date(), archivedBy: actor.userId },
+  });
+  if (r.count !== 1) return notFound("pack");
+  await audit(tx, actor, "documents.pack_archived", "sign_document", id);
+  return { ok: true, data: { id } };
+}
+
+/**
+ * Sends a person every policy in the starter packs for their job title (and
+ * the packs for everyone), skipping any already waiting or signed.
+ */
+export async function sendStarterPack(
+  tx: TenantTx,
+  actor: Actor,
+  employeeId: unknown,
+): Promise<Result<{ sent: number; packs: number }>> {
+  if (!canManage(actor)) return forbidden;
+  const e = await person(tx, actor, employeeId);
+  if (!e) return notFound("person");
+  const job = await tx.employee.findUnique({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: e.id } },
+    select: { jobTitle: true },
+  });
+  const packs = (await starterPacks(tx, actor))!.filter(
+    (p) => !p.jobTitle || norm(p.jobTitle) === norm(job?.jobTitle),
+  );
+  const docIds = [
+    ...new Set(packs.flatMap((p) => p.documents.map((d) => d.id))),
+  ];
+  if (!docIds.length)
+    return { ok: true, data: { sent: 0, packs: packs.length } };
+  const already = await tx.signRequest.findMany({
+    where: {
+      tenantId: actor.tenantId,
+      employeeId: e.id,
+      signDocumentId: { in: docIds },
+      status: {
+        in: ["awaiting_employee", "awaiting_countersign", "completed"],
+      },
+    },
+    select: { signDocumentId: true },
+  });
+  const done = new Set(already.map((r) => r.signDocumentId));
+  let sent = 0;
+  for (const id of docIds)
+    if (!done.has(id) && (await openRequest(tx, actor, e.id, id, false)))
+      sent += 1;
+  return { ok: true, data: { sent, packs: packs.length } };
+}
+
+/** Job titles in use, to suggest when making a starter pack. */
+export async function jobTitles(tx: TenantTx, actor: Actor) {
+  if (!canManage(actor)) return [];
+  const rows = await tx.employee.findMany({
+    where: {
+      tenantId: actor.tenantId,
+      jobTitle: { not: null },
+      status: { not: "left" },
+    },
+    distinct: ["jobTitle"],
+    orderBy: { jobTitle: "asc" },
+    select: { jobTitle: true },
+    take: 200,
+  });
+  return rows.map((r) => r.jobTitle!).filter(Boolean);
+}

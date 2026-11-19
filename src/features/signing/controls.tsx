@@ -13,6 +13,7 @@ import {
   archivePolicyAction,
   requestCommandAction,
   sendDocumentsAction,
+  starterPackAction,
   uploadPolicyAction,
   type SigningFormState,
 } from "./actions";
@@ -336,5 +337,111 @@ export function RequestActions({
         </form>
       </Dialog>
     </div>
+  );
+}
+
+// --- M14.1 starter packs ---------------------------------------------------------------
+
+/** Create a starter pack: a name, an optional job title and library policies. */
+export function StarterPackForm({
+  library,
+  jobTitles,
+}: {
+  library: readonly { id: string; title: string }[];
+  jobTitles: readonly string[];
+}) {
+  const id = useId();
+  const [state, action] = useActionState(starterPackAction, IDLE);
+  useReloadOnSave(state);
+  const e = state.status === "error" ? (state.fieldErrors ?? {}) : {};
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <input type="hidden" name="intent" value="create" />
+      <Problem state={state} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field id={`pname-${id}`} label="Pack name" error={e.name}>
+          <Input
+            id={`pname-${id}`}
+            name="name"
+            required
+            maxLength={80}
+            placeholder="For example: Kitchen starter"
+          />
+        </Field>
+        <Field
+          id={`pjob-${id}`}
+          label="For job title (leave empty for everyone)"
+          error={e.jobTitle}
+        >
+          <Input
+            id={`pjob-${id}`}
+            name="jobTitle"
+            maxLength={100}
+            list={`pjobs-${id}`}
+          />
+          <datalist id={`pjobs-${id}`}>
+            {jobTitles.map((j) => (
+              <option key={j} value={j} />
+            ))}
+          </datalist>
+        </Field>
+      </div>
+      <fieldset className="flex flex-col gap-1">
+        <legend className="mb-1 text-sm font-semibold">Documents</legend>
+        {e.documents ? (
+          <p className="text-sm text-danger">{e.documents}</p>
+        ) : null}
+        {library.map((d) => (
+          <label
+            key={d.id}
+            className="flex min-h-11 items-center gap-3 text-sm"
+          >
+            <input
+              type="checkbox"
+              name="documentId"
+              value={d.id}
+              className="size-5"
+            />
+            {d.title}
+          </label>
+        ))}
+      </fieldset>
+      <div>
+        <Submit label="Save starter pack" />
+      </div>
+    </form>
+  );
+}
+
+export function ArchivePackButton({ id, name }: { id: string; name: string }) {
+  const [state, action] = useActionState(starterPackAction, IDLE);
+  useReloadOnSave(state);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="intent" value="archive" />
+      <input type="hidden" name="id" value={id} />
+      <Problem state={state} />
+      <div>
+        <Submit label="Remove" variant="secondary" size="sm">
+          <span className="sr-only">{name}: </span>
+        </Submit>
+      </div>
+    </form>
+  );
+}
+
+/** On a person's record: send everything in their job title's starter pack. */
+export function SendStarterPackButton({ employeeId }: { employeeId: string }) {
+  const [state, action] = useActionState(starterPackAction, IDLE);
+  useReloadOnSave(state);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="intent" value="send" />
+      <input type="hidden" name="employeeId" value={employeeId} />
+      <Problem state={state} />
+      <div>
+        <Submit label="Send starter pack" variant="secondary" size="sm" />
+      </div>
+    </form>
   );
 }

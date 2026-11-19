@@ -50,6 +50,7 @@ const ALL = [
   "attendance.manage",
   "attendance.approve",
   "attendance.export",
+  "employee.personal",
   "documents.manage",
 ];
 
@@ -84,6 +85,7 @@ export const SCRIPT_SYSTEM_ROLES = [
       "attendance.approve",
       "attendance.export",
       "documents.manage",
+      "employee.personal",
     ],
   },
   {

@@ -376,7 +376,7 @@ export async function createInvitation(
   client: DbClient,
   ws: Ready,
   raw: unknown,
-): Promise<MutationResult<{ id: string; token: string }>> {
+): Promise<MutationResult<{ id: string; token: string; email: string }>> {
   if (!hasOrgWide(ws.grants, "member.invite")) return forbidden();
   const parsed = inviteSchema.safeParse(
     typeof raw === "object" && raw
@@ -470,7 +470,10 @@ export async function createInvitation(
         siteId: site.id,
         employeeId,
       });
-      return { ok: true, data: { id: invitation.id, token } } as const;
+      return {
+        ok: true,
+        data: { id: invitation.id, token, email },
+      } as const;
     });
   } catch (error) {
     if (
@@ -494,6 +497,7 @@ async function pendingInvitation(tx: TenantTx, ws: Ready, id: string) {
     where: { tenantId_id: { tenantId: ws.tenant.id, id } },
     select: {
       id: true,
+      email: true,
       status: true,
       siteId: true,
       role: {
@@ -512,7 +516,7 @@ export async function renewInvitation(
   client: DbClient,
   ws: Ready,
   id: string,
-): Promise<MutationResult<{ id: string; token: string }>> {
+): Promise<MutationResult<{ id: string; token: string; email: string }>> {
   if (!hasOrgWide(ws.grants, "member.invite")) return forbidden();
   return run(client, ws, async (tx) => {
     const inv = await pendingInvitation(tx, ws, id);
@@ -534,7 +538,7 @@ export async function renewInvitation(
       select: { id: true },
     });
     await audit(tx, ws, "invitation.renewed", "invitation", inv.id);
-    return { ok: true, data: { id: inv.id, token } } as const;
+    return { ok: true, data: { id: inv.id, token, email: inv.email } } as const;
   });
 }
 

@@ -42,6 +42,9 @@ export const PERMISSIONS = {
   "attendance.approve": "Approve and reopen weekly timesheets",
   "attendance.export": "Export approved hours (no pay)",
   // M13 documents to sign.
+  // M14.2 personal and bank details (restricted; reveals audited).
+  "employee.personal":
+    "View and correct staff personal and bank details (every reveal is audited)",
   "documents.manage":
     "Upload documents, send them for signing, countersign and view signed copies",
 } as const;
@@ -87,6 +90,7 @@ export const SYSTEM_ROLES: readonly {
       "attendance.approve",
       "attendance.export",
       "documents.manage",
+      "employee.personal",
     ],
   },
   {

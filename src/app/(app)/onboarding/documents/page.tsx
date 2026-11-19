@@ -6,7 +6,9 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
 import {
+  ArchivePackButton,
   ArchivePolicyButton,
+  StarterPackForm,
   UploadPolicyForm,
 } from "@/features/signing/controls";
 import {
@@ -37,7 +39,11 @@ export default async function DocumentsPage() {
         </EmptyState>
       </div>
     );
-  const storage = await signingApi.storageReady();
+  const [storage, packs, titles] = await Promise.all([
+    signingApi.storageReady(),
+    signingApi.starterPacks(ws),
+    signingApi.jobTitles(ws),
+  ]);
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -77,6 +83,48 @@ export default async function DocumentsPage() {
           Add your first policy below.
         </EmptyState>
       )}
+      <section aria-labelledby="packs-heading" className="flex flex-col gap-3">
+        <h2 id="packs-heading" className="text-lg font-semibold">
+          Starter packs
+        </h2>
+        <p className="text-sm text-ink-muted">
+          Policies sent automatically when you hire someone into a job title (or
+          everyone). You can also send them from a person&rsquo;s record.
+        </p>
+        {packs?.length ? (
+          <ul className="flex flex-col gap-2" aria-label="Starter packs">
+            {packs.map((p) => (
+              <li
+                key={p.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-strong p-3 text-sm"
+              >
+                <div>
+                  <p className="font-semibold">
+                    {p.name}{" "}
+                    <span className="font-normal text-ink-muted">
+                      · {p.jobTitle ? `for ${p.jobTitle}` : "for everyone"}
+                    </span>
+                  </p>
+                  <p className="text-ink-muted">
+                    {p.documents.map((d) => d.title).join(", ") ||
+                      "No documents left in this pack"}
+                  </p>
+                </div>
+                <ArchivePackButton id={p.id} name={p.name} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm">No starter packs yet.</p>
+        )}
+        {lib.length ? (
+          <Card aria-labelledby="add-pack" className="gap-3">
+            <CardTitle id="add-pack">Make a starter pack</CardTitle>
+            <StarterPackForm library={lib} jobTitles={titles} />
+          </Card>
+        ) : null}
+      </section>
+
       {storage ? (
         <Card aria-labelledby="add-policy" className="gap-3">
           <CardTitle id="add-policy">Add a policy</CardTitle>

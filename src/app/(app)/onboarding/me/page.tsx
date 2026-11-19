@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
+import { PersonalDetails } from "@/features/personal/details-card";
 import { RequestList } from "@/features/signing/request-list";
 import { Progress } from "@/components/ui/progress";
 import { MyTaskAction } from "@/features/onboarding/my-controls";
@@ -14,7 +15,12 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate } from "@/lib/format";
-import { onboardingApi, signingApi, trainingApi } from "@/lib/workspace";
+import {
+  onboardingApi,
+  personalApi,
+  signingApi,
+  trainingApi,
+} from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "My onboarding" };
 
@@ -30,6 +36,19 @@ export default async function MyOnboardingPage() {
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
   const me = await onboardingApi.mine(ws);
   const docs = await signingApi.mine(ws);
+  const ownId = await personalApi.ownId(ws);
+  const myDetails = ownId ? await personalApi.view(ws, ownId) : null;
+  const aboutSection =
+    ownId && myDetails ? (
+      <section aria-label="Your details" className="flex flex-col gap-3">
+        <PersonalDetails
+          employeeId={ownId}
+          view={myDetails}
+          sensitiveOn={personalApi.sensitiveOn()}
+          self
+        />
+      </section>
+    ) : null;
   const docsSection = docs?.length ? (
     <section aria-labelledby="docs-heading" className="flex flex-col gap-3">
       <h2 id="docs-heading" className="text-lg font-semibold">
@@ -53,6 +72,7 @@ export default async function MyOnboardingPage() {
             : "Your TeamHappi login isn't linked to a staff record yet. Ask your manager to invite you from your record."}
         </EmptyState>
         {docsSection}
+        {aboutSection}
       </div>
     );
 
@@ -87,6 +107,7 @@ export default async function MyOnboardingPage() {
       </Card>
 
       {docsSection}
+      {aboutSection}
 
       <section aria-labelledby="todo-heading" className="flex flex-col gap-3">
         <h2 id="todo-heading" className="text-lg font-semibold">

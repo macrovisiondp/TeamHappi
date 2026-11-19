@@ -136,3 +136,47 @@ export async function requestCommandAction(
       return { status: "error", message: "Unknown action." };
   }
 }
+
+// --- M14.1 starter packs ---------------------------------------------------------------
+
+export async function starterPackAction(
+  _prev: SigningFormState,
+  form: FormData,
+): Promise<SigningFormState> {
+  const ws = await ready();
+  if (!ws) return NO_WORKSPACE;
+  switch (str(form, "intent")) {
+    case "create":
+      return toState(
+        await signingApi.createStarterPack(ws, {
+          name: str(form, "name"),
+          jobTitle: str(form, "jobTitle"),
+          documentIds: form.getAll("documentId").map(String),
+        }),
+        "Starter pack saved.",
+      );
+    case "archive":
+      return toState(
+        await signingApi.archiveStarterPack(ws, str(form, "id")),
+        "Starter pack removed.",
+      );
+    case "send": {
+      const r = await signingApi.sendStarterPack(ws, str(form, "employeeId"));
+      if (!r.ok) return toState(r, "");
+      return r.data.packs === 0
+        ? {
+            status: "error",
+            message: "No starter pack matches their job title.",
+          }
+        : {
+            status: "saved",
+            message:
+              r.data.sent === 0
+                ? "They already have everything in their starter pack."
+                : `Sent ${r.data.sent} document${r.data.sent === 1 ? "" : "s"} to sign.`,
+          };
+    }
+    default:
+      return { status: "error", message: "Unknown action." };
+  }
+}

@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 
 import {
+  emailInvitation,
   getWorkspace,
   invitationLinkFor,
   invitations,
@@ -57,10 +58,14 @@ export async function inviteMember(
     siteId: String(form.get("siteId") ?? "") || undefined,
     employeeId: String(form.get("employeeId") ?? "") || undefined,
   });
+  if (!r.ok) return toState(r, "");
+  const emailed = await emailInvitation(ws, r.data.email, r.data.token);
   return toState(
     r,
-    "Invitation created. Copy the link and send it to them yourself. It works once and expires in 7 days.",
-    r.ok ? invitationLinkFor(r.data.token) : undefined,
+    emailed
+      ? `Invitation emailed to ${r.data.email}. The link below is a backup; it works once and expires in 7 days.`
+      : "Invitation created. Copy the link and send it to them yourself. It works once and expires in 7 days.",
+    invitationLinkFor(r.data.token),
   );
 }
 
@@ -77,10 +82,14 @@ export async function invitationCommand(
       "Invitation cancelled. Its link no longer works.",
     );
   const r = await manageMembers.renewInvitation(ws, id);
+  if (!r.ok) return toState(r, "");
+  const emailed = await emailInvitation(ws, r.data.email, r.data.token);
   return toState(
     r,
-    "New link created. The previous link no longer works.",
-    r.ok ? invitationLinkFor(r.data.token) : undefined,
+    emailed
+      ? `A new invitation was emailed to ${r.data.email}. The previous link no longer works.`
+      : "New link created. The previous link no longer works.",
+    invitationLinkFor(r.data.token),
   );
 }
 

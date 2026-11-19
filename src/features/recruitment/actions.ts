@@ -2,6 +2,7 @@
 
 import type { FormState } from "@/features/setup/form-state";
 import {
+  welcomeNewStarter,
   cvApi,
   getWorkspace,
   recruitmentApi,
@@ -158,6 +159,23 @@ export async function applicationCommandAction(
     const data = r.ok
       ? (r.data as { alreadyHired: boolean; vacancyFilled: boolean })
       : null;
+    // M14.1 (D4): invite them and send their starter pack, as ticked.
+    let welcome = "";
+    if (r.ok && !data!.alreadyHired) {
+      const w = await welcomeNewStarter(
+        ws,
+        (r.data as { employeeId: string }).employeeId,
+        {
+          invite: form.get("inviteNow") === "on",
+          pack: form.get("sendPack") === "on",
+        },
+      );
+      const q = new URLSearchParams();
+      q.set("invite", w.invite.state);
+      if (w.pack.state === "sent") q.set("pack", String(w.pack.documents));
+      else if (form.get("sendPack") === "on") q.set("pack", "none");
+      welcome = `?${q.toString()}`;
+    }
     return r.ok
       ? {
           status: "saved",
@@ -166,7 +184,7 @@ export async function applicationCommandAction(
             : data!.vacancyFilled
               ? "Hired. Their employee record has been created, and the vacancy is now Filled, so its link no longer takes applications."
               : "Hired. Their employee record has been created.",
-          href: `/people/${(r.data as { employeeId: string }).employeeId}`,
+          href: `/people/${(r.data as { employeeId: string }).employeeId}${welcome}`,
         }
       : { status: "error", message: r.message, fieldErrors: r.fieldErrors };
   }
