@@ -29,6 +29,7 @@ import * as signingFiles from "./signing-files";
 import { certificatePdf } from "./training-certificate";
 import * as jobTitleAdmin from "./job-titles";
 import * as images from "./images";
+import * as leavers from "./leaving";
 import { liveJobTitles } from "@/lib/job-titles";
 import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
@@ -399,6 +400,29 @@ export const onboardingApi = {
     inWs(ws, (tx, a) => onboarding.completeMyTask(tx, a, taskId, raw)),
   rtwAttentionCount: (ws: Ready) =>
     inWs(ws, (tx, a) => onboarding.rtwAttentionCount(tx, a, todayFor(ws))),
+};
+
+// --- Leaving (M18) ---------------------------------------------------------------
+
+export { LEAVING_REASONS, type LeavingReason } from "./leaving";
+
+export const leavingApi = {
+  get: (ws: Ready, employeeId: string) =>
+    withWorkspace(ws, (tx) => leavers.leavingFor(tx, ws, employeeId)),
+  mark: (
+    ws: Ready,
+    employeeId: string,
+    raw: Parameters<typeof leavers.markLeaving>[3],
+  ) =>
+    withWorkspace(ws, (tx) =>
+      leavers.markLeaving(tx, ws, employeeId, raw, todayFor(ws)),
+    ),
+  cancel: (ws: Ready, employeeId: string) =>
+    withWorkspace(ws, (tx) => leavers.cancelLeaving(tx, ws, employeeId)),
+  endNow: (ws: Ready, employeeId: string) =>
+    withWorkspace(ws, (tx) =>
+      leavers.endAccessNow(tx, ws, employeeId, todayFor(ws)),
+    ),
 };
 
 // --- Photos and logos (M17) -----------------------------------------------------

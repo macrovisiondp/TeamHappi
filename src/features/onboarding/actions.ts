@@ -125,6 +125,7 @@ export async function saveOnboardingTemplate(
     scope: str(form, "scope"),
     siteId: str(form, "siteId") || null,
     jobTitle: str(form, "jobTitle"),
+    purpose: str(form, "purpose") === "leaving" ? "leaving" : "joining",
   });
   return toState(
     r,

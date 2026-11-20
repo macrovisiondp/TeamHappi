@@ -875,3 +875,28 @@ export async function jobTitles(tx: TenantTx, actor: Actor) {
   });
   return rows.map((r) => r.jobTitle!).filter(Boolean);
 }
+
+/**
+ * When someone leaves (M18): withdraws every document still waiting for them
+ * to sign. Countersigning that's already due stays with the manager. Called by
+ * the leaving process, which has already checked permission.
+ */
+export async function withdrawOpenFor(
+  tx: TenantTx,
+  actor: Actor,
+  employeeId: string,
+): Promise<number> {
+  const r = await tx.signRequest.updateMany({
+    where: {
+      tenantId: actor.tenantId,
+      employeeId,
+      status: "awaiting_employee",
+    },
+    data: {
+      status: "withdrawn",
+      withdrawnAt: new Date(),
+      withdrawnBy: actor.userId,
+    },
+  });
+  return r.count;
+}

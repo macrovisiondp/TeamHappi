@@ -189,6 +189,8 @@ describe("application role posture", () => {
       job_title: "INSERT,SELECT",
       // M17: photos and logos (a photo can be removed: personal data).
       media_image: "DELETE,INSERT,SELECT",
+      // M18: leavings (no DELETE; cancelled or finalised, kept).
+      employee_leaving: "INSERT,SELECT",
       user: "SELECT",
     });
   });
@@ -218,7 +220,7 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'starter_pack', 'starter_pack_document',
                                   'employee_personal', 'offer_letter',
                                   'training_course_package', 'training_attempt',
-                                  'job_title')
+                                  'job_title', 'employee_leaving')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -439,6 +441,15 @@ describe("column-level UPDATE privileges (M4.2)", () => {
       training_record: ["void_reason", "voided_at", "voided_by"],
       training_attempt: ["correct", "passed", "score_percent", "submitted_at"],
       job_title: ["archived_at", "archived_by"],
+      employee_leaving: [
+        "access_ended_early",
+        "cancelled_at",
+        "cancelled_by",
+        "finalised_at",
+        "last_day",
+        "note",
+        "reason",
+      ],
       training_requirement: [
         "archived_at",
         "due_days",
@@ -500,6 +511,7 @@ describe("row-level security coverage", () => {
       "candidate",
       "document",
       "employee",
+      "employee_leaving",
       "employee_personal",
       "interview",
       "interview_interviewer",

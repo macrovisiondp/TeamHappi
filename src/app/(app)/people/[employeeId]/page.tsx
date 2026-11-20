@@ -25,6 +25,7 @@ import {
   signingApi,
   trainingApi,
   imagesApi,
+  leavingApi,
 } from "@/lib/workspace";
 import { STATUS as TRAINING_STATUS } from "@/features/training/labels";
 import {
@@ -37,6 +38,8 @@ import {
   SendDocumentsDialog,
   SendStarterPackButton,
 } from "@/features/signing/controls";
+import { LeavingPanel } from "@/features/people/leaving-controls";
+import { todayIn } from "@/modules/rota";
 import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Employee" };
@@ -61,6 +64,7 @@ export default async function EmployeePage({
 
   const name = fullName(person);
   const photo = await imagesApi.photoIds(ws, [person.id]);
+  const leaving = await leavingApi.get(ws, person.id);
   // Onboarding (M7.1): shown only to people with onboarding.view at this site.
   const onboarding = ws.grants.has("onboarding.view")
     ? await onboardingApi.caseForEmployee(ws, person.id)
@@ -404,6 +408,24 @@ export default async function EmployeePage({
             >
               Open the right-to-work record
             </Link>
+          </Card>
+        ) : null}
+        {leaving ? (
+          <Card aria-labelledby="leaving-heading">
+            <CardHeader>
+              <div>
+                <CardTitle id="leaving-heading">Leaving</CardTitle>
+                <CardDescription>
+                  Record their last day; TeamHappi does the rest.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <LeavingPanel
+              employeeId={person.id}
+              name={name}
+              today={todayIn(ws.tenant.timezone)}
+              view={leaving}
+            />
           </Card>
         ) : null}
       </div>

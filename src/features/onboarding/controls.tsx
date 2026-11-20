@@ -515,6 +515,18 @@ export function TemplateForm({
             error={e.name}
             required
           />
+          {!template ? (
+            <Field
+              id="field-purpose"
+              label="Checklist for"
+              hint="Leaving checklists start by themselves when someone is marked as leaving."
+            >
+              <Select id="field-purpose" name="purpose" defaultValue="joining">
+                <option value="joining">New starters</option>
+                <option value="leaving">Leavers</option>
+              </Select>
+            </Field>
+          ) : null}
           <Field id="field-scope" label="Use for" error={e.scope}>
             <Select
               id="field-scope"

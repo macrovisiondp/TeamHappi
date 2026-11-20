@@ -103,6 +103,11 @@ export default async function OnboardingTemplatesPage() {
                     >
                       {t.name}
                     </Link>
+                    {t.purpose === "leaving" ? (
+                      <Badge tone="warning" icon={null} className="ml-2">
+                        Leavers
+                      </Badge>
+                    ) : null}
                     {t.isSuggested ? (
                       <Badge tone="info" icon={null} className="ml-2">
                         Suggested
