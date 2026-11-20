@@ -160,7 +160,7 @@ async function shot(page: Page, info: TestInfo, name: string) {
 async function createLink(page: Page, email: string, role: string) {
   await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Role", { exact: true }).selectOption({ label: role });
-  await page.getByRole("button", { name: "Create invite link" }).click();
+  await page.getByRole("button", { name: "Send invitation" }).click();
   await expect(page.getByText("Invitation created.").first()).toBeVisible(SLOW);
   const link = await page.getByLabel("Invite link").inputValue();
   expect(link).toMatch(/\/invite#[A-Za-z0-9_-]{43}$/);
@@ -299,7 +299,9 @@ test("someone with an account accepts while signed in; links can be renewed and 
   const card = page.getByRole("region", {
     name: `Invitation for ${dan.email}`,
   });
-  await card.getByRole("button", { name: `New link for ${dan.email}` }).click();
+  await card
+    .getByRole("button", { name: `Resend invitation for ${dan.email}` })
+    .click();
   const second = await page
     .getByLabel(`New invite link for ${dan.email}`)
     .inputValue();

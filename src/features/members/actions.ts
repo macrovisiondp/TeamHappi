@@ -60,12 +60,13 @@ export async function inviteMember(
   });
   if (!r.ok) return toState(r, "");
   const emailed = await emailInvitation(ws, r.data.email, r.data.token);
+  // The link is only handed back when the email couldn't be sent.
   return toState(
     r,
     emailed
-      ? `Invitation emailed to ${r.data.email}. The link below is a backup; it works once and expires in 7 days.`
-      : "Invitation created. Copy the link and send it to them yourself. It works once and expires in 7 days.",
-    invitationLinkFor(r.data.token),
+      ? `Invitation sent to ${r.data.email}`
+      : "Invitation ready to share",
+    emailed ? undefined : invitationLinkFor(r.data.token),
   );
 }
 
@@ -87,9 +88,9 @@ export async function invitationCommand(
   return toState(
     r,
     emailed
-      ? `A new invitation was emailed to ${r.data.email}. The previous link no longer works.`
-      : "New link created. The previous link no longer works.",
-    invitationLinkFor(r.data.token),
+      ? `Invitation sent again to ${r.data.email}`
+      : "New invitation ready to share",
+    emailed ? undefined : invitationLinkFor(r.data.token),
   );
 }
 
