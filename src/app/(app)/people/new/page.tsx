@@ -11,7 +11,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { formOptions } from "@/lib/workspace";
+import { formOptions, jobTitlesApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Add a person" };
 export const instant = false;
@@ -19,6 +19,7 @@ export const instant = false;
 export default async function NewPersonPage() {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   if (!ws.grants.has("employee.manage"))
     return (
       <PermissionDenied message="Your role doesn't include adding people." />
@@ -45,7 +46,11 @@ export default async function NewPersonPage() {
         </EmptyState>
       ) : (
         <Card>
-          <EmployeeForm sites={sites} teams={teams} />
+          <EmployeeForm
+            jobTitleOptions={jobTitleOptions}
+            sites={sites}
+            teams={teams}
+          />
         </Card>
       )}
     </div>

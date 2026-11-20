@@ -27,6 +27,8 @@ import * as push from "./push";
 import { pushKeys, webPushSender } from "./push-sender";
 import * as signingFiles from "./signing-files";
 import { certificatePdf } from "./training-certificate";
+import * as jobTitleAdmin from "./job-titles";
+import { liveJobTitles } from "@/lib/job-titles";
 import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
 import * as invites from "./invitations";
@@ -396,6 +398,18 @@ export const onboardingApi = {
     inWs(ws, (tx, a) => onboarding.completeMyTask(tx, a, taskId, raw)),
   rtwAttentionCount: (ws: Ready) =>
     inWs(ws, (tx, a) => onboarding.rtwAttentionCount(tx, a, todayFor(ws))),
+};
+
+// --- Job titles (M16) -----------------------------------------------------------
+
+export const jobTitlesApi = {
+  /** Live titles for pickers (empty: the organisation types titles freely). */
+  options: (ws: Ready) => withWorkspace(ws, liveJobTitles),
+  list: (ws: Ready) => withWorkspace(ws, jobTitleAdmin.listTitles),
+  add: (ws: Ready, names: string) =>
+    withWorkspace(ws, (tx) => jobTitleAdmin.addTitles(tx, ws, names)),
+  archive: (ws: Ready, id: string) =>
+    withWorkspace(ws, (tx) => jobTitleAdmin.archiveTitle(tx, ws, id)),
 };
 
 // --- Training (M8.1) ------------------------------------------------------------

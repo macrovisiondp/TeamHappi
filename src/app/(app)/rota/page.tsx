@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -168,6 +169,22 @@ export default async function RotaPage({ searchParams }: PageProps<"/rota">) {
             : ""}
         </p>
       </Card>
+
+      {w.coverGaps.length ? (
+        <Alert tone="warning" title="Shifts without cover">
+          <p>
+            Nobody working at these times holds a valid record for a course
+            needed on every shift:
+          </p>
+          <ul className="mt-2 ml-5 list-disc">
+            {w.coverGaps.map((g, i) => (
+              <li key={i}>
+                {dayLabel(g.day)}, {g.from} to {g.to}: no {g.course}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
 
       {w.shifts.length === 0 ? (
         <EmptyState icon={CalendarDays} title="No shifts this week">

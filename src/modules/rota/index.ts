@@ -37,6 +37,7 @@ export {
 export {
   addDays,
   clashesWithUnavailability,
+  coverGaps,
   describeUnavailability,
   type UnavailableRule,
   formatMinutes,

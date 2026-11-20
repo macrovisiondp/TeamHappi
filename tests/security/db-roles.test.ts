@@ -185,6 +185,8 @@ describe("application role posture", () => {
       // M15: course packages are insert-only; attempts record a result once (trigger).
       training_attempt: "INSERT,SELECT",
       training_course_package: "INSERT,SELECT",
+      // M16: the job-title list (archived, never deleted).
+      job_title: "INSERT,SELECT",
       user: "SELECT",
     });
   });
@@ -213,7 +215,8 @@ describe("column-level UPDATE privileges (M4.2)", () => {
                                   'push_subscription', 'sign_document', 'sign_request',
                                   'starter_pack', 'starter_pack_document',
                                   'employee_personal', 'offer_letter',
-                                  'training_course_package', 'training_attempt')
+                                  'training_course_package', 'training_attempt',
+                                  'job_title')
                AND NOT EXISTS (
                  SELECT 1 FROM information_schema.role_table_grants g
                  WHERE g.grantee = 'teamhappi_app' AND g.table_name = column_privileges.table_name
@@ -426,12 +429,14 @@ describe("column-level UPDATE privileges (M4.2)", () => {
         "content_version",
         "description",
         "name",
+        "shift_cover",
         "updated_at",
         "validity_months",
         "warn_days",
       ],
       training_record: ["void_reason", "voided_at", "voided_by"],
       training_attempt: ["correct", "passed", "score_percent", "submitted_at"],
+      job_title: ["archived_at", "archived_by"],
       training_requirement: [
         "archived_at",
         "due_days",
@@ -497,6 +502,7 @@ describe("row-level security coverage", () => {
       "interview",
       "interview_interviewer",
       "invitation",
+      "job_title",
       "offer_letter",
       "onboarding_case",
       "onboarding_document",

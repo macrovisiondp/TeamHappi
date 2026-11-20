@@ -329,3 +329,63 @@ export function StatusChange({
     </>
   );
 }
+
+/**
+ * Job title (M16): a choice from the organisation's list when it keeps one,
+ * otherwise free text. A title someone already has that isn't on the list is
+ * still shown, so saving the form doesn't silently change it.
+ */
+export function JobTitleField({
+  options,
+  defaultValue,
+  label = "Job title",
+  hint,
+  error,
+  required,
+}: {
+  options: readonly string[];
+  defaultValue?: string | null;
+  label?: string;
+  hint?: string;
+  error?: string;
+  required?: boolean;
+}) {
+  if (!options.length)
+    return (
+      <TextField
+        name="jobTitle"
+        label={label}
+        defaultValue={defaultValue}
+        error={error}
+        hint={hint}
+        required={required}
+      />
+    );
+  const current = defaultValue?.trim() || "";
+  const listed = options.some((o) => o.toLowerCase() === current.toLowerCase());
+  return (
+    <SelectField
+      name="jobTitle"
+      label={label}
+      error={error}
+      required={required}
+      hint={
+        hint
+          ? `${hint} Titles come from Settings › Job titles.`
+          : "Titles come from Settings › Job titles."
+      }
+      defaultValue={
+        listed
+          ? options.find((o) => o.toLowerCase() === current.toLowerCase())
+          : current
+      }
+      placeholder={required ? "Choose a job title" : "No job title"}
+      options={[
+        ...(current && !listed
+          ? [{ value: current, label: `${current} (not on the list)` }]
+          : []),
+        ...options.map((o) => ({ value: o, label: o })),
+      ]}
+    />
+  );
+}

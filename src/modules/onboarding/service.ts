@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 
+import { checkJobTitle } from "@/lib/job-titles";
 import { isUuid, type TenantTx } from "@/lib/tenancy";
 
 import {
@@ -227,12 +228,18 @@ export async function saveTemplate(
   const siteId =
     v.scope === "site" ? await checkSite(tx, actor, v.siteId) : null;
   if (siteId === false) return invalid({ siteId: "Choose an active site" });
+  // M16: the organisation's job-title list, if it keeps one.
+  const title =
+    v.scope === "job_title"
+      ? await checkJobTitle(tx, v.jobTitle)
+      : ({ ok: true, value: null } as const);
+  if (!title.ok) return invalid({ jobTitle: title.message });
   const data = {
     name: v.name,
     description: v.description ?? null,
     scope: v.scope,
     siteId: v.scope === "site" ? siteId : null,
-    jobTitle: v.scope === "job_title" ? (v.jobTitle ?? null) : null,
+    jobTitle: v.scope === "job_title" ? title.value : null,
   };
   try {
     if (!id) {

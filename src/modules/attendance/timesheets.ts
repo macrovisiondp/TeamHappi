@@ -299,6 +299,35 @@ export async function approveTimesheet(
       message:
         "Someone is still clocked in this week. Enter their clock-out times first.",
     };
+  // M16: nobody approves their own hours (separation of duties, for example
+  // HotRock PO15 s7.5). Someone else with approval rights approves this week.
+  const me = await tx.employee.findUnique({
+    where: {
+      tenantId_membershipId: {
+        tenantId: actor.tenantId,
+        membershipId: actor.membershipId,
+      },
+    },
+    select: { id: true },
+  });
+  if (
+    me &&
+    (await tx.timeEntry.count({
+      where: {
+        tenantId: actor.tenantId,
+        siteId: site.id,
+        employeeId: me.id,
+        removedAt: null,
+        clockInAt: { gte: from, lt: to },
+      },
+    }))
+  )
+    return {
+      ok: false,
+      code: "forbidden",
+      message:
+        "This week includes your own hours, so someone else with approval rights (for example an owner) needs to approve it.",
+    };
   const key = {
     tenantId_siteId_weekStart: {
       tenantId: actor.tenantId,

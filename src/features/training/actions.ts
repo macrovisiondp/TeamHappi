@@ -41,6 +41,7 @@ export async function saveTrainingCourse(
     kind: str(form, "kind"),
     completionMethod: str(form, "completionMethod"),
     certificateExpected: form.get("certificateExpected") === "on",
+    shiftCover: form.get("shiftCover") === "on",
     validityMonths: str(form, "validityMonths"),
     warnDays: str(form, "warnDays") || "60",
     content: str(form, "content"),

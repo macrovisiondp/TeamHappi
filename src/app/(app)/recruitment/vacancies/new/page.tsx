@@ -10,7 +10,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { recruitmentApi } from "@/lib/workspace";
+import { jobTitlesApi, recruitmentApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "New vacancy" };
 
@@ -20,6 +20,7 @@ export const instant = false;
 export default async function NewVacancyPage() {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   const options = await recruitmentApi.vacancyOptions(ws);
   if (!options || "ok" in options || options.sites.length === 0)
     return (
@@ -39,7 +40,7 @@ export default async function NewVacancyPage() {
         description="It starts as a draft. Open it when you're ready to add applicants."
       />
       <Card aria-label="Vacancy details">
-        <VacancyForm options={options} />
+        <VacancyForm jobTitleOptions={jobTitleOptions} options={options} />
       </Card>
     </div>
   );

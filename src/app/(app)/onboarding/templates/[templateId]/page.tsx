@@ -22,7 +22,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { listSites, onboardingApi } from "@/lib/workspace";
+import { jobTitlesApi, listSites, onboardingApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Onboarding template" };
 export const instant = false;
@@ -39,6 +39,7 @@ export default async function OnboardingTemplatePage({
 }: PageProps<"/onboarding/templates/[templateId]">) {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   if (ws.grants.get("onboarding.template.manage") !== "all")
     return (
       <PermissionDenied message="Managing onboarding templates needs an owner, administrator or HR manager." />
@@ -135,6 +136,7 @@ export default async function OnboardingTemplatePage({
           <Card aria-labelledby="details-heading">
             <CardTitle id="details-heading">Template details</CardTitle>
             <TemplateForm
+              jobTitleOptions={jobTitleOptions}
               template={{
                 id: t.id,
                 name: t.name,

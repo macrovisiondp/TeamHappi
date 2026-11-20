@@ -14,7 +14,12 @@ import {
   textareaClass,
   useReload,
 } from "@/features/onboarding/controls";
-import { SelectField, SetupForm, TextField } from "@/features/setup/form";
+import {
+  JobTitleField,
+  SelectField,
+  SetupForm,
+  TextField,
+} from "@/features/setup/form";
 import { IDLE, type FormState } from "@/features/setup/form-state";
 
 import {
@@ -50,6 +55,7 @@ export function CourseForm({
     completionMethod:
       "read_and_confirm" | "in_person" | "external_certificate" | "interactive";
     certificateExpected: boolean;
+    shiftCover?: boolean;
     validityMonths: number | null;
     warnDays: number;
     content: string | null;
@@ -188,6 +194,21 @@ export function CourseForm({
               A certificate is expected
             </span>
           </label>
+          <label className="flex min-h-11 items-start gap-3 md:col-span-2">
+            <input
+              type="checkbox"
+              name="shiftCover"
+              defaultChecked={course?.shiftCover ?? false}
+              className="mt-0.5 size-5 accent-[var(--brand-forest)]"
+            />
+            <span className="text-sm">
+              <span className="font-semibold">Needed on every shift</span>
+              <span className="block text-ink-muted">
+                For example first aid or a named fire marshal. The rota warns
+                when nobody working holds a valid record for it.
+              </span>
+            </span>
+          </label>
           <Field
             id="field-description"
             label="Description (optional)"
@@ -322,7 +343,9 @@ export function AddRuleForm({
   courseId,
   sites,
   people,
+  jobTitleOptions = [],
 }: {
+  jobTitleOptions?: readonly string[];
   courseId: string;
   sites: readonly Option[];
   people: readonly Option[];
@@ -359,9 +382,8 @@ export function AddRuleForm({
               required
             />
           ) : scope === "job_title" ? (
-            <TextField
-              name="jobTitle"
-              label="Job title"
+            <JobTitleField
+              options={jobTitleOptions}
               error={e.jobTitle}
               hint="Matched to the job title on each person's record, ignoring capitals."
               required

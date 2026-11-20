@@ -42,6 +42,7 @@ export {
 } from "./policy";
 export { confirmMyCourse, myTraining, type MyCourse } from "./self";
 export { SUGGESTED_COURSES } from "./suggested";
+export { shiftCoverOn, type ShiftCover } from "./cover";
 export {
   FINAL_TIME_LIMIT_MS,
   awaitingSignOff,

@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 
+import { checkJobTitle } from "@/lib/job-titles";
 import { isUuid, type TenantTx } from "@/lib/tenancy";
 import { nextEmployeeNumber } from "@/lib/workspace/employee-number";
 import * as onboarding from "@/modules/onboarding";
@@ -355,10 +356,13 @@ export async function saveVacancy(
     errors.payMin = "Enter the minimum pay, or leave all pay fields blank";
   if (payMin && payMax && Number(payMax) < Number(payMin))
     errors.payMax = "The maximum can't be below the minimum";
+  // M16: the organisation's job-title list, if it keeps one (hiring copies it).
+  const title = await checkJobTitle(tx, v.jobTitle);
+  if (!title.ok) errors.jobTitle = title.message;
   if (Object.keys(errors).length) return invalid(errors);
   const data = {
     title: v.title,
-    jobTitle: v.jobTitle,
+    jobTitle: (title.ok && title.value) || v.jobTitle,
     siteId: site!.id,
     teamId,
     employmentType: v.employmentType,

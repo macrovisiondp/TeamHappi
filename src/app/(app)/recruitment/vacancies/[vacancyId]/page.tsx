@@ -32,7 +32,7 @@ import {
 } from "@/features/workspace/components";
 import { formatDate } from "@/lib/format";
 import { SharePanel } from "@/features/recruitment/share-panel";
-import { recruitmentApi, vacancyShareUrl } from "@/lib/workspace";
+import { jobTitlesApi, recruitmentApi, vacancyShareUrl } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Vacancy" };
 
@@ -53,6 +53,7 @@ export default async function VacancyPage({
 }: PageProps<"/recruitment/vacancies/[vacancyId]">) {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   const { vacancyId } = await params;
   const q = await searchParams;
   // Other organisations' vacancies and other sites' look like nothing: 404.
@@ -258,7 +259,11 @@ export default async function VacancyPage({
       {data.can.manage && data.options ? (
         <Card aria-labelledby="edit-heading">
           <CardTitle id="edit-heading">Vacancy details</CardTitle>
-          <VacancyForm options={data.options} vacancy={v} />
+          <VacancyForm
+            jobTitleOptions={jobTitleOptions}
+            options={data.options}
+            vacancy={v}
+          />
         </Card>
       ) : null}
     </div>

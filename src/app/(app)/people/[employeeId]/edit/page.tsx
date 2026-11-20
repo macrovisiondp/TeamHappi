@@ -12,7 +12,7 @@ import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { can, formOptions, getPerson } from "@/lib/workspace";
+import { can, formOptions, getPerson, jobTitlesApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Edit person" };
 export const instant = false;
@@ -24,6 +24,7 @@ export default async function EditPersonPage({
 }: PageProps<"/people/[employeeId]/edit">) {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   const { employeeId } = await params;
   const person = await getPerson(ws, employeeId);
   if (!person) notFound();
@@ -62,6 +63,7 @@ export default async function EditPersonPage({
       <PageHeader title={`Edit ${fullName(person)}`} />
       <Card>
         <EmployeeForm
+          jobTitleOptions={jobTitleOptions}
           sites={sites}
           teams={options.teams}
           employee={{

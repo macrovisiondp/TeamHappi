@@ -22,6 +22,7 @@ import {
   canAt,
   clashesWithUnavailability,
   describeUnavailability,
+  coverGaps,
   formatMinutes,
   isIsoDate,
   mondayOf,
@@ -494,6 +495,44 @@ export async function getWeek(
       )
     : () => [];
   const timedById = new Map(timed.map((t) => [t.id, t]));
+  // M16: courses needed on every shift (for example first aid). For managers,
+  // each day's stretches when people are working but nobody holds one.
+  const coverGapsOut: {
+    day: string;
+    course: string;
+    from: string;
+    to: string;
+  }[] = [];
+  if (canManage && assigned.length) {
+    const days = weekDays(weekStart);
+    const cover = await training.shiftCoverOn(
+      tx,
+      actor,
+      assigned.map((a) => a.employeeId),
+      days,
+    );
+    for (const course of cover.courses)
+      for (const day of days) {
+        const holders = cover.holders.get(course.id)?.get(day) ?? new Set();
+        const todays = assigned
+          .map((a) => ({ a, t: timedById.get(a.shiftId)! }))
+          .filter(({ t }) => t.day === day);
+        if (!todays.length) continue;
+        for (const [from, to] of coverGaps(
+          todays.map(({ a, t }) => ({
+            start: t.startsAt.getTime(),
+            end: t.endsAt.getTime(),
+            covers: holders.has(a.employeeId),
+          })),
+        ))
+          coverGapsOut.push({
+            day,
+            course: course.name,
+            from: utcToZoned(new Date(from), tz).slice(11, 16),
+            to: utcToZoned(new Date(to), tz).slice(11, 16),
+          });
+      }
+  }
   const hours = new Map<string, number>();
   for (const a of assigned)
     hours.set(
@@ -556,6 +595,7 @@ export async function getWeek(
     openShifts: active.filter((s) => s.assignments.length === 0).length,
     pendingRequests: requests.length,
     pendingChanges: changeRows.length,
+    coverGaps: coverGapsOut,
     unavailable: weekDays(weekStart).flatMap((day) =>
       [...unavailableRules].flatMap(([employeeId, list]) =>
         list

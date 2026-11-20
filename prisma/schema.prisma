@@ -916,6 +916,7 @@ model TrainingCourse {
   content             String?
   contentVersion      Int                      @default(1) @map("content_version")
   isSuggested         Boolean                  @default(false) @map("is_suggested")
+  shiftCover          Boolean                  @default(false) @map("shift_cover")
   archivedAt          DateTime?                @map("archived_at") @db.Timestamptz
   createdBy           String?                  @map("created_by") @db.Uuid
   createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz
@@ -1785,4 +1786,21 @@ model OfferLetter {
   @@unique([tenantId, id])
   @@index([tenantId, applicationId], map: "offer_letter_application")
   @@map("offer_letter")
+}
+
+// ---------------------------------------------------------------------------
+// M16: each organisation's job-title list (migration
+// 20261117120000_job_titles_and_shift_cover). Archived, never deleted.
+
+model JobTitle {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz
+  archivedBy String?   @map("archived_by") @db.Uuid
+
+  @@unique([tenantId, id])
+  @@map("job_title")
 }
