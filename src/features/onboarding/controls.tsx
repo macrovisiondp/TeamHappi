@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { reloadWithNote, notify } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -56,22 +57,17 @@ export function Submit({
 
 export function ErrorAlert({ state }: { state: FormState }) {
   return state.status === "error" ? (
-    <Alert tone="danger" title={state.message} role="alert">
-      {state.fieldErrors ? (
-        <ul className="list-disc pl-5">
-          {Object.values(state.fieldErrors).map((m) => (
-            <li key={m}>{m}</li>
-          ))}
-        </ul>
-      ) : null}
-    </Alert>
+    <FormError
+      message={state.message}
+      details={Object.values(state.fieldErrors ?? {})}
+    />
   ) : null;
 }
 
 /** Full reload after a change, so progress, badges and history all agree. */
 export function useReload(state: FormState) {
   useEffect(() => {
-    if (state.status === "saved") window.location.reload();
+    if (state.status === "saved") reloadWithNote(state.message);
   }, [state]);
 }
 
@@ -714,6 +710,7 @@ export function TemplateCommand({
   // Refresh in place, so the confirmation stays visible.
   useEffect(() => {
     if (state.status === "saved") {
+      notify(state.message);
       if (state.href) router.push(state.href as never);
       else router.refresh();
     }
@@ -745,9 +742,6 @@ export function TemplateCommand({
   return (
     <div className="flex flex-col gap-2">
       {state.status === "error" ? <ErrorAlert state={state} /> : null}
-      {state.status === "saved" ? (
-        <Alert tone="success" title={state.message} role="status" />
-      ) : null}
       {confirm ? (
         <>
           <Button size="sm" variant={variant} onClick={() => setOpen(true)}>

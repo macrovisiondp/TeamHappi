@@ -3,11 +3,12 @@ import { Suspense, type ReactNode } from "react";
 
 import { AccountMenu } from "@/components/layout/header-controls";
 import { AppShell } from "@/components/layout/app-shell";
-import { Skeleton } from "@/components/ui/misc";
+import { photoSrc, Skeleton } from "@/components/ui/misc";
 import { ShiftUpdatesLink } from "@/features/rota/updates-link";
 import { OrganisationSwitcher } from "@/features/workspace/components";
 import { getCurrentUser } from "@/lib/auth";
 import { getPlatformAccess } from "@/lib/platform-access";
+import { getWorkspace, myProfile } from "@/lib/workspace";
 
 import Loading from "./loading";
 
@@ -56,16 +57,25 @@ async function RequireUser({ children }: { children: ReactNode }) {
 async function UserAccountMenu() {
   const user = await getCurrentUser();
   if (!user) return null;
-  const platform = await getPlatformAccess();
+  const [platform, ws] = await Promise.all([
+    getPlatformAccess(),
+    getWorkspace(),
+  ]);
+  const me = ws?.kind === "ready" ? await myProfile(ws) : null;
   return (
     <AccountMenu
       name={user.name}
       email={user.email}
-      links={
-        platform.kind === "none"
+      photo={me ? photoSrc(me.id, me.photoId) : null}
+      links={[
+        ...(ws?.kind === "ready"
+          ? [{ href: "/profile", label: "My profile" }]
+          : []),
+        { href: "/help", label: "Help" },
+        ...(platform.kind === "none"
           ? []
-          : [{ href: "/platform", label: "Platform Admin" }]
-      }
+          : [{ href: "/platform", label: "Platform Admin" }]),
+      ]}
     />
   );
 }

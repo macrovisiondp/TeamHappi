@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { PageHeader, StatCard } from "@/components/ui/misc";
 import { OrganisationForm } from "@/features/setup/forms";
+import { LogoUpload } from "@/features/setup/image-controls";
 import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { organisationSettings } from "@/lib/workspace";
+import { imagesApi, organisationSettings } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Organisation settings" };
 export const instant = false;
@@ -20,6 +21,7 @@ export default async function OrganisationSettingsPage() {
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
   const org = await organisationSettings(ws);
   const canEdit = ws.grants.get("tenant.settings.manage") === "all";
+  const logo = await imagesApi.logoId(ws);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,6 +43,16 @@ export default async function OrganisationSettingsPage() {
           icon={Building2}
         />
       </div>
+      {canEdit ? (
+        <Card aria-labelledby="org-logo">
+          <CardTitle id="org-logo">Logo</CardTitle>
+          <CardDescription>
+            Shown to everyone in your organisation at the top of TeamHappi. A
+            wide logo on a plain background works best.
+          </CardDescription>
+          <LogoUpload current={logo ? `/media/logo?v=${logo}` : null} />
+        </Card>
+      ) : null}
       <Card aria-labelledby="org-details">
         <CardTitle id="org-details">Details</CardTitle>
         <dl className="grid gap-3 text-sm sm:grid-cols-3">

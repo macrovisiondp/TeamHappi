@@ -1804,3 +1804,21 @@ model JobTitle {
   @@unique([tenantId, id])
   @@map("job_title")
 }
+
+// ---------------------------------------------------------------------------
+// M17: profile photos and organisation logos (migration
+// 20261118120000_profile_photos_and_logos). Small images, kept in the database.
+
+model MediaImage {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  kind        String
+  employeeId  String?  @map("employee_id") @db.Uuid
+  contentType String   @map("content_type")
+  bytes       Bytes
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([tenantId, id])
+  @@map("media_image")
+}

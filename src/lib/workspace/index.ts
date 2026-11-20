@@ -28,6 +28,7 @@ import { pushKeys, webPushSender } from "./push-sender";
 import * as signingFiles from "./signing-files";
 import { certificatePdf } from "./training-certificate";
 import * as jobTitleAdmin from "./job-titles";
+import * as images from "./images";
 import { liveJobTitles } from "@/lib/job-titles";
 import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
@@ -399,6 +400,51 @@ export const onboardingApi = {
   rtwAttentionCount: (ws: Ready) =>
     inWs(ws, (tx, a) => onboarding.rtwAttentionCount(tx, a, todayFor(ws))),
 };
+
+// --- Photos and logos (M17) -----------------------------------------------------
+
+export const imagesApi = {
+  setPhoto: (ws: Ready, employeeId: string, bytes: Uint8Array) =>
+    withWorkspace(ws, (tx) => images.setPhoto(tx, ws, employeeId, bytes)),
+  removePhoto: (ws: Ready, employeeId: string) =>
+    withWorkspace(ws, (tx) => images.removePhoto(tx, ws, employeeId)),
+  setLogo: (ws: Ready, bytes: Uint8Array) =>
+    withWorkspace(ws, (tx) => images.setLogo(tx, ws, bytes)),
+  removeLogo: (ws: Ready) =>
+    withWorkspace(ws, (tx) => images.removeLogo(tx, ws)),
+  read: (
+    ws: Ready,
+    what: { kind: "photo"; employeeId: string } | { kind: "logo" },
+  ) => withWorkspace(ws, (tx) => images.readImage(tx, ws, what)),
+  photoIds: (ws: Ready, employeeIds: string[]) =>
+    withWorkspace(ws, (tx) => images.photoIds(tx, ws, employeeIds)),
+  logoId: (ws: Ready) => withWorkspace(ws, (tx) => images.logoId(tx, ws)),
+};
+
+/** The signed-in member's own staff record here, with their photo (M17). */
+export const myProfile = (ws: Ready) =>
+  withWorkspace(ws, async (tx) => {
+    const e = await tx.employee.findUnique({
+      where: {
+        tenantId_membershipId: {
+          tenantId: ws.tenant.id,
+          membershipId: ws.membershipId,
+        },
+      },
+      select: {
+        id: true,
+        givenName: true,
+        familyName: true,
+        preferredName: true,
+        jobTitle: true,
+        status: true,
+        primarySite: { select: { name: true } },
+      },
+    });
+    if (!e) return null;
+    const photoId = (await images.photoIds(tx, ws, [e.id])).get(e.id) ?? null;
+    return { ...e, siteName: e.primarySite?.name ?? null, photoId };
+  });
 
 // --- Job titles (M16) -----------------------------------------------------------
 

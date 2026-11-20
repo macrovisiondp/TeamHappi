@@ -17,14 +17,14 @@ export default function ErrorPage({
       className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 p-4 outline-none"
     >
       <h1 className="text-2xl font-bold tracking-tight">
-        Something went wrong
+        This page didn&rsquo;t load
       </h1>
       <p className="text-muted-foreground">
-        Please try again. If the problem continues, contact your administrator.
+        It&rsquo;s usually a brief connection problem. Please try again.
       </p>
       {error.digest ? (
-        <p className="text-sm text-muted-foreground">
-          Reference: {error.digest}
+        <p className="text-xs text-muted-foreground">
+          {`If it keeps happening, contact support and mention code ${error.digest}.`}
         </p>
       ) : null}
       <div>

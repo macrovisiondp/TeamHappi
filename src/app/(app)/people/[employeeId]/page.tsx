@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/misc";
+import { Avatar, photoSrc } from "@/components/ui/misc";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
 import { Progress } from "@/components/ui/progress";
 import { ClearanceBadge, StageBadge } from "@/features/onboarding/labels";
@@ -24,6 +24,7 @@ import {
   recruitmentApi,
   signingApi,
   trainingApi,
+  imagesApi,
 } from "@/lib/workspace";
 import { STATUS as TRAINING_STATUS } from "@/features/training/labels";
 import {
@@ -59,6 +60,7 @@ export default async function EmployeePage({
   if (!person) notFound();
 
   const name = fullName(person);
+  const photo = await imagesApi.photoIds(ws, [person.id]);
   // Onboarding (M7.1): shown only to people with onboarding.view at this site.
   const onboarding = ws.grants.has("onboarding.view")
     ? await onboardingApi.caseForEmployee(ws, person.id)
@@ -124,7 +126,11 @@ export default async function EmployeePage({
         Back to people
       </Link>
       <header className="flex flex-wrap items-center gap-4">
-        <Avatar name={name} size="lg" />
+        <Avatar
+          name={name}
+          src={photoSrc(person.id, photo.get(person.id))}
+          size="lg"
+        />
         <div className="flex flex-col gap-1.5">
           <h1 className="text-2xl font-bold md:text-3xl">{name}</h1>
           <Badge tone={status.tone}>{status.label}</Badge>

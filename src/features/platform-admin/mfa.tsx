@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 
@@ -111,9 +112,7 @@ export function MfaSetup() {
   if (!setup)
     return (
       <div className="flex flex-col gap-4">
-        {startError ? (
-          <Alert tone="danger" title={startError} role="alert" />
-        ) : null}
+        {startError ? <FormError message={startError} /> : null}
         <Button
           className="w-fit"
           onClick={async () => {
@@ -162,7 +161,7 @@ export function MfaSetup() {
       </div>
       <form action={action} className="flex flex-col gap-4" noValidate>
         {state.status === "error" ? (
-          <Alert tone="danger" title={state.message} role="alert" />
+          <FormError message={state.message} />
         ) : null}
         <CodeField label="6-digit code" hint="From your authenticator app." />
         <div>
@@ -184,9 +183,7 @@ export function MfaVerify({ next }: { next?: string }) {
     <form action={action} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="method" value={method} />
       <input type="hidden" name="next" value={next ?? ""} />
-      {state.status === "error" ? (
-        <Alert tone="danger" title={state.message} role="alert" />
-      ) : null}
+      {state.status === "error" ? <FormError message={state.message} /> : null}
       {state.status === "ok" ? (
         <Alert
           tone="success"

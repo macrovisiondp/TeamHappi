@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useState, useTransition } from "react";
 
 import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -645,11 +646,7 @@ function Quiz({
           {result.awaitingSignOff ? " Your practical sign-off is next." : ""}
         </Alert>
       ) : null}
-      {error ? (
-        <Alert tone="danger" title="That didn't work">
-          {error}
-        </Alert>
-      ) : null}
+      {error ? <FormError message={error} /> : null}
       <ol className="flex flex-col gap-3">
         {questions.map((q, i) => {
           const fb = result?.feedback[i];
@@ -820,11 +817,7 @@ function FinalAssessment({
           <strong>safety question</strong> must be right. Answer within 3 hours
           of starting.
         </CardDescription>
-        {error ? (
-          <Alert tone="danger" title="That didn't work">
-            {error}
-          </Alert>
-        ) : null}
+        {error ? <FormError message={error} /> : null}
         <Button className="w-fit" disabled={pending} onClick={begin}>
           {pending ? "Preparing…" : "Start"}
         </Button>

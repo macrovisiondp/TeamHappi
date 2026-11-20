@@ -5,7 +5,8 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
 import { PreviewNotice } from "@/features/platform/components";
 import { deploymentEnvironment } from "@/integrations/core/environment";
-import { getPlatformAccess } from "@/lib/platform-access";
+import { BrandLogoUpload } from "@/features/platform-admin/brand-logo";
+import { brandLogo, getPlatformAccess } from "@/lib/platform-access";
 
 export const metadata: Metadata = { title: "Settings · Platform" };
 export const instant = false;
@@ -19,6 +20,7 @@ const ENVIRONMENT_LABEL = {
 export default async function PlatformSettingsPage() {
   const access = await getPlatformAccess();
   const environment = deploymentEnvironment();
+  const logo = await brandLogo();
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -26,6 +28,17 @@ export default async function PlatformSettingsPage() {
         description="Your access to the platform console and the environment this deployment runs in."
       />
       <PreviewNotice />
+      <Card aria-labelledby="brand-heading">
+        <CardTitle id="brand-heading">TeamHappi logo</CardTitle>
+        <CardDescription>
+          Shown on the sign-in page and at the top of every screen. Use a wide
+          PNG or WebP with a transparent background. Changing it needs
+          integration rights and a recent authenticator check.
+        </CardDescription>
+        <BrandLogoUpload
+          current={logo ? `/media/brand?v=${logo.version}` : null}
+        />
+      </Card>
       <div className="grid gap-4 md:grid-cols-2">
         <Card aria-labelledby="access-heading">
           <CardTitle id="access-heading">Your access</CardTitle>
@@ -47,7 +60,7 @@ export default async function PlatformSettingsPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <dt className="text-ink-muted">Integration changes</dt>
               <dd>
-                <Badge tone="neutral">Awaiting approval (M5.3)</Badge>
+                <Badge tone="neutral">Awaiting approval</Badge>
               </dd>
             </div>
           </dl>

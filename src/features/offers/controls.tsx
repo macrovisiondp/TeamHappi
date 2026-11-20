@@ -4,6 +4,8 @@ import { Send } from "lucide-react";
 import { useActionState, useEffect, useId } from "react";
 
 import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { reloadWithNote } from "@/components/ui/toast";
 import { Field, Input } from "@/components/ui/field";
 import { Submit } from "@/features/onboarding/controls";
 
@@ -17,7 +19,7 @@ export function SendOfferForm({ applicationId }: { applicationId: string }) {
   const id = useId();
   const [state, action] = useActionState(offerCommandAction, IDLE);
   useEffect(() => {
-    if (state.status === "saved" && !state.link) window.location.reload();
+    if (state.status === "saved" && !state.link) reloadWithNote(state.message);
   }, [state]);
   const e = state.status === "error" ? (state.fieldErrors ?? {}) : {};
   if (state.status === "saved" && state.link)
@@ -38,9 +40,7 @@ export function SendOfferForm({ applicationId }: { applicationId: string }) {
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="intent" value="send" />
       <input type="hidden" name="applicationId" value={applicationId} />
-      {state.status === "error" ? (
-        <Alert tone="danger" title={state.message} role="alert" />
-      ) : null}
+      {state.status === "error" ? <FormError message={state.message} /> : null}
       <Field id={`ot-${id}`} label="Title" error={e.title}>
         <Input
           id={`ot-${id}`}
@@ -81,15 +81,13 @@ export function WithdrawOfferButton({
 }) {
   const [state, action] = useActionState(offerCommandAction, IDLE);
   useEffect(() => {
-    if (state.status === "saved") window.location.reload();
+    if (state.status === "saved") reloadWithNote(state.message);
   }, [state]);
   return (
     <form action={action} className="flex flex-col gap-2">
       <input type="hidden" name="intent" value="withdraw" />
       <input type="hidden" name="offerId" value={offerId} />
-      {state.status === "error" ? (
-        <Alert tone="danger" title={state.message} role="alert" />
-      ) : null}
+      {state.status === "error" ? <FormError message={state.message} /> : null}
       <div>
         <Submit label="Withdraw" variant="secondary" size="sm">
           <span className="sr-only">{title}: </span>

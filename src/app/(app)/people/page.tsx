@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/misc";
 import { PermissionDenied } from "@/components/states/states";
 import { EMPLOYMENT_STATUSES } from "@/features/people/directory";
 import { PeopleDirectory } from "@/features/people/people-directory";
-import { listPeople } from "@/lib/workspace";
+import { listPeople, imagesApi } from "@/lib/workspace";
 import {
   NoOrganisation,
   requireWorkspace,
@@ -46,6 +46,12 @@ export default async function PeoplePage() {
       />
       {result.people.length ? (
         <PeopleDirectory
+          photos={Object.fromEntries(
+            await imagesApi.photoIds(
+              ws,
+              result.people.map((p) => p.id),
+            ),
+          )}
           employees={result.people}
           sites={result.sites}
           statuses={EMPLOYMENT_STATUSES}

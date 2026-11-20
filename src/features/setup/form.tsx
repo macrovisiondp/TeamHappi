@@ -10,7 +10,8 @@ import {
 } from "react";
 import { useFormStatus } from "react-dom";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { notify } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -41,8 +42,15 @@ export function SetupForm({
   const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
 
   useEffect(() => {
-    if (state.status === "error") summaryRef.current?.focus();
+    if (state.status === "error") {
+      // Take the person straight to the first field that needs attention.
+      const first = Object.keys(state.fieldErrors ?? {})[0];
+      const el = first ? document.getElementById(`field-${first}`) : null;
+      if (el) el.focus();
+      else summaryRef.current?.focus();
+    }
     if (state.status === "saved") {
+      notify(state.message);
       if (state.href) router.push(state.href as never);
       router.refresh();
     }
@@ -55,26 +63,13 @@ export function SetupForm({
       ))}
       <div ref={summaryRef} tabIndex={-1} className="outline-none">
         {state.status === "error" ? (
-          <Alert tone="danger" title="There's a problem" role="alert">
-            <p>{state.message}</p>
-            {Object.keys(errors).length ? (
-              <ul className="mt-1 list-disc pl-5">
-                {Object.entries(errors).map(([field, message]) => (
-                  <li key={field}>
-                    <a
-                      href={`#field-${field}`}
-                      className="inline-flex min-h-6 items-center py-0.5 underline"
-                    >
-                      {message}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </Alert>
-        ) : null}
-        {state.status === "saved" ? (
-          <Alert tone="success" title={state.message} role="status" />
+          <FormError
+            message={
+              Object.keys(errors).length
+                ? "Please check the highlighted fields."
+                : state.message
+            }
+          />
         ) : null}
       </div>
       {children(errors)}
@@ -302,11 +297,7 @@ export function StatusChange({
       >
         {label}
       </Button>
-      {state.status === "error" ? (
-        <Alert tone="danger" title="That didn't work" role="alert">
-          {state.message}
-        </Alert>
-      ) : null}
+      {state.status === "error" ? <FormError message={state.message} /> : null}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}

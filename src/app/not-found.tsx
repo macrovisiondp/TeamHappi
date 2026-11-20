@@ -9,13 +9,16 @@ export default function NotFound() {
       tabIndex={-1}
       className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 p-4 outline-none"
     >
-      <h1 className="text-2xl font-bold tracking-tight">Page not found</h1>
+      <h1 className="text-2xl font-bold tracking-tight">
+        We can&rsquo;t find that page
+      </h1>
       <p className="text-muted-foreground">
-        This page doesn&apos;t exist, or you don&apos;t have access to it.
+        The link may be out of date, or the page may belong to another
+        organisation.
       </p>
       <div>
         <Button asChild>
-          <Link href="/">Go to the home page</Link>
+          <Link href="/">Go to TeamHappi</Link>
         </Button>
       </div>
     </main>

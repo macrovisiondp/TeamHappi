@@ -5,14 +5,21 @@ import { notFound } from "next/navigation";
 
 import { PermissionDenied } from "@/components/states/states";
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/misc";
+import { PageHeader, photoSrc } from "@/components/ui/misc";
 import { fullName } from "@/features/people/directory";
 import { EmployeeForm } from "@/features/setup/forms";
+import { PhotoUpload } from "@/features/setup/image-controls";
 import {
   NoOrganisation,
   requireWorkspace,
 } from "@/features/workspace/components";
-import { can, formOptions, getPerson, jobTitlesApi } from "@/lib/workspace";
+import {
+  can,
+  formOptions,
+  getPerson,
+  jobTitlesApi,
+  imagesApi,
+} from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Edit person" };
 export const instant = false;
@@ -61,6 +68,17 @@ export default async function EditPersonPage({
         Back to {fullName(person)}
       </Link>
       <PageHeader title={`Edit ${fullName(person)}`} />
+      <Card aria-label="Profile photo" className="gap-3">
+        <h2 className="text-sm font-semibold">Profile photo</h2>
+        <PhotoUpload
+          employeeId={person.id}
+          name={fullName(person)}
+          current={photoSrc(
+            person.id,
+            (await imagesApi.photoIds(ws, [person.id])).get(person.id),
+          )}
+        />
+      </Card>
       <Card>
         <EmployeeForm
           jobTitleOptions={jobTitleOptions}

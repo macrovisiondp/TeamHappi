@@ -15,7 +15,8 @@ export default function EmployeeNotFound() {
         </Button>
       }
     >
-      They may have been removed, or they may be outside the sites you can see.
+      Their record may have been removed, or they may work at a site you
+      don&rsquo;t manage.
     </EmptyState>
   );
 }

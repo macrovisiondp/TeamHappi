@@ -3,7 +3,8 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useActionState, useEffect, useId, useState } from "react";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { reloadWithNote } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Submit } from "@/features/onboarding/controls";
@@ -24,22 +25,17 @@ const IDLE: PersonalFormState = { status: "idle" };
 
 function useReloadOnSave(state: PersonalFormState) {
   useEffect(() => {
-    if (state.status === "saved") window.location.reload();
+    if (state.status === "saved") reloadWithNote(state.message);
   }, [state]);
 }
 
 function Problem({ state }: { state: PersonalFormState }) {
   if (state.status !== "error") return null;
   return (
-    <Alert tone="danger" title={state.message} role="alert">
-      {state.fieldErrors ? (
-        <ul className="list-disc pl-5">
-          {Object.values(state.fieldErrors).map((m) => (
-            <li key={m}>{m}</li>
-          ))}
-        </ul>
-      ) : null}
-    </Alert>
+    <FormError
+      message={state.message}
+      details={Object.values(state.fieldErrors ?? {})}
+    />
   );
 }
 
@@ -315,9 +311,7 @@ export function RevealButton({
     >
       <input type="hidden" name="employeeId" value={employeeId} />
       <input type="hidden" name="field" value={field} />
-      {state.status === "error" ? (
-        <Alert tone="danger" title={state.message} role="alert" />
-      ) : null}
+      {state.status === "error" ? <FormError message={state.message} /> : null}
       <div>
         <Submit label={label} variant="secondary" size="sm">
           <Eye aria-hidden="true" className="size-4" />

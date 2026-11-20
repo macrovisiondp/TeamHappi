@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 
@@ -77,9 +78,7 @@ export function PublicApplyForm({
       <input type="hidden" name="code" value={code} />
       <div ref={summary} tabIndex={-1} className="outline-none">
         {state.status === "error" ? (
-          <Alert tone="danger" title="There's a problem" role="alert">
-            <p>{state.message}</p>
-          </Alert>
+          <FormError message={state.message} />
         ) : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

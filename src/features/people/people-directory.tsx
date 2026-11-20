@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/field";
-import { Avatar } from "@/components/ui/misc";
+import { Avatar, photoSrc } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 
@@ -26,7 +26,10 @@ export function PeopleDirectory({
   statuses,
   hrefBase,
   caption,
+  photos = {},
 }: {
+  /** Current photo ids by person (M17); people without one show initials. */
+  photos?: Readonly<Record<string, string>>;
   employees: readonly DirectoryPerson[];
   sites: readonly { id: string; name: string }[];
   statuses: StatusStyles;
@@ -129,7 +132,11 @@ export function PeopleDirectory({
                 <tr key={e.id} className="hover:bg-surface-muted/60">
                   <Td>
                     <div className="flex items-center gap-3">
-                      <Avatar name={fullName(e)} size="sm" />
+                      <Avatar
+                        name={fullName(e)}
+                        src={photoSrc(e.id, photos[e.id])}
+                        size="sm"
+                      />
                       <div>
                         <Link
                           href={href(e.id)}
@@ -171,7 +178,10 @@ export function PeopleDirectory({
                   href={href(e.id)}
                   className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-card"
                 >
-                  <Avatar name={fullName(e)} />
+                  <Avatar
+                    name={fullName(e)}
+                    src={photoSrc(e.id, photos[e.id])}
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{fullName(e)}</p>
                     <p className="truncate text-sm text-ink-muted">

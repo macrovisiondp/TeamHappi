@@ -3,7 +3,7 @@
 import { Bell, BellOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 import { Button } from "@/components/ui/button";
 
 import { disableAlertsAction, enableAlertsAction } from "./actions";
@@ -101,7 +101,7 @@ export function ShiftAlerts({ publicKey }: { publicKey: string }) {
 
   return (
     <div className="flex flex-col gap-2 text-sm">
-      {error ? <Alert tone="danger" title={error} role="alert" /> : null}
+      {error ? <FormError message={error} /> : null}
       {state === "checking" ? (
         <p className="text-ink-muted">Checking this device…</p>
       ) : state === "unsupported" ? (

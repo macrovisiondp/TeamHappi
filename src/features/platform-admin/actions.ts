@@ -422,3 +422,24 @@ export async function ownerInviteAction(
       }
     : { status: "error", message: r.message, stepUp: r.reason === "step_up" };
 }
+
+// --- M17: the TeamHappi logo ---------------------------------------------------------
+
+type LogoResult = { ok: true } | { ok: false; message: string };
+
+export async function uploadBrandLogo(form: FormData): Promise<LogoResult> {
+  const f = form.get("image");
+  if (!f || typeof f === "string")
+    return { ok: false, message: "Choose a picture." };
+  const bytes =
+    f.size > 400_000
+      ? new Uint8Array(400_001)
+      : new Uint8Array(await f.arrayBuffer());
+  const r = await integrationAdmin.saveLogo(bytes);
+  return r.ok ? { ok: true } : { ok: false, message: r.message };
+}
+
+export async function removeBrandLogo(): Promise<LogoResult> {
+  const r = await integrationAdmin.removeLogo();
+  return r.ok ? { ok: true } : { ok: false, message: r.message };
+}

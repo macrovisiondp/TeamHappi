@@ -12,6 +12,7 @@ import {
   Clock,
   GraduationCap,
   LayoutDashboard,
+  LifeBuoy,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -60,6 +61,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/rota", label: "Rota", icon: CalendarDays, stage: "live" },
   { href: "/attendance", label: "Attendance", icon: Clock, stage: "live" },
   { href: "/settings", label: "Settings", icon: Settings, stage: "live" },
+  { href: "/help", label: "Help", icon: LifeBuoy, stage: "live" },
 ];
 
 /** Macrovision Platform Admin. Separate from any tenant's navigation. */

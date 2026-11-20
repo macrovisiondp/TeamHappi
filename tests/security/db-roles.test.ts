@@ -187,6 +187,8 @@ describe("application role posture", () => {
       training_course_package: "INSERT,SELECT",
       // M16: the job-title list (archived, never deleted).
       job_title: "INSERT,SELECT",
+      // M17: photos and logos (a photo can be removed: personal data).
+      media_image: "DELETE,INSERT,SELECT",
       user: "SELECT",
     });
   });
@@ -503,6 +505,7 @@ describe("row-level security coverage", () => {
       "interview_interviewer",
       "invitation",
       "job_title",
+      "media_image",
       "offer_letter",
       "onboarding_case",
       "onboarding_document",

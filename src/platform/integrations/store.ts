@@ -450,3 +450,67 @@ export function approvedLiveProviders(raw: string | undefined): Set<string> {
       .filter((v) => getProvider(v)?.readiness === "adapter-ready"),
   );
 }
+
+// --- TeamHappi logo (M17) ----------------------------------------------------------
+// Shown on sign-in and in the app's top bar. Small (checked by lib/images), kept
+// as a platform setting so it works without file storage.
+
+const BRAND_LOGO_KEY = "brand.logo";
+
+const brandLogoSchema = z.object({
+  contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  data: z.string().min(1).max(420_000),
+});
+
+export async function getBrandLogo(db: PlatformDbClient) {
+  const row = await db.platformSetting.findUnique({
+    where: { key: BRAND_LOGO_KEY },
+  });
+  const parsed = brandLogoSchema.safeParse(row?.value);
+  if (!parsed.success || !row) return null;
+  return {
+    contentType: parsed.data.contentType,
+    bytes: new Uint8Array(Buffer.from(parsed.data.data, "base64")),
+    version: row.updatedAt.getTime().toString(36),
+  };
+}
+
+export async function saveBrandLogo(
+  db: PlatformDbClient,
+  actor: PlatformStaffActor,
+  image: {
+    contentType: "image/png" | "image/jpeg" | "image/webp";
+    bytes: Uint8Array;
+  } | null,
+): Promise<StoreResult> {
+  assertPlatformGrant(actor, "integrations.manage");
+  return db.$transaction(async (tx) => {
+    if (image) {
+      const value = {
+        contentType: image.contentType,
+        data: Buffer.from(image.bytes).toString("base64"),
+      };
+      await tx.platformSetting.upsert({
+        where: { key: BRAND_LOGO_KEY },
+        create: { key: BRAND_LOGO_KEY, value, updatedBy: actor.userId },
+        update: { value, updatedBy: actor.userId, updatedAt: new Date() },
+        select: { key: true },
+      });
+    } else {
+      await tx.platformSetting.upsert({
+        where: { key: BRAND_LOGO_KEY },
+        create: { key: BRAND_LOGO_KEY, value: {}, updatedBy: actor.userId },
+        update: { value: {}, updatedBy: actor.userId, updatedAt: new Date() },
+        select: { key: true },
+      });
+    }
+    await audit(
+      tx,
+      actor,
+      image ? "brand.logo_set" : "brand.logo_removed",
+      "brand",
+      {},
+    );
+    return { ok: true } as const;
+  });
+}

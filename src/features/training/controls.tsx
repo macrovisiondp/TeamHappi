@@ -4,7 +4,7 @@ import { Ban, PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
-import { Alert } from "@/components/ui/alert";
+import { notify } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -134,7 +134,7 @@ export function CourseForm({
                       Given in person (a manager records it)
                     </option>
                     <option value="read_and_confirm">
-                      Read and confirm (from M8.2, staff confirm themselves)
+                      Read and confirm (staff confirm it themselves)
                     </option>
                   </Select>
                 </Field>
@@ -279,6 +279,7 @@ export function CourseCommand({
   );
   useEffect(() => {
     if (state.status === "saved") {
+      notify(state.message);
       if (state.href) router.push(state.href as never);
       else router.refresh();
     }
@@ -313,9 +314,6 @@ export function CourseCommand({
   return (
     <div className="flex flex-col gap-2">
       {state.status === "error" ? <ErrorAlert state={state} /> : null}
-      {state.status === "saved" && !state.href ? (
-        <Alert tone="success" title={state.message} role="status" />
-      ) : null}
       {confirm ? (
         <>
           <Button size="sm" variant={variant} onClick={() => setOpen(true)}>
