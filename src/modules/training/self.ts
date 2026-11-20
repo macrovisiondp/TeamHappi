@@ -24,7 +24,7 @@ import type { Result } from "./service";
 const isoOf = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 /** The signed-in member's own employee record, if linked and still employed. */
-async function ownRecord(tx: TenantTx, actor: Actor) {
+export async function ownRecord(tx: TenantTx, actor: Actor) {
   const e = await tx.employee.findUnique({
     where: {
       tenantId_membershipId: {
@@ -50,7 +50,8 @@ export interface MyCourse extends CourseStatus {
   name: string;
   description: string | null;
   kind: "internal" | "external";
-  completionMethod: "read_and_confirm" | "in_person" | "external_certificate";
+  completionMethod:
+    "read_and_confirm" | "in_person" | "external_certificate" | "interactive";
   /** Read-and-confirm content, only for courses they can confirm themselves. */
   content: string | null;
   contentVersion: number;

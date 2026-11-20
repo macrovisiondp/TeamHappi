@@ -47,7 +47,8 @@ export function CourseForm({
     description: string | null;
     category: string;
     kind: "internal" | "external";
-    completionMethod: "read_and_confirm" | "in_person" | "external_certificate";
+    completionMethod:
+      "read_and_confirm" | "in_person" | "external_certificate" | "interactive";
     certificateExpected: boolean;
     validityMonths: number | null;
     warnDays: number;
@@ -87,7 +88,9 @@ export function CourseForm({
                 ? "External course, recorded with a certificate."
                 : course.completionMethod === "read_and_confirm"
                   ? "Internal course, read and confirmed."
-                  : "Internal course, given in person."}{" "}
+                  : course.completionMethod === "interactive"
+                    ? "Interactive course, imported from a course file."
+                    : "Internal course, given in person."}{" "}
               <span className="text-ink-muted">
                 The type can&rsquo;t change once a course exists.
               </span>
@@ -229,6 +232,7 @@ export function CourseForm({
 export function CourseCommand({
   courseId = "",
   ruleId,
+  employeeId,
   intent,
   label,
   confirm,
@@ -236,7 +240,8 @@ export function CourseCommand({
 }: {
   courseId?: string;
   ruleId?: string;
-  intent: "add-suggested" | "archive" | "remove-rule";
+  employeeId?: string;
+  intent: "add-suggested" | "archive" | "remove-rule" | "sign-off";
   label: string;
   confirm?: { title: string; description: string };
   variant?: "primary" | "secondary" | "danger";
@@ -265,6 +270,9 @@ export function CourseCommand({
       <input type="hidden" name="courseId" value={courseId} />
       <input type="hidden" name="intent" value={intent} />
       {ruleId ? <input type="hidden" name="ruleId" value={ruleId} /> : null}
+      {employeeId ? (
+        <input type="hidden" name="employeeId" value={employeeId} />
+      ) : null}
       {confirm ? (
         <Button
           type="button"

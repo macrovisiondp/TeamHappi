@@ -110,6 +110,7 @@ const courseSchema = z
       "read_and_confirm",
       "in_person",
       "external_certificate",
+      "interactive",
     ]),
     certificateExpected: z.coerce.boolean(),
     validityMonths: z
@@ -158,7 +159,8 @@ export interface CourseSummary {
   description: string | null;
   category: string;
   kind: "internal" | "external";
-  completionMethod: "read_and_confirm" | "in_person" | "external_certificate";
+  completionMethod:
+    "read_and_confirm" | "in_person" | "external_certificate" | "interactive";
   certificateExpected: boolean;
   validityMonths: number | null;
   warnDays: number;
@@ -343,6 +345,15 @@ export async function saveCourse(
   if (!canManage(actor)) return forbidden();
   const existing = id ? await activeCourse(tx, actor, id) : null;
   if (id && !existing) return notFound("course");
+  // Interactive courses come only from a course file (M15 import).
+  if (
+    !existing &&
+    (raw as { completionMethod?: unknown } | null)?.completionMethod ===
+      "interactive"
+  )
+    return invalid({
+      completionMethod: "Import interactive courses from a course file",
+    });
   // A course's type and completion method are fixed once created (records depend on them).
   const parsed = courseSchema.safeParse(
     existing

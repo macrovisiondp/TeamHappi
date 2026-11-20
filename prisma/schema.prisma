@@ -879,6 +879,7 @@ enum TrainingCompletionMethod {
   read_and_confirm
   in_person
   external_certificate
+  interactive
 
   @@map("training_completion_method")
 }
@@ -896,6 +897,7 @@ enum TrainingRecordMethod {
   read_and_confirm
   in_person
   external_certificate
+  assessment
 
   @@map("training_record_method")
 }
@@ -921,6 +923,8 @@ model TrainingCourse {
 
   requirements TrainingRequirement[]
   records      TrainingRecord[]
+  packages     TrainingCoursePackage[]
+  attempts     TrainingAttempt[]
 
   @@unique([tenantId, id])
   @@map("training_course")
@@ -974,6 +978,59 @@ model TrainingRecord {
   @@unique([tenantId, employeeId, id], map: "training_record_tenant_employee_id_key")
   @@index([tenantId, employeeId, courseId], map: "training_record_employee_course")
   @@map("training_record")
+}
+
+// ---------------------------------------------------------------------------
+// M15: imported interactive courses (migrations 20261116120000_course_methods,
+// 20261116130000_course_packages). Packages are insert-only; attempts can only
+// have their result recorded once (trigger). The employee foreign key exists in
+// SQL; only the course and package relations are modelled.
+
+model TrainingCoursePackage {
+  id                String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  courseId          String   @map("course_id") @db.Uuid
+  version           Int
+  code              String
+  format            String
+  content           Json
+  finalCount        Int      @map("final_count")
+  passPercent       Int      @map("pass_percent")
+  modulePassPercent Int      @map("module_pass_percent")
+  practical         String?
+  createdBy         String   @map("created_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  course   TrainingCourse    @relation(fields: [tenantId, courseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "training_course_package_course_fkey")
+  attempts TrainingAttempt[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, courseId, version], map: "training_course_package_course_version")
+  @@index([tenantId, code], map: "training_course_package_code_idx")
+  @@map("training_course_package")
+}
+
+model TrainingAttempt {
+  id           String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  employeeId   String    @map("employee_id") @db.Uuid
+  courseId     String    @map("course_id") @db.Uuid
+  packageId    String    @map("package_id") @db.Uuid
+  part         String
+  moduleIndex  Int?      @map("module_index")
+  questionIds  Int[]     @map("question_ids")
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt  DateTime? @map("submitted_at") @db.Timestamptz
+  correct      Int?
+  scorePercent Int?      @map("score_percent")
+  passed       Boolean?
+
+  course  TrainingCourse        @relation(fields: [tenantId, courseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "training_attempt_course_fkey")
+  package TrainingCoursePackage @relation(fields: [tenantId, packageId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "training_attempt_package_fkey")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, courseId], map: "training_attempt_person_course")
+  @@map("training_attempt")
 }
 
 // ---------------------------------------------------------------------------

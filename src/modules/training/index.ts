@@ -43,6 +43,33 @@ export {
 export { confirmMyCourse, myTraining, type MyCourse } from "./self";
 export { SUGGESTED_COURSES } from "./suggested";
 export {
+  FINAL_TIME_LIMIT_MS,
+  awaitingSignOff,
+  certificateFacts,
+  coursePackageSummary,
+  importCourses,
+  learnerCourse,
+  signOffPractical,
+  startFinal,
+  submitFinal,
+  submitModuleQuiz,
+  type CertificateFacts,
+  type ImportFile,
+  type ImportOutcome,
+  type LearnerCourse,
+  type QuizResult,
+} from "./courses";
+export {
+  MAX_COURSE_FILE_BYTES,
+  drawFinal,
+  forLearner,
+  grade,
+  parseCourseFile,
+  type LearnerQuestion,
+  type Question as CourseQuestion,
+  type Page as CoursePage,
+} from "./course-format";
+export {
   referralUrl,
   type PartnerCourse,
   type TrainingPartner,

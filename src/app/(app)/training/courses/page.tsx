@@ -9,6 +9,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/misc";
 import { CourseCommand, CourseForm } from "@/features/training/controls";
+import { ImportCourses } from "@/features/training/import-courses";
 import {
   CATEGORY_LABEL,
   KIND_LABEL,
@@ -94,6 +95,16 @@ export default async function TrainingCoursesPage() {
           ))}
         </ul>
       )}
+
+      <Card aria-labelledby="import-heading">
+        <CardTitle id="import-heading">Import interactive courses</CardTitle>
+        <p className="text-sm">
+          Upload course files (TeamHappi course format) from your training
+          supplier. Staff work through them in TeamHappi; quizzes and the final
+          assessment are marked automatically, and a pass gives a certificate.
+        </p>
+        <ImportCourses />
+      </Card>
 
       <Card aria-labelledby="new-course-heading">
         <CardTitle id="new-course-heading">Create a course</CardTitle>
