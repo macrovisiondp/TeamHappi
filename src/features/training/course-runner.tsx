@@ -138,7 +138,9 @@ export function CourseRunner({ course }: { course: LearnerCourse }) {
       </div>
     );
 
-  const done = course.modules.filter((m) => m.passed).length;
+  // Progress counts module quizzes passed (practice modules have none).
+  const quizzes = course.modules.filter((m) => m.quiz.length);
+  const done = quizzes.filter((m) => m.passed).length;
   const showModules = course.state === "learning" || review;
   return (
     <div className="flex flex-col gap-5">
@@ -216,21 +218,21 @@ export function CourseRunner({ course }: { course: LearnerCourse }) {
                 Modules
               </h2>
               <span className="text-sm text-ink-muted">
-                {done} of {course.modules.length} done
+                {done} of {quizzes.length} quizzes passed
               </span>
             </div>
             <div
               className="h-2 overflow-hidden rounded-full bg-line"
               role="progressbar"
-              aria-label="Modules done"
+              aria-label="Module quizzes passed"
               aria-valuemin={0}
-              aria-valuemax={course.modules.length}
+              aria-valuemax={quizzes.length}
               aria-valuenow={done}
             >
               <div
                 className="h-full bg-forest"
                 style={{
-                  width: `${(done / Math.max(1, course.modules.length)) * 100}%`,
+                  width: `${(done / Math.max(1, quizzes.length)) * 100}%`,
                 }}
               />
             </div>
