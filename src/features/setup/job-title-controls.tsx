@@ -4,7 +4,8 @@ import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { notify } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 
@@ -14,23 +15,15 @@ import { IDLE, type FormState } from "./form-state";
 function useRefreshOnSave(state: FormState) {
   const router = useRouter();
   useEffect(() => {
-    if (state.status === "saved") router.refresh();
+    if (state.status === "saved") {
+      notify(state.message);
+      router.refresh();
+    }
   }, [state, router]);
 }
 
 function Message({ state }: { state: FormState }) {
-  if (state.status === "error")
-    return (
-      <Alert tone="danger" title="That didn't work">
-        {state.message}
-      </Alert>
-    );
-  if (state.status === "saved")
-    return (
-      <Alert tone="success" title="Done">
-        {state.message}
-      </Alert>
-    );
+  if (state.status === "error") return <FormError message={state.message} />;
   return null;
 }
 

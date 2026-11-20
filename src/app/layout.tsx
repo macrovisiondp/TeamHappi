@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
+import { Toaster } from "@/components/ui/toast";
+
 import "./globals.css";
 
 // Self-hosted at build time by next/font: browsers make no requests to Google.
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to main content
         </a>
         {children}
+        <Toaster />
       </body>
     </html>
   );

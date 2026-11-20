@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getPlatformAccess } from "@/lib/platform-access";
 import {
   getWorkspace,
+  imagesApi,
   type MembershipSummary,
   type Workspace,
 } from "@/lib/workspace";
@@ -34,6 +35,23 @@ export async function requireWorkspace(): Promise<
 export async function OrganisationSwitcher() {
   const ws = await getWorkspace();
   if (!ws || ws.kind !== "ready") return null;
+  const logo = await imagesApi.logoId(ws);
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- small private image served by our own route
+        <img
+          src={`/media/logo?v=${logo}`}
+          alt=""
+          className="hidden h-9 max-w-[7rem] object-contain sm:block"
+        />
+      ) : null}
+      <Switcher ws={ws} />
+    </div>
+  );
+}
+
+function Switcher({ ws }: { ws: Extract<Workspace, { kind: "ready" }> }) {
   if (ws.memberships.length <= 1)
     return (
       <p className="hidden max-w-[16rem] truncate rounded-[10px] border border-line px-3 py-2 text-sm font-semibold sm:block">

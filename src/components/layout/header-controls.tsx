@@ -92,10 +92,13 @@ export function NotificationsMenu() {
 export function AccountMenu({
   name,
   email,
+  photo = null,
   links = [],
 }: {
   name: string;
   email: string;
+  /** The person's photo in this organisation, if they've added one. */
+  photo?: string | null;
   /** Extra destinations, e.g. Platform Admin for platform staff. */
   links?: readonly { href: string; label: string }[];
 }) {
@@ -129,9 +132,18 @@ export function AccountMenu({
         onClick={toggle}
         className="flex h-11 items-center gap-2 rounded-[10px] px-2 hover:bg-sage"
       >
-        <span className="grid size-8 place-items-center rounded-full bg-forest text-white">
-          <UserRound aria-hidden="true" className="size-4" />
-        </span>
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- small private image served by our own route
+          <img
+            src={photo}
+            alt=""
+            className="size-8 rounded-full object-cover"
+          />
+        ) : (
+          <span className="grid size-8 place-items-center rounded-full bg-forest text-white">
+            <UserRound aria-hidden="true" className="size-4" />
+          </span>
+        )}
         <span className="hidden max-w-[10rem] truncate text-sm font-semibold md:inline">
           {name}
         </span>

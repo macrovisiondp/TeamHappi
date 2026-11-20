@@ -5,6 +5,7 @@ import type * as React from "react";
 import { startTransition, useActionState, useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 
@@ -169,7 +170,7 @@ function JoinButton({
   const [error, setError] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-3">
-      {error ? <Alert tone="danger" title={error} role="alert" /> : null}
+      {error ? <FormError message={error} /> : null}
       <Button
         className="w-fit"
         disabled={pending}

@@ -3,7 +3,8 @@
 import { FileSignature, Send, Upload } from "lucide-react";
 import { useActionState, useEffect, useId, useState } from "react";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { reloadWithNote } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -25,23 +26,17 @@ const IDLE: SigningFormState = { status: "idle" };
 
 function useReloadOnSave(state: SigningFormState) {
   useEffect(() => {
-    if (state.status === "saved") window.location.reload();
+    if (state.status === "saved") reloadWithNote(state.message);
   }, [state]);
 }
 
 function Problem({ state }: { state: SigningFormState }) {
   if (state.status !== "error") return null;
-  const fields = Object.values(state.fieldErrors ?? {});
   return (
-    <Alert tone="danger" title={state.message} role="alert">
-      {fields.length ? (
-        <ul className="list-disc pl-5">
-          {fields.map((m) => (
-            <li key={m}>{m}</li>
-          ))}
-        </ul>
-      ) : null}
-    </Alert>
+    <FormError
+      message={state.message}
+      details={Object.values(state.fieldErrors ?? {})}
+    />
   );
 }
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 
-import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 
 import { Submit } from "@/features/onboarding/controls";
 
@@ -52,11 +52,7 @@ export function ImportCourses() {
           the job titles match your staff records afterwards.
         </span>
       </label>
-      {state.status === "error" ? (
-        <Alert tone="danger" title="Nothing was imported">
-          {state.message}
-        </Alert>
-      ) : null}
+      {state.status === "error" ? <FormError message={state.message} /> : null}
       {state.status === "done" ? (
         <ul className="flex flex-col gap-2" aria-label="Import results">
           {state.outcomes.map((o, i) => (

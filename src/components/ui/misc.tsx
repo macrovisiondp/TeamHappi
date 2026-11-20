@@ -12,21 +12,43 @@ function initials(name: string): string {
     .join("");
 }
 
-/** Initials avatar. Decorative: the name is always shown next to it. */
+/**
+ * A person's photo, or their initials when there isn't one. Decorative: the
+ * name is always shown next to it.
+ */
 function Avatar({
   name,
+  src,
   size = "md",
   className,
 }: {
   name: string;
-  size?: "sm" | "md" | "lg";
+  /** The photo's address, if the person has one. */
+  src?: string | null;
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
   const sizes = {
     sm: "size-8 text-xs",
     md: "size-10 text-sm",
     lg: "size-16 text-xl",
+    xl: "size-24 text-3xl",
   };
+  if (src)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- small private image served by our own route
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        className={cn(
+          "shrink-0 rounded-full bg-line object-cover",
+          sizes[size],
+          className,
+        )}
+      />
+    );
   return (
     <span
       aria-hidden="true"
@@ -40,6 +62,10 @@ function Avatar({
     </span>
   );
 }
+
+/** The address of a person's photo (the id changes when it's replaced). */
+const photoSrc = (employeeId: string, photoId: string | null | undefined) =>
+  photoId ? `/media/photo/${employeeId}?v=${photoId}` : null;
 
 function Skeleton({ className }: { className?: string }) {
   return (
@@ -131,4 +157,4 @@ function StatCard({
   );
 }
 
-export { Avatar, DemoBadge, PageHeader, Skeleton, StatCard };
+export { photoSrc, Avatar, DemoBadge, PageHeader, Skeleton, StatCard };

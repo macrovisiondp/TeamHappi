@@ -5,6 +5,7 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Alert } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
@@ -98,7 +99,7 @@ export function PublicOffer() {
           </CardDescription>
           {fileForm("Read the offer letter")}
           {state.status === "error" ? (
-            <Alert tone="danger" title={state.message} role="alert" />
+            <FormError message={state.message} />
           ) : null}
           {!declining ? (
             <form action={action} className="flex flex-col gap-3">

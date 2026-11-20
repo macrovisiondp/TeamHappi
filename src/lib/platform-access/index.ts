@@ -12,6 +12,7 @@ import {
   type StaffRow,
   type StaffStatus,
 } from "@/lib/auth";
+import { checkImage } from "@/lib/images";
 import { knownGrants } from "@/lib/permissions/platform";
 import {
   issuePlatformStaffActor,
@@ -589,4 +590,35 @@ export const integrationAdmin = {
     changeIntegrations((db, actor) =>
       integrationStore.saveAiControls(db, actor, input),
     ),
+  /** M17: the TeamHappi logo (checked as PNG, JPEG or WebP, at most 300 KB). */
+  saveLogo: async (bytes: Uint8Array) => {
+    const img = checkImage(bytes);
+    if (!img.ok)
+      return {
+        ok: false as const,
+        reason: "rejected" as const,
+        message: img.message,
+      };
+    return changeIntegrations((db, actor) =>
+      integrationStore.saveBrandLogo(db, actor, img),
+    );
+  },
+  removeLogo: () =>
+    changeIntegrations((db, actor) =>
+      integrationStore.saveBrandLogo(db, actor, null),
+    ),
 };
+
+/**
+ * M17: the TeamHappi logo, for anyone (sign-in page, top bar). Null when none
+ * is set or the platform database isn't configured here.
+ */
+export const brandLogo = cache(async () => {
+  const db = platformDb();
+  if (!db) return null;
+  try {
+    return await integrationStore.getBrandLogo(db);
+  } catch {
+    return null;
+  }
+});

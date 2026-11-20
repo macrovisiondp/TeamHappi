@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { Alert } from "@/components/ui/alert";
+import { notify, reloadWithNote } from "@/components/ui/toast";
+import { FormError } from "@/components/ui/form-error";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -48,7 +49,7 @@ function Submit({
 
 function ErrorAlert({ state }: { state: MemberActionState }) {
   return state.status === "error" ? (
-    <Alert tone="danger" title={state.message} role="alert" />
+    <FormError message={state.message} />
   ) : null;
 }
 
@@ -106,7 +107,10 @@ export function InviteForm({
   const router = useRouter();
   const [state, action] = useActionState(inviteMember, IDLE);
   useEffect(() => {
-    if (state.status === "ok") router.refresh();
+    if (state.status === "ok") {
+      notify(state.message);
+      router.refresh();
+    }
   }, [state, router]);
   const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
   const described = (id: string, hint?: boolean) =>
@@ -120,7 +124,6 @@ export function InviteForm({
     <div className="flex flex-col gap-4">
       {state.status === "ok" ? (
         <>
-          <Alert tone="success" title={state.message} role="status" />
           {state.link ? (
             <LinkBox link={state.link} label="Invite link" />
           ) : null}
@@ -292,7 +295,7 @@ export function MemberActions({
   );
   // Full reload so badges, roles and activity all reflect the database.
   useEffect(() => {
-    if (state.status === "ok") window.location.reload();
+    if (state.status === "ok") reloadWithNote(state.message);
   }, [state]);
 
   const titles: Record<Exclude<Confirm, null>, string> = {
