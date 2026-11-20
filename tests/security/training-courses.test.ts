@@ -230,6 +230,8 @@ describe("learning", () => {
     expect(json).not.toContain('"answer"');
     expect(json).not.toContain('"why"');
     expect(view!.final.unlocked).toBe(false);
+    // Emoji survive the database (it must be UTF-8, like Neon).
+    expect(view!.modules[0]!.icon).toBe("🦺");
     expect(view!.state).toBe("learning");
   });
 

@@ -66,16 +66,50 @@ async function run(connectionString, sql) {
 if (!existsSync(`${DIR}/PG_VERSION`)) await server.initialise();
 await server.start();
 
+const serverAdmin = url("postgres", state.superPassword, "postgres");
 if (firstRun) {
-  const admin = url("postgres", state.superPassword, "postgres");
   for (const statement of [
     `CREATE ROLE teamhappi_migrator WITH LOGIN PASSWORD '${state.migratorPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS`,
     `CREATE ROLE teamhappi_app WITH LOGIN PASSWORD '${state.appPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION`,
     `CREATE ROLE teamhappi_auth WITH LOGIN PASSWORD '${state.authPassword}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION`,
-    `CREATE DATABASE ${DB} OWNER teamhappi_migrator`,
   ]) {
-    await run(admin, statement);
+    await run(serverAdmin, statement);
   }
+}
+
+// The database must be UTF-8 like Neon (course content has emoji, names have
+// accents). Databases made before this check used the Windows code page: that
+// one is renamed aside (kept, not deleted) and a fresh UTF-8 one is created.
+let fresh = firstRun;
+{
+  const c = new pg.Client({ connectionString: serverAdmin });
+  await c.connect();
+  try {
+    const row = (
+      await c.query(
+        `SELECT pg_encoding_to_char(encoding) AS enc FROM pg_database WHERE datname = $1`,
+        [DB],
+      )
+    ).rows[0];
+    if (row && row.enc !== "UTF8") {
+      const aside = `${DB}_${row.enc.toLowerCase()}_${Date.now()}`;
+      await c.query(`ALTER DATABASE ${DB} RENAME TO ${aside}`);
+      console.log(
+        `The local database used ${row.enc}; kept it as "${aside}" and created a fresh UTF-8 one. Run \`npm run dev:seed\` again.`,
+      );
+    }
+    if (!row || row.enc !== "UTF8") {
+      await c.query(
+        `CREATE DATABASE ${DB} OWNER teamhappi_migrator ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`,
+      );
+      fresh = true;
+    }
+  } finally {
+    await c.end();
+  }
+}
+
+if (fresh) {
   const adminDb = url("postgres", state.superPassword);
   await run(adminDb, readFileSync("prisma/bootstrap/neon-dev.sql", "utf8"));
   await run(

@@ -193,19 +193,36 @@ async function seedOrganisations(url) {
   const c = new pg.Client({ connectionString: url });
   await c.connect();
   const one = async (sql, params) => (await c.query(sql, params)).rows[0].id;
+  const allPermissions = async () =>
+    (await c.query(`SELECT code FROM permission ORDER BY code`)).rows.map(
+      (r) => r.code,
+    );
   try {
     for (const org of ORGS) {
-      const exists = await c.query(`SELECT 1 FROM tenant WHERE slug = $1`, [
+      const exists = await c.query(`SELECT id FROM tenant WHERE slug = $1`, [
         org.slug,
       ]);
-      if (exists.rowCount) continue;
+      if (exists.rowCount) {
+        // Existing synthetic organisations: top the owner role up with any
+        // permissions added by later milestones.
+        await c.query(
+          `INSERT INTO role_permission (tenant_id, role_id, permission_code)
+           SELECT r.tenant_id, r.id, p.code FROM role r CROSS JOIN permission p
+           WHERE r.tenant_id = $1 AND r.key = 'owner'
+           ON CONFLICT DO NOTHING`,
+          [exists.rows[0].id],
+        );
+        continue;
+      }
       await c.query("BEGIN");
       const t = await one(
         `INSERT INTO tenant (slug, legal_name) VALUES ($1, $2) RETURNING id`,
         [org.slug, org.name],
       );
       const roles = {};
-      for (const [key, perms] of Object.entries(ROLE_PERMISSIONS)) {
+      for (const [key, listed] of Object.entries(ROLE_PERMISSIONS)) {
+        // Owners get the whole current catalogue, like a real organisation.
+        const perms = key === "owner" ? await allPermissions() : listed;
         roles[key] = await one(
           `INSERT INTO role (tenant_id, key, name, is_system) VALUES ($1, $2, $3, true) RETURNING id`,
           [t, key, ROLE_NAMES[key]],

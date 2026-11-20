@@ -30,6 +30,8 @@ export function syntheticCourse(over: Record<string, unknown> = {}) {
     modules: [
       {
         title: "Basics",
+        // Emoji, as in real course files (the database must be UTF-8).
+        icon: "🦺",
         pages: [
           {
             h: "Basics",

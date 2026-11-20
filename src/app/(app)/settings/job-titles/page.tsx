@@ -81,7 +81,7 @@ export default async function JobTitlesPage() {
         <CardDescription>
           Use the exact titles your training and onboarding plans use.
         </CardDescription>
-        <AddJobTitles suggestions={unlisted.map((u) => u.name)} />
+        <AddJobTitles />
       </Card>
     </div>
   );

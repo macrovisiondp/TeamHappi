@@ -135,7 +135,7 @@ export default async function setup(project: TestProject) {
          NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION`,
       `CREATE ROLE teamhappi_platform WITH LOGIN PASSWORD '${platformPassword}'
          NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION`,
-      `CREATE DATABASE ${DB} OWNER teamhappi_migrator`,
+      `CREATE DATABASE ${DB} OWNER teamhappi_migrator ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`,
     ]) {
       await run(adminServerUrl, statement);
     }

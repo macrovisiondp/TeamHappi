@@ -35,7 +35,7 @@ function Message({ state }: { state: FormState }) {
 }
 
 /** Add one or more job titles (one per line). */
-export function AddJobTitles({ suggestions }: { suggestions: string[] }) {
+export function AddJobTitles() {
   const [state, action] = useActionState(jobTitleAction, IDLE);
   useRefreshOnSave(state);
   const e = state.status === "error" ? (state.fieldErrors ?? {}) : {};
@@ -54,7 +54,6 @@ export function AddJobTitles({ suggestions }: { suggestions: string[] }) {
           name="names"
           rows={5}
           required
-          defaultValue={suggestions.join("\n")}
           className="min-h-28 w-full rounded-[10px] border border-line bg-surface p-3 text-base"
         />
       </Field>
