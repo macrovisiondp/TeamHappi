@@ -10,6 +10,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { DbClient } from "@/lib/db/create-client";
 import type { PermissionCode } from "@/lib/permissions/catalogue";
+import { checkJobTitle } from "@/lib/job-titles";
 import { isUuid, withTenant, type TenantTx } from "@/lib/tenancy";
 import {
   employeeSchema,
@@ -336,6 +337,9 @@ export async function createEmployee(
     return await run(client, ws, async (tx) => {
       if (fields.primarySiteId && !(await activeSite(tx, fields.primarySiteId)))
         return invalid({ primarySiteId: "Choose an active site" });
+      const title = await checkJobTitle(tx, fields.jobTitle);
+      if (!title.ok) return invalid({ jobTitle: title.message });
+      fields.jobTitle = title.value;
       const teams = await assignableTeams(tx, ws, teamIds);
       if (teams.size !== new Set(teamIds).size)
         return invalid({ teamIds: "Choose teams at sites you manage" });
@@ -410,6 +414,9 @@ export async function updateEmployee(
         !(await activeSite(tx, fields.primarySiteId))
       )
         return invalid({ primarySiteId: "Choose an active site" });
+      const title = await checkJobTitle(tx, fields.jobTitle);
+      if (!title.ok) return invalid({ jobTitle: title.message });
+      fields.jobTitle = title.value;
 
       // Team changes touch only teams this member manages; others are kept.
       const desired = new Set(teamIds);

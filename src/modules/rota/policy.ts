@@ -355,3 +355,42 @@ export function describeUnavailability(rule: UnavailableRule): string {
     ? `${day(rule.startsOn!)}, ${when}`
     : `${day(rule.startsOn!)} to ${day(rule.endsOn!)}, ${when}`;
 }
+
+/**
+ * Shift cover (M16): the stretches of time when people are working but none
+ * of them covers (for example, holds first aid). Times are milliseconds;
+ * returns merged [start, end) gaps, each at least a minute long.
+ */
+export function coverGaps(
+  shifts: readonly { start: number; end: number; covers: boolean }[],
+): [number, number][] {
+  const merge = (xs: [number, number][]) => {
+    const out: [number, number][] = [];
+    for (const [s, e] of [...xs].sort((a, b) => a[0] - b[0])) {
+      const last = out[out.length - 1];
+      if (last && s <= last[1]) last[1] = Math.max(last[1], e);
+      else out.push([s, e]);
+    }
+    return out;
+  };
+  const working = merge(
+    shifts.filter((s) => s.end > s.start).map((s) => [s.start, s.end]),
+  );
+  const covered = merge(
+    shifts
+      .filter((s) => s.covers && s.end > s.start)
+      .map((s) => [s.start, s.end]),
+  );
+  const gaps: [number, number][] = [];
+  for (const [ws, we] of working) {
+    let cursor = ws;
+    for (const [cs, ce] of covered) {
+      if (ce <= cursor || cs >= we) continue;
+      if (cs > cursor) gaps.push([cursor, cs]);
+      cursor = Math.max(cursor, ce);
+      if (cursor >= we) break;
+    }
+    if (cursor < we) gaps.push([cursor, we]);
+  }
+  return gaps.filter(([s, e]) => e - s >= 60_000);
+}

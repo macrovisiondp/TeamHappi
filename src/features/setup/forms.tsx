@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import {
   CheckboxGroup,
+  JobTitleField,
   SelectField,
   SetupForm,
   StatusChange,
@@ -260,8 +261,10 @@ export function EmployeeForm({
   employee,
   sites,
   teams,
+  jobTitleOptions = [],
 }: {
   employee?: EmployeeValues;
+  jobTitleOptions?: readonly string[];
   sites: readonly { id: string; name: string }[];
   teams: readonly { id: string; name: string; siteId: string }[];
 }) {
@@ -298,12 +301,11 @@ export function EmployeeForm({
               defaultValue={employee?.preferredName}
               error={e.preferredName}
             />
-            <TextField
-              name="jobTitle"
-              label="Job title"
+            <JobTitleField
+              options={jobTitleOptions}
               defaultValue={employee?.jobTitle}
               error={e.jobTitle}
-              hint="For example Sous chef or Bartender."
+              hint="Training, onboarding and starter packs follow it."
             />
           </fieldset>
           <fieldset className="grid gap-4 md:grid-cols-2">

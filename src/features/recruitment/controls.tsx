@@ -13,7 +13,12 @@ import {
   textareaClass,
   useReload,
 } from "@/features/onboarding/controls";
-import { SelectField, SetupForm, TextField } from "@/features/setup/form";
+import {
+  JobTitleField,
+  SelectField,
+  SetupForm,
+  TextField,
+} from "@/features/setup/form";
 import { IDLE } from "@/features/setup/form-state";
 
 import {
@@ -40,7 +45,9 @@ interface Option {
 export function VacancyForm({
   options,
   vacancy,
+  jobTitleOptions = [],
 }: {
+  jobTitleOptions?: readonly string[];
   options: {
     sites: readonly Option[];
     teams: readonly (Option & { siteId: string })[];
@@ -82,8 +89,8 @@ export function VacancyForm({
             hint='For example "Weekend bartender".'
             required
           />
-          <TextField
-            name="jobTitle"
+          <JobTitleField
+            options={jobTitleOptions}
             label="Job title on hire"
             defaultValue={vacancy?.jobTitle}
             error={e.jobTitle}

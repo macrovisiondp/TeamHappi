@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 
+import { checkJobTitle } from "@/lib/job-titles";
 import { isUuid, type TenantTx } from "@/lib/tenancy";
 
 import {
@@ -113,6 +114,7 @@ const courseSchema = z
       "interactive",
     ]),
     certificateExpected: z.coerce.boolean(),
+    shiftCover: z.coerce.boolean().optional().default(false),
     validityMonths: z
       .union([z.literal(""), z.null(), z.coerce.number()])
       .transform((v) => (v === "" || v === null ? null : v))
@@ -162,6 +164,7 @@ export interface CourseSummary {
   completionMethod:
     "read_and_confirm" | "in_person" | "external_certificate" | "interactive";
   certificateExpected: boolean;
+  shiftCover: boolean;
   validityMonths: number | null;
   warnDays: number;
   contentVersion: number;
@@ -191,6 +194,7 @@ export async function listCourses(
       kind: true,
       completionMethod: true,
       certificateExpected: true,
+      shiftCover: true,
       validityMonths: true,
       warnDays: true,
       contentVersion: true,
@@ -218,6 +222,7 @@ export async function getCourse(tx: TenantTx, actor: Actor, id: string) {
       kind: true,
       completionMethod: true,
       certificateExpected: true,
+      shiftCover: true,
       validityMonths: true,
       warnDays: true,
       content: true,
@@ -371,6 +376,7 @@ export async function saveCourse(
     description: v.description ?? null,
     category: v.category,
     certificateExpected: v.certificateExpected,
+    shiftCover: v.shiftCover,
     validityMonths: v.validityMonths,
     warnDays: v.warnDays,
     content:
@@ -574,7 +580,10 @@ export async function saveRule(
     employeeId = e.id;
   } else if (v.scope === "job_title") {
     if (!v.jobTitle) return invalid({ jobTitle: "Enter the job title" });
-    jobTitle = v.jobTitle;
+    // M16: the organisation's job-title list, if it keeps one.
+    const title = await checkJobTitle(tx, v.jobTitle);
+    if (!title.ok) return invalid({ jobTitle: title.message });
+    jobTitle = title.value;
   }
   try {
     const created = await tx.trainingRequirement.create({

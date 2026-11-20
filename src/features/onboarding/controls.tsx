@@ -10,7 +10,12 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
-import { SelectField, SetupForm, TextField } from "@/features/setup/form";
+import {
+  JobTitleField,
+  SelectField,
+  SetupForm,
+  TextField,
+} from "@/features/setup/form";
 import { IDLE, type FormState } from "@/features/setup/form-state";
 
 import {
@@ -485,7 +490,9 @@ export function CaseActions({
 export function TemplateForm({
   template,
   sites,
+  jobTitleOptions = [],
 }: {
+  jobTitleOptions?: readonly string[];
   template?: {
     id: string;
     name: string;
@@ -536,9 +543,8 @@ export function TemplateForm({
             />
           ) : null}
           {scope === "job_title" ? (
-            <TextField
-              name="jobTitle"
-              label="Job title"
+            <JobTitleField
+              options={jobTitleOptions}
               defaultValue={template?.jobTitle}
               error={e.jobTitle}
               hint="Matched to the job title on the person's record, ignoring capitals."

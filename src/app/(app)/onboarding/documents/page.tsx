@@ -17,7 +17,7 @@ import {
 } from "@/features/workspace/components";
 import { OnboardingTabs } from "@/features/onboarding/labels";
 import { formatDate } from "@/lib/format";
-import { signingApi } from "@/lib/workspace";
+import { jobTitlesApi, signingApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Documents to sign" };
 
@@ -28,6 +28,7 @@ export const instant = false;
 export default async function DocumentsPage() {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   const lib = await signingApi.library(ws);
   if (!lib)
     return (
@@ -120,7 +121,11 @@ export default async function DocumentsPage() {
         {lib.length ? (
           <Card aria-labelledby="add-pack" className="gap-3">
             <CardTitle id="add-pack">Make a starter pack</CardTitle>
-            <StarterPackForm library={lib} jobTitles={titles} />
+            <StarterPackForm
+              library={lib}
+              jobTitles={jobTitleOptions.length ? jobTitleOptions : titles}
+              fixedTitles={jobTitleOptions.length > 0}
+            />
           </Card>
         ) : null}
       </section>

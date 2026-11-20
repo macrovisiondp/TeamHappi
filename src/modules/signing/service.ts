@@ -15,6 +15,7 @@
 import { createHash } from "node:crypto";
 
 import type { PermissionCode } from "@/lib/permissions/catalogue";
+import { checkJobTitle } from "@/lib/job-titles";
 import { isUuid, type TenantTx } from "@/lib/tenancy";
 import { can, type Grants } from "@/lib/workspace/policy";
 
@@ -763,6 +764,9 @@ export async function createStarterPack(
       ]
     : [];
   if (!ids.length) errors.documents = "Choose at least one document";
+  // M16: the organisation's job-title list, if it keeps one.
+  const title = await checkJobTitle(tx, job);
+  if (!title.ok) errors.jobTitle = title.message;
   if (Object.keys(errors).length) return invalid(errors);
   const docs = await tx.signDocument.findMany({
     where: {
@@ -778,7 +782,7 @@ export async function createStarterPack(
     data: {
       tenantId: actor.tenantId,
       name,
-      jobTitle: job || null,
+      jobTitle: title.ok ? title.value : null,
       createdBy: actor.userId,
     },
     select: { id: true },

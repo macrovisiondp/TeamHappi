@@ -23,7 +23,7 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { formatDate } from "@/lib/format";
-import { trainingApi } from "@/lib/workspace";
+import { jobTitlesApi, trainingApi } from "@/lib/workspace";
 
 export const metadata: Metadata = { title: "Training course" };
 
@@ -35,6 +35,7 @@ export default async function TrainingCoursePage({
 }: PageProps<"/training/courses/[courseId]">) {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  const jobTitleOptions = await jobTitlesApi.options(ws);
   const { courseId } = await params;
   // Other organisations' courses, and anyone without training.manage: 404.
   const c = await trainingApi.getCourse(ws, courseId);
@@ -216,6 +217,7 @@ export default async function TrainingCoursePage({
           <Card aria-labelledby="add-rule-heading">
             <CardTitle id="add-rule-heading">Add a rule</CardTitle>
             <AddRuleForm
+              jobTitleOptions={jobTitleOptions}
               courseId={c.id}
               sites={c.options.sites}
               people={c.options.people}

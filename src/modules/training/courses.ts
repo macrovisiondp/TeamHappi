@@ -12,6 +12,7 @@
 // - A course "cycle" starts after the person's latest valid record for the
 //   course, so a refresher starts from scratch.
 
+import { checkJobTitle } from "@/lib/job-titles";
 import { isUuid, type TenantTx } from "@/lib/tenancy";
 
 import {
@@ -185,7 +186,13 @@ async function importOne(
       },
       select: { id: true },
     });
-    await addFileRules(tx, actor, created.id, c.requirements, addRules);
+    const rules = await addFileRules(
+      tx,
+      actor,
+      created.id,
+      c.requirements,
+      addRules,
+    );
     await audit(
       tx,
       actor,
@@ -200,7 +207,7 @@ async function importOne(
     return {
       file,
       ok: true,
-      message: `Added ${c.name} (external).`,
+      message: `Added ${c.name} (external)${rulesNote(rules)}.`,
       courseId: created.id,
     };
   }
@@ -358,7 +365,7 @@ async function importOne(
   return {
     file,
     ok: true,
-    message: `Added ${c.name}${rules ? ` with ${rules} job-title rule${rules === 1 ? "" : "s"}` : ""}.`,
+    message: `Added ${c.name}${rulesNote(rules)}.`,
     courseId: created.id,
   };
 }
@@ -385,11 +392,18 @@ async function addFileRules(
     { jobTitle: string; mandatory: boolean; dueDays: number }[] | undefined,
   addRules: boolean,
 ) {
-  if (!addRules || !rules?.length) return 0;
+  const skipped: string[] = [];
+  if (!addRules || !rules?.length) return { added: 0, skipped };
   const seen = new Set<string>();
   let n = 0;
   for (const r of rules) {
-    const key = r.jobTitle.trim().toLowerCase();
+    // M16: titles must be on the organisation's list, if it keeps one.
+    const title = await checkJobTitle(tx, r.jobTitle);
+    if (!title.ok || !title.value) {
+      skipped.push(r.jobTitle.trim());
+      continue;
+    }
+    const key = title.value.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     await tx.trainingRequirement.create({
@@ -397,7 +411,7 @@ async function addFileRules(
         tenantId: actor.tenantId,
         courseId,
         scope: "job_title",
-        jobTitle: r.jobTitle.trim(),
+        jobTitle: title.value,
         mandatory: r.mandatory,
         dueDays: r.dueDays,
         createdBy: actor.userId,
@@ -406,8 +420,16 @@ async function addFileRules(
     });
     n++;
   }
-  return n;
+  return { added: n, skipped };
 }
+
+const rulesNote = (r: { added: number; skipped: string[] }) =>
+  (r.added
+    ? ` with ${r.added} job-title rule${r.added === 1 ? "" : "s"}`
+    : "") +
+  (r.skipped.length
+    ? `. Rules not added because the job title isn't on your list: ${r.skipped.join(", ")}`
+    : "");
 
 // --- Managers: what's in a course --------------------------------------------------------
 

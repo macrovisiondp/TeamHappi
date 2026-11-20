@@ -6,7 +6,7 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, Select } from "@/components/ui/field";
 import { Submit } from "@/features/onboarding/controls";
 
 import {
@@ -346,9 +346,12 @@ export function RequestActions({
 export function StarterPackForm({
   library,
   jobTitles,
+  fixedTitles = false,
 }: {
   library: readonly { id: string; title: string }[];
   jobTitles: readonly string[];
+  /** The organisation keeps a job-title list (M16): choose from it. */
+  fixedTitles?: boolean;
 }) {
   const id = useId();
   const [state, action] = useActionState(starterPackAction, IDLE);
@@ -373,17 +376,30 @@ export function StarterPackForm({
           label="For job title (leave empty for everyone)"
           error={e.jobTitle}
         >
-          <Input
-            id={`pjob-${id}`}
-            name="jobTitle"
-            maxLength={100}
-            list={`pjobs-${id}`}
-          />
-          <datalist id={`pjobs-${id}`}>
-            {jobTitles.map((j) => (
-              <option key={j} value={j} />
-            ))}
-          </datalist>
+          {fixedTitles ? (
+            <Select id={`pjob-${id}`} name="jobTitle" defaultValue="">
+              <option value="">Everyone</option>
+              {jobTitles.map((j) => (
+                <option key={j} value={j}>
+                  {j}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <>
+              <Input
+                id={`pjob-${id}`}
+                name="jobTitle"
+                maxLength={100}
+                list={`pjobs-${id}`}
+              />
+              <datalist id={`pjobs-${id}`}>
+                {jobTitles.map((j) => (
+                  <option key={j} value={j} />
+                ))}
+              </datalist>
+            </>
+          )}
         </Field>
       </div>
       <fieldset className="flex flex-col gap-1">
