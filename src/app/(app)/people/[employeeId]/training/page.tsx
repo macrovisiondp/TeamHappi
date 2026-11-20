@@ -162,7 +162,20 @@ export default async function PersonTrainingPage({
                     </div>
                     <div>
                       <dt className="text-ink-muted">How</dt>
-                      <dd>{METHOD_LABEL[h.method]}</dd>
+                      <dd>
+                        {METHOD_LABEL[h.method]}
+                        {h.method === "assessment" && !h.voided ? (
+                          <>
+                            {" · "}
+                            <a
+                              href={`/training/certificate/${h.id}`}
+                              className="font-semibold text-forest underline-offset-4 hover:underline"
+                            >
+                              Certificate
+                            </a>
+                          </>
+                        ) : null}
+                      </dd>
                     </div>
                     {h.provider ? (
                       <div>

@@ -1,5 +1,6 @@
-import { CheckCircle2, GraduationCap } from "lucide-react";
+import { CheckCircle2, GraduationCap, PlayCircle } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription } from "@/components/ui/card";
@@ -93,7 +94,15 @@ export default async function MyTrainingPage() {
                       {c.description ? (
                         <CardDescription>{c.description}</CardDescription>
                       ) : null}
-                      {c.canConfirm && c.content ? (
+                      {c.completionMethod === "interactive" ? (
+                        <Link
+                          href={`/training/me/${c.courseId}`}
+                          className="flex min-h-11 w-fit items-center gap-2 rounded-[10px] bg-forest px-4 font-semibold text-white"
+                        >
+                          <PlayCircle aria-hidden="true" className="size-5" />
+                          Open the course
+                        </Link>
+                      ) : c.canConfirm && c.content ? (
                         <>
                           {updated ? (
                             <p className="text-sm font-semibold">
@@ -143,7 +152,16 @@ export default async function MyTrainingPage() {
                   className="mt-0.5 size-5 shrink-0 text-forest"
                 />
                 <span>
-                  {c.name}
+                  {c.completionMethod === "interactive" ? (
+                    <Link
+                      href={`/training/me/${c.courseId}`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {c.name}
+                    </Link>
+                  ) : (
+                    c.name
+                  )}
                   <span className="block text-sm text-ink-muted">
                     {c.expiresOn
                       ? `Valid until ${formatDate(c.expiresOn)}`
@@ -170,11 +188,26 @@ export default async function MyTrainingPage() {
                 <span className="font-semibold">{h.courseName}</span>
                 <span className="block text-sm text-ink-muted">
                   {formatDate(h.completedOn)} ·{" "}
-                  {h.selfCompleted
-                    ? "Confirmed by you"
-                    : METHOD_LABEL[h.method]}
+                  {h.method === "assessment"
+                    ? h.selfCompleted
+                      ? "Passed by you"
+                      : "Passed and signed off"
+                    : h.selfCompleted
+                      ? "Confirmed by you"
+                      : METHOD_LABEL[h.method]}
                   {h.provider ? ` · ${h.provider}` : ""}
                   {h.expiresOn ? ` · expires ${formatDate(h.expiresOn)}` : ""}
+                  {h.method === "assessment" ? (
+                    <>
+                      {" · "}
+                      <a
+                        href={`/training/certificate/${h.id}`}
+                        className="font-semibold text-forest underline-offset-4 hover:underline"
+                      >
+                        Certificate
+                      </a>
+                    </>
+                  ) : null}
                 </span>
               </li>
             ))}

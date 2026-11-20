@@ -26,6 +26,7 @@ import * as cv from "./cv-documents";
 import * as push from "./push";
 import { pushKeys, webPushSender } from "./push-sender";
 import * as signingFiles from "./signing-files";
+import { certificatePdf } from "./training-certificate";
 import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
 import * as invites from "./invitations";
@@ -469,6 +470,61 @@ export const trainingApi = {
     inTraining(ws, (tx, a) =>
       training.voidRecord(tx, a, employeeId, recordId, reason),
     ),
+  // M15: interactive courses.
+  importCourses: (ws: Ready, files: training.ImportFile[], addRules: boolean) =>
+    inTraining(ws, (tx, a) => training.importCourses(tx, a, files, addRules)),
+  packageSummary: (ws: Ready, courseId: string) =>
+    inTraining(ws, (tx, a) => training.coursePackageSummary(tx, a, courseId)),
+  awaitingSignOff: (ws: Ready, courseId: string) =>
+    inTraining(ws, (tx, a) => training.awaitingSignOff(tx, a, courseId)),
+  signOff: (ws: Ready, courseId: string, employeeId: unknown) =>
+    inTraining(ws, (tx, a) =>
+      training.signOffPractical(tx, a, courseId, employeeId, trainingToday(ws)),
+    ),
+  learn: (ws: Ready, courseId: string) =>
+    inTraining(ws, (tx, a) =>
+      training.learnerCourse(tx, a, courseId, trainingToday(ws)),
+    ),
+  submitModule: (
+    ws: Ready,
+    courseId: string,
+    moduleIndex: unknown,
+    answers: unknown,
+  ) =>
+    inTraining(ws, (tx, a) =>
+      training.submitModuleQuiz(tx, a, courseId, moduleIndex, answers),
+    ),
+  startFinal: (ws: Ready, courseId: string) =>
+    inTraining(ws, (tx, a) =>
+      training.startFinal(tx, a, courseId, trainingToday(ws)),
+    ),
+  submitFinal: (
+    ws: Ready,
+    courseId: string,
+    attemptId: unknown,
+    answers: unknown,
+  ) =>
+    inTraining(ws, (tx, a) =>
+      training.submitFinal(
+        tx,
+        a,
+        courseId,
+        attemptId,
+        answers,
+        trainingToday(ws),
+      ),
+    ),
+  /** A course certificate PDF (audited), or null if not theirs to see. */
+  certificate: async (ws: Ready, recordId: string) => {
+    const facts = await inTraining(ws, (tx, a) =>
+      training.certificateFacts(tx, a, recordId),
+    );
+    if (!facts) return null;
+    return {
+      fileName: `${facts.certificateNo}.pdf`,
+      bytes: await certificatePdf(facts, ws.tenant.name),
+    };
+  },
 };
 
 // --- Recruitment (M9.1) ---------------------------------------------------------

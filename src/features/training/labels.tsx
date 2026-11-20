@@ -22,6 +22,8 @@ export const METHOD_LABEL: Record<string, string> = {
   read_and_confirm: "Read and confirm",
   in_person: "Given in person",
   external_certificate: "External certificate",
+  interactive: "Interactive course",
+  assessment: "Passed the course",
 };
 
 export const KIND_LABEL: Record<string, string> = {

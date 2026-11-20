@@ -39,6 +39,13 @@ export default async function TrainingCoursePage({
   // Other organisations' courses, and anyone without training.manage: 404.
   const c = await trainingApi.getCourse(ws, courseId);
   if (!c) notFound();
+  const interactive = c.completionMethod === "interactive";
+  const [pkg, waiting] = interactive
+    ? await Promise.all([
+        trainingApi.packageSummary(ws, c.id),
+        trainingApi.awaitingSignOff(ws, c.id),
+      ])
+    : [null, []];
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,6 +76,95 @@ export default async function TrainingCoursePage({
         </Alert>
       ) : (
         <>
+          {pkg ? (
+            <Card aria-labelledby="content-heading">
+              <CardHeader>
+                <div>
+                  <CardTitle id="content-heading">Course content</CardTitle>
+                  <CardDescription>
+                    Course {pkg.code}, version {pkg.version}, imported{" "}
+                    {formatDate(pkg.importedAt)}. To change it, import an
+                    updated course file on the Courses page.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <ol className="ml-5 list-decimal text-sm">
+                {pkg.modules.map((m, i) => (
+                  <li key={i}>
+                    {m.title}
+                    <span className="text-ink-muted">
+                      {m.questions
+                        ? ` · ${m.questions} quiz question${m.questions === 1 ? "" : "s"}`
+                        : " · practice"}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <p className="text-sm">
+                Module quizzes: pass mark {pkg.modulePassPercent}%. Final
+                assessment: {pkg.finalCount} questions drawn from {pkg.poolSize}{" "}
+                ({pkg.safetyQuestions} safety question
+                {pkg.safetyQuestions === 1 ? "" : "s"}, always included and must
+                be right), pass mark {pkg.passPercent}%.
+                {pkg.minutes ? ` About ${pkg.minutes} minutes.` : ""}
+              </p>
+              {pkg.practical ? (
+                <p className="text-sm">
+                  <span className="font-semibold">
+                    Practical sign-off needed:{" "}
+                  </span>
+                  {pkg.practical.replaceAll("**", "")}
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
+          {pkg?.practical ? (
+            <Card aria-labelledby="signoff-heading">
+              <CardHeader>
+                <div>
+                  <CardTitle id="signoff-heading">
+                    Awaiting practical sign-off
+                  </CardTitle>
+                  <CardDescription>
+                    These people passed the final assessment. Sign off when
+                    you&rsquo;ve seen them do the practical; that completes the
+                    course and makes their certificate.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              {waiting.length === 0 ? (
+                <p className="text-sm">Nobody is waiting.</p>
+              ) : (
+                <ul className="flex flex-col divide-y divide-line">
+                  {waiting.map((w) => (
+                    <li
+                      key={w.employeeId}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold">{w.name}</span>
+                        <span className="text-sm text-ink-muted">
+                          Passed {formatDate(w.passedAt)} with {w.scorePercent}%
+                        </span>
+                      </div>
+                      <CourseCommand
+                        courseId={c.id}
+                        employeeId={w.employeeId}
+                        intent="sign-off"
+                        label="Sign off"
+                        variant="primary"
+                        confirm={{
+                          title: `Sign off ${w.name}?`,
+                          description:
+                            "Confirm you've seen them carry out the practical safely. This completes the course for them.",
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          ) : null}
           <Card aria-labelledby="rules-heading">
             <CardHeader>
               <div>

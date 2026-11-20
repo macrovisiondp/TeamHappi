@@ -91,6 +91,11 @@ export async function trainingCourseCommand(
       await trainingApi.archiveRule(ws, courseId, str(form, "ruleId")),
       "Rule removed. Completion records are kept.",
     );
+  if (intent === "sign-off")
+    return toState(
+      await trainingApi.signOff(ws, courseId, str(form, "employeeId")),
+      "Practical signed off. The course is complete for them.",
+    );
   if (intent === "add-suggested") {
     const r = await trainingApi.addSuggested(ws);
     return r.ok
