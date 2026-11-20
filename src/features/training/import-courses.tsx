@@ -1,10 +1,17 @@
 "use client";
 
-import { CheckCircle2, Upload, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  FileUp,
+  FolderOpen,
+  Upload,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 
 import { Submit } from "@/features/onboarding/controls";
@@ -23,23 +30,77 @@ export function ImportCourses() {
   useEffect(() => {
     if (state.status === "done") router.refresh();
   }, [state, router]);
+  const input = useRef<HTMLInputElement>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const take = (files: FileList | null) =>
+    setChosen(files ? [...files].map((f) => f.name) : []);
   return (
-    <form action={action} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-2">
-        <span className="font-semibold">Course files (.json)</span>
+    <form
+      action={action}
+      // The form clears its file field after sending; clear the list too.
+      onSubmit={() => setChosen([])}
+      className="flex flex-col gap-4"
+    >
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          // Dropped files go into the real file field, so the form sends them.
+          const field =
+            e.currentTarget.querySelector<HTMLInputElement>("input[type=file]");
+          if (field) field.files = e.dataTransfer.files;
+          take(e.dataTransfer.files);
+        }}
+        className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed p-6 text-center ${
+          dragging ? "border-forest bg-sage" : "border-line-strong bg-surface"
+        }`}
+      >
+        <FileUp aria-hidden="true" className="size-8 text-forest" />
+        <div>
+          <p className="font-semibold">Course files (.json)</p>
+          <p className="text-sm text-ink-muted">
+            Drag them here, or choose them. Up to 40 at once.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => input.current?.click()}
+        >
+          <FolderOpen aria-hidden="true" />
+          Choose course files
+        </Button>
         <input
+          ref={input}
+          id="course-files"
           type="file"
           name="files"
           accept=".json,application/json"
           multiple
-          required
-          className="min-h-11 text-base"
+          className="sr-only"
+          aria-label="Course files"
+          onChange={(e) => take(e.target.files)}
         />
-        <span className="text-sm text-ink-muted">
-          Up to 40 files at once. A file for a course you already have adds a
-          new version of it; people&rsquo;s existing records stay valid.
-        </span>
-      </label>
+        {chosen.length ? (
+          <p className="text-sm" aria-live="polite">
+            <span className="font-semibold">
+              {chosen.length} file{chosen.length === 1 ? "" : "s"} chosen:
+            </span>{" "}
+            {chosen.slice(0, 6).join(", ")}
+            {chosen.length > 6 ? ` and ${chosen.length - 6} more` : ""}
+          </p>
+        ) : null}
+      </div>
+      <p className="text-sm text-ink-muted">
+        A file for a course you already have adds a new version of it;
+        people&rsquo;s existing records stay valid.
+      </p>
       <label className="flex min-h-11 items-start gap-3">
         <input
           type="checkbox"
