@@ -28,7 +28,7 @@ export const instant = false;
 
 const ACTIVITY: Record<string, string> = {
   "invitation.created": "Created an invitation",
-  "invitation.renewed": "Created a new invite link",
+  "invitation.renewed": "Resent an invitation",
   "invitation.revoked": "Cancelled an invitation",
   "invitation.accepted": "Joined from an invitation",
   "member.role_changed": "Changed a member's role",

@@ -125,7 +125,14 @@ export function InviteForm({
       {state.status === "ok" ? (
         <>
           {state.link ? (
-            <LinkBox link={state.link} label="Invite link" />
+            <>
+              <p className="text-sm">
+                We couldn&rsquo;t email this invitation, because email
+                isn&rsquo;t switched on yet. Copy the link and send it to them
+                yourself. It works once, for 7 days.
+              </p>
+              <LinkBox link={state.link} label="Invite link" />
+            </>
           ) : null}
         </>
       ) : null}
@@ -186,7 +193,7 @@ export function InviteForm({
           </Select>
         </Field>
         <div className="md:col-span-3">
-          <Submit label="Create invite link" pending="Creating…" />
+          <Submit label="Send invitation" pending="Sending…" />
         </div>
       </form>
     </div>
@@ -211,12 +218,19 @@ export function InvitationActions({
     IDLE,
   );
   useEffect(() => {
+    if (state.status === "ok") notify(state.message);
     if (state.status === "ok" && !state.link) router.refresh();
   }, [state, router]);
   return (
     <div className="flex flex-col gap-2">
       {state.status === "ok" && state.link ? (
-        <LinkBox link={state.link} label={`New invite link for ${email}`} />
+        <>
+          <p className="text-sm">
+            We couldn&rsquo;t email it. Copy the new link and send it to them
+            yourself; the old link no longer works.
+          </p>
+          <LinkBox link={state.link} label={`New invite link for ${email}`} />
+        </>
       ) : null}
       <ErrorAlert state={state} />
       <div className="flex flex-wrap gap-2">
@@ -225,7 +239,7 @@ export function InvitationActions({
           <input type="hidden" name="intent" value="renew" />
           <Button type="submit" size="sm" variant="secondary">
             <Link2 aria-hidden="true" />
-            New link
+            Resend invitation
             <span className="sr-only"> for {email}</span>
           </Button>
         </form>

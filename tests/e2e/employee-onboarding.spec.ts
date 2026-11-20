@@ -149,7 +149,7 @@ test("an owner invites a new starter from their record, who completes their own 
   ).toBeVisible(SLOW);
   await expect(page.getByLabel("Email address")).toHaveValue(email);
   await axe(page, "invite a person");
-  await page.getByRole("button", { name: "Create invite link" }).click();
+  await page.getByRole("button", { name: "Send invitation" }).click();
   await expect(page.getByText("Invitation created.").first()).toBeVisible(SLOW);
   const link = await page.getByLabel("Invite link").inputValue();
   expect(link).toMatch(/\/invite#[A-Za-z0-9_-]{43}$/);

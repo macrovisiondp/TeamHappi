@@ -181,7 +181,7 @@ test("staff see their published shifts, ask for an open one, and the manager app
 
   // Invite Shay; they sign up and sign in.
   await page.goto(`/people/${employeeId}/invite`, SLOW);
-  await page.getByRole("button", { name: "Create invite link" }).click();
+  await page.getByRole("button", { name: "Send invitation" }).click();
   await expect(page.getByText("Invitation created.").first()).toBeVisible(SLOW);
   const link = await page.getByLabel("Invite link").inputValue();
   const fresh = await browser.newContext({ ...info.project.use });
