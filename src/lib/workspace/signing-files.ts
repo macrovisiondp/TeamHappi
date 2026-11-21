@@ -102,11 +102,14 @@ export async function uploadPolicy(
   ws: Ready,
   title: unknown,
   file: { name: string; bytes: Uint8Array },
+  kind: signing.LibraryKind = "policy",
 ): Promise<Res> {
   const ok = signing.mayUploadPolicy(actorOf(ws), title);
   if (!ok.ok) return ok;
   return storeThenRecord(d, ws, file, (meta) =>
-    inTx(d, ws, (tx, a) => signing.recordPolicy(tx, a, ok.data.title, meta)),
+    inTx(d, ws, (tx, a) =>
+      signing.recordPolicy(tx, a, ok.data.title, meta, kind),
+    ),
   );
 }
 

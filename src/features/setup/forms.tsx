@@ -321,13 +321,14 @@ export function EmployeeForm({
               error={e.status}
               required
             />
-            <TextField
-              name="employeeNumber"
-              label="Employee number"
-              defaultValue={employee?.employeeNumber}
-              error={e.employeeNumber}
-              hint={employee ? undefined : "Leave blank to create one."}
-            />
+            {employee ? (
+              <TextField
+                name="employeeNumber"
+                label="Employee number"
+                defaultValue={employee.employeeNumber}
+                error={e.employeeNumber}
+              />
+            ) : null}
             <TextField
               name="startDate"
               label="Start date"
@@ -369,14 +370,18 @@ export function EmployeeForm({
             hint="Departments at the sites you manage."
           />
           <fieldset className="grid gap-4 md:grid-cols-2">
-            <legend className="mb-2 text-lg font-semibold">Work contact</legend>
+            <legend className="mb-2 text-lg font-semibold">Contact</legend>
             <TextField
               name="email"
-              label="Work email"
+              label="Email"
               type="email"
               defaultValue={employee?.email}
               error={e.email}
-              hint="Used later for invitations. No login is created now."
+              hint={
+                employee
+                  ? "Their invitation goes here."
+                  : "Their invitation to TeamHappi goes here."
+              }
             />
             <TextField
               name="phoneNumber"
@@ -386,6 +391,26 @@ export function EmployeeForm({
               error={e.phoneNumber}
             />
           </fieldset>
+          {!employee ? (
+            <label className="flex min-h-11 items-start gap-3 rounded-xl border border-forest/30 bg-sage/50 p-4">
+              <input
+                type="checkbox"
+                name="sendWelcome"
+                defaultChecked
+                className="mt-0.5 size-5 shrink-0 accent-[var(--brand-forest)]"
+              />
+              <span className="text-sm">
+                <span className="font-semibold">
+                  Send their invitation and starter pack now
+                </span>
+                <span className="block text-ink-muted">
+                  They get an email to sign in. Their first steps are waiting:
+                  their details, documents to sign and training. Their employee
+                  number is given automatically.
+                </span>
+              </span>
+            </label>
+          ) : null}
         </>
       )}
     </SetupForm>

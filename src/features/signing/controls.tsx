@@ -67,6 +67,16 @@ export function UploadPolicyForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       <Problem state={state} />
+      <Field
+        id={`kind-${id}`}
+        label="What is it?"
+        hint="A contract template is one file for everyone in a job, for example your zero-hours contract. It's countersigned after they sign."
+      >
+        <Select id={`kind-${id}`} name="kind" defaultValue="policy">
+          <option value="policy">A policy to read and sign</option>
+          <option value="contract_template">A contract template</option>
+        </Select>
+      </Field>
       <Field id={`title-${id}`} label="Title" error={e.title}>
         <Input
           id={`title-${id}`}
@@ -343,7 +353,7 @@ export function StarterPackForm({
   jobTitles,
   fixedTitles = false,
 }: {
-  library: readonly { id: string; title: string }[];
+  library: readonly { id: string; title: string; kind?: string }[];
   jobTitles: readonly string[];
   /** The organisation keeps a job-title list (M16): choose from it. */
   fixedTitles?: boolean;
@@ -414,6 +424,7 @@ export function StarterPackForm({
               className="size-5"
             />
             {d.title}
+            {d.kind === "contract_template" ? " (contract)" : ""}
           </label>
         ))}
       </fieldset>
