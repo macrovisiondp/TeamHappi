@@ -75,6 +75,8 @@ const templateSchema = z
     scope: z.enum(["organisation", "site", "job_title"]),
     siteId: z.string().optional().nullable(),
     jobTitle: optionalText(120),
+    // M18: a checklist for joining (default) or for leaving. Fixed once created.
+    purpose: z.enum(["joining", "leaving"]).optional().default("joining"),
   })
   .superRefine((v, ctx) => {
     if (v.scope === "site" && !v.siteId)
@@ -113,6 +115,7 @@ export interface TemplateSummary {
   siteName: string | null;
   jobTitle: string | null;
   isSuggested: boolean;
+  purpose: "joining" | "leaving";
   version: number;
   archived: boolean;
   taskCount: number;
@@ -146,6 +149,7 @@ export async function listTemplates(
       siteId: true,
       jobTitle: true,
       isSuggested: true,
+      purpose: true,
       version: true,
       archivedAt: true,
       site: { select: { name: true } },
@@ -161,6 +165,7 @@ export async function listTemplates(
     siteName: t.site?.name ?? null,
     jobTitle: t.jobTitle,
     isSuggested: t.isSuggested,
+    purpose: t.purpose === "leaving" ? "leaving" : "joining",
     version: t.version,
     archived: t.archivedAt !== null,
     taskCount: t.tasks.length,
@@ -244,7 +249,12 @@ export async function saveTemplate(
   try {
     if (!id) {
       const created = await tx.onboardingTemplate.create({
-        data: { tenantId: actor.tenantId, ...data, createdBy: actor.userId },
+        data: {
+          tenantId: actor.tenantId,
+          ...data,
+          purpose: v.purpose,
+          createdBy: actor.userId,
+        },
         select: { id: true },
       });
       await audit(
@@ -453,6 +463,7 @@ export async function addSuggestedTemplates(
         tenantId: actor.tenantId,
         name: s.name,
         description: s.description,
+        purpose: s.purpose ?? "joining",
         isSuggested: true,
         createdBy: actor.userId,
       },
@@ -495,7 +506,7 @@ export async function startOptions(tx: TenantTx, actor: Actor) {
       where: {
         tenantId: actor.tenantId,
         status: { in: ["pending", "active"] },
-        onboardingCases: { none: { status: "active" } },
+        onboardingCases: { none: { status: "active", purpose: "joining" } },
         ...(scope === "all" ? {} : { primarySiteId: { in: [...scope] } }),
       },
       orderBy: [{ familyName: "asc" }, { givenName: "asc" }],
@@ -511,7 +522,7 @@ export async function startOptions(tx: TenantTx, actor: Actor) {
       },
     }),
     tx.onboardingTemplate.findMany({
-      where: { tenantId: actor.tenantId, archivedAt: null },
+      where: { tenantId: actor.tenantId, archivedAt: null, purpose: "joining" },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -577,6 +588,7 @@ export async function startCase(
       id: true,
       name: true,
       version: true,
+      purpose: true,
       archivedAt: true,
       tasks: {
         where: { archivedAt: null },
@@ -593,7 +605,7 @@ export async function startCase(
       },
     },
   });
-  if (!template || template.archivedAt)
+  if (!template || template.archivedAt || template.purpose !== "joining")
     return invalid({ templateId: "Choose an active template" });
   if (template.tasks.length === 0)
     return invalid({ templateId: "This template has no tasks yet" });
@@ -661,6 +673,7 @@ type CaseSelect = NonNullable<
 const caseSelect = {
   id: true,
   employeeId: true,
+  purpose: true,
   templateName: true,
   templateVersion: true,
   siteId: true,
@@ -742,6 +755,8 @@ export interface CaseSummary {
   jobTitle: string | null;
   siteName: string | null;
   templateName: string;
+  /** M18: a joining checklist, or a leaving one (its start date = the last day). */
+  purpose: "joining" | "leaving";
   status: "active" | "completed" | "cancelled";
   startDate: string;
   ownerMembershipId: string | null;
@@ -785,6 +800,7 @@ function summarise(
     jobTitle: c.employee.jobTitle,
     siteName: c.site?.name ?? null,
     templateName: c.templateName,
+    purpose: c.purpose === "leaving" ? "leaving" : "joining",
     status: c.status,
     startDate,
     ownerMembershipId: c.ownerMembershipId,
@@ -893,7 +909,7 @@ export async function caseForEmployee(
 ) {
   if (!isUuid(employeeId)) return null;
   const c = await tx.onboardingCase.findFirst({
-    where: { tenantId: actor.tenantId, employeeId },
+    where: { tenantId: actor.tenantId, employeeId, purpose: "joining" },
     orderBy: [{ createdAt: "desc" }],
     select: caseSelect,
   });
@@ -923,6 +939,7 @@ export async function openRequiredTasks(
       tenantId: actor.tenantId,
       employeeId: { in: ids },
       status: "active",
+      purpose: "joining",
     },
     select: caseSelect,
   });
@@ -1456,4 +1473,142 @@ export async function updateDocument(
     required: doc.required,
   });
   return { ok: true, data: { id: doc.id } };
+}
+
+// --- Leaving checklists (M18) ---------------------------------------------------------------
+
+/**
+ * Starts a leaving checklist for someone who is leaving: the given leaving
+ * template, else the one that fits them best (their job title, then their site,
+ * then everyone). Task due dates count from their last day. Returns the case,
+ * or null when the organisation has no leaving template that fits. Called by
+ * the leaving process, which has already checked who may record a leaving.
+ */
+export async function startLeavingCase(
+  tx: TenantTx,
+  actor: Actor,
+  employeeId: string,
+  lastDay: string,
+  templateId?: string | null,
+): Promise<{ id: string } | null> {
+  const open = await tx.onboardingCase.findFirst({
+    where: {
+      tenantId: actor.tenantId,
+      employeeId,
+      purpose: "leaving",
+      status: "active",
+    },
+    select: { id: true },
+  });
+  if (open) return open;
+  const e = await tx.employee.findUnique({
+    where: { tenantId_id: { tenantId: actor.tenantId, id: employeeId } },
+    select: { id: true, primarySiteId: true, jobTitle: true },
+  });
+  if (!e) return null;
+  const templates = await tx.onboardingTemplate.findMany({
+    where: { tenantId: actor.tenantId, archivedAt: null, purpose: "leaving" },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      version: true,
+      scope: true,
+      siteId: true,
+      jobTitle: true,
+      tasks: {
+        where: { archivedAt: null },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          guidance: true,
+          category: true,
+          ownerKind: true,
+          dueOffsetDays: true,
+          required: true,
+        },
+      },
+    },
+  });
+  const rank = { job_title: 0, site: 1, organisation: 2 } as const;
+  const template = templateId
+    ? templates.find((t) => t.id === templateId)
+    : templates
+        .filter((t) => t.tasks.length && templateSuits(t, e))
+        .sort((a, b) => rank[a.scope] - rank[b.scope])[0];
+  if (!template || !template.tasks.length) return null;
+  const created = await tx.onboardingCase.create({
+    data: {
+      tenantId: actor.tenantId,
+      employeeId: e.id,
+      templateId: template.id,
+      templateVersion: template.version,
+      templateName: template.name,
+      purpose: "leaving",
+      siteId: e.primarySiteId,
+      startDate: asDate(lastDay),
+      ownerMembershipId: actor.membershipId || null,
+      createdBy: actor.userId,
+    },
+    select: { id: true },
+  });
+  await tx.onboardingTask.createMany({
+    data: template.tasks.map((t, i) => ({
+      tenantId: actor.tenantId,
+      caseId: created.id,
+      templateTaskId: t.id,
+      title: t.title,
+      guidance: t.guidance,
+      category: t.category,
+      ownerKind: t.ownerKind,
+      required: t.required,
+      sortOrder: i,
+      dueOn: asDate(dueDate(lastDay, t.dueOffsetDays)),
+      assigneeMembershipId:
+        t.ownerKind === "manager" && actor.membershipId
+          ? actor.membershipId
+          : null,
+    })),
+  });
+  await audit(
+    tx,
+    actor,
+    "onboarding.case_started",
+    "onboarding_case",
+    created.id,
+    {
+      employeeId: e.id,
+      templateId: template.id,
+      templateVersion: template.version,
+      tasks: template.tasks.length,
+    },
+  );
+  return created;
+}
+
+/** The person's leaving checklist, for their record (M18). */
+export async function leavingCaseFor(
+  tx: TenantTx,
+  actor: Actor,
+  employeeId: string,
+) {
+  if (!isUuid(employeeId)) return null;
+  const c = await tx.onboardingCase.findFirst({
+    where: { tenantId: actor.tenantId, employeeId, purpose: "leaving" },
+    orderBy: [{ createdAt: "desc" }],
+    select: {
+      id: true,
+      siteId: true,
+      status: true,
+      tasks: { select: { status: true, required: true } },
+    },
+  });
+  if (!c || !canAt(actor, "onboarding.view", c.siteId)) return null;
+  return {
+    id: c.id,
+    status: c.status,
+    done: c.tasks.filter((t) => t.status !== "to_do").length,
+    total: c.tasks.length,
+  };
 }

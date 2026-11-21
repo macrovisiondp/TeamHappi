@@ -9,6 +9,7 @@ export {
   decideChange,
   decideRequest,
   getWeek,
+  releaseShiftsFrom,
   publishWeek,
   rotaSites,
   saveShift,

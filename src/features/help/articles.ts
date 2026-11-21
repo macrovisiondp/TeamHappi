@@ -326,6 +326,40 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
   },
 
+  {
+    slug: "leavers",
+    title: "When someone leaves",
+    audience: "managers",
+    summary:
+      "Record their last day; TeamHappi ends their access and frees their shifts.",
+    sections: [
+      {
+        heading: "Record the leaving",
+        steps: [
+          "Open the person's record in People and choose “Mark as leaving”.",
+          "Enter their last working day and the reason. Add a private note if you need one.",
+          "A leaver checklist starts by itself if you have one (Onboarding › Templates, “Leavers”).",
+        ],
+      },
+      {
+        heading: "What happens after their last day",
+        tips: [
+          "Their login stops working for your organisation.",
+          "Their shifts after the last day become open on the rota.",
+          "Documents still waiting for their signature are withdrawn.",
+          "Their records, signed documents, training and timesheets are all kept.",
+        ],
+      },
+      {
+        heading: "Ending access straight away",
+        text: [
+          "Tick “End their access now” when you record the leaving, or press “End access now” on their record later, for example after a dismissal.",
+          "Changed your mind? “Cancel leaving” works until their access has ended.",
+        ],
+      },
+    ],
+  },
+
   // --- For staff -------------------------------------------------------------------------
   {
     slug: "first-day",

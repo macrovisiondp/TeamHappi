@@ -13,6 +13,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PermissionDenied } from "@/components/states/states";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Select } from "@/components/ui/field";
@@ -194,6 +195,11 @@ export default async function OnboardingPage({
                   >
                     {c.name}
                   </Link>
+                  {c.purpose === "leaving" ? (
+                    <Badge tone="warning" icon={null} className="ml-2">
+                      Leaving
+                    </Badge>
+                  ) : null}
                   <p className="text-xs text-ink-muted">
                     {[c.jobTitle, c.siteName].filter(Boolean).join(" · ") ||
                       c.templateName}

@@ -43,6 +43,7 @@ async function ownCase(tx: TenantTx, actor: Actor, employeeId: string) {
     where: {
       tenantId: actor.tenantId,
       employeeId,
+      purpose: "joining",
       status: { in: ["active", "completed"] },
     },
     // "active" sorts before "completed" in the enum.

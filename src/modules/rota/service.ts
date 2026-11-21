@@ -1321,3 +1321,46 @@ export async function decideChange(
   });
   return { ok: true, data: { id: r.id } };
 }
+
+// --- Leavers (M18) ------------------------------------------------------------------------
+
+/**
+ * When someone leaves: unassigns them from every active shift that starts at or
+ * after `from` (those shifts become open), cancels drop/swap requests on them,
+ * and records the change on published weeks. Called by the leaving process,
+ * which has already checked who may record a leaving. Returns how many.
+ */
+export async function releaseShiftsFrom(
+  tx: TenantTx,
+  actor: Actor,
+  employeeId: string,
+  from: Date,
+): Promise<number> {
+  const rows = await tx.shiftAssignment.findMany({
+    where: {
+      tenantId: actor.tenantId,
+      employeeId,
+      removedAt: null,
+      shift: { status: "active", startsAt: { gte: from } },
+    },
+    select: {
+      id: true,
+      shiftId: true,
+      shift: { select: { week: { select: { status: true } } } },
+    },
+  });
+  for (const a of rows) {
+    await tx.shiftAssignment.update({
+      where: { tenantId_id: { tenantId: actor.tenantId, id: a.id } },
+      data: { removedAt: new Date(), removedBy: actor.userId },
+      select: { id: true },
+    });
+    await cancelOpenChanges(tx, actor, a.shiftId);
+    if (a.shift.week.status === "published")
+      await change(tx, actor, a.shiftId, "unassigned", {
+        employeeId,
+        reason: "left",
+      });
+  }
+  return rows.length;
+}

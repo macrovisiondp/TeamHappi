@@ -20,6 +20,8 @@ export interface SuggestedTask {
 export interface SuggestedTemplate {
   name: string;
   description: string;
+  /** M18: a leaving checklist (due days count from the last day). */
+  purpose?: "joining" | "leaving";
   tasks: readonly SuggestedTask[];
 }
 
@@ -168,6 +170,60 @@ export const SUGGESTED_TEMPLATES: readonly SuggestedTemplate[] = [
         category: "induction",
         owner: "manager",
         due: 7,
+        required: false,
+      },
+    ],
+  },
+  {
+    name: "Leaver checklist (suggested)",
+    purpose: "leaving",
+    description:
+      "When someone leaves: get company property back, close off pay and logins, and say a proper goodbye. Due days count from their last day.",
+    tasks: [
+      {
+        title: "Uniform, keys and any equipment returned",
+        category: "task",
+        owner: "manager",
+        due: 0,
+        required: true,
+      },
+      {
+        title: "Final timesheet checked and approved",
+        category: "task",
+        owner: "manager",
+        due: 1,
+        required: true,
+      },
+      {
+        title: "Holiday balance and final pay sent to payroll",
+        guidance:
+          "Include any holiday taken but not earned, or earned but not taken.",
+        category: "task",
+        owner: "hr",
+        due: 2,
+        required: true,
+      },
+      {
+        title: "P45 issued by payroll",
+        category: "document",
+        owner: "hr",
+        due: 14,
+        required: true,
+      },
+      {
+        title: "Logins to other systems removed (bookings, tills, email)",
+        category: "task",
+        owner: "manager",
+        due: 0,
+        required: true,
+      },
+      {
+        title: "Leaving chat",
+        guidance:
+          "A short, friendly conversation: what went well, what could be better.",
+        category: "task",
+        owner: "manager",
+        due: 0,
         required: false,
       },
     ],

@@ -20,6 +20,8 @@ export {
   saveTemplateTask,
   signOffCase,
   startCase,
+  startLeavingCase,
+  leavingCaseFor,
   startOptions,
   updateDocument,
   updateTask,

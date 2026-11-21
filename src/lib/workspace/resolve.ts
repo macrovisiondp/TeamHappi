@@ -11,6 +11,9 @@ import {
   type TenantTx,
 } from "@/lib/tenancy";
 
+import { todayIn } from "@/modules/rota";
+
+import { finaliseDueLeavers } from "./leaving";
 import {
   chooseOrganisation,
   grantsFrom,
@@ -109,9 +112,22 @@ export async function resolveWorkspace(
   // Status changed between the two lookups: treat as no access.
   if (!ctx) return { kind: "none", user, blocked: [] };
 
-  const loaded = await withTenant(client, ctx, (tx) =>
-    loadMember(tx, ctx.tenantId, user.userId),
-  );
+  const loaded = await withTenant(client, ctx, async (tx) => {
+    // M18: finalise any leaving whose last day has ended (ends that person's
+    // access, frees their shifts) before this member's own access is checked.
+    const t = await tx.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { timezone: true },
+    });
+    if (t)
+      await finaliseDueLeavers(
+        tx,
+        ctx.tenantId,
+        t.timezone,
+        todayIn(t.timezone),
+      );
+    return loadMember(tx, ctx.tenantId, user.userId);
+  });
   if (!loaded) return { kind: "none", user, blocked: [] };
 
   return {

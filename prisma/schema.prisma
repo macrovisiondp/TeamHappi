@@ -658,6 +658,7 @@ model OnboardingTemplate {
   siteId      String?                 @map("site_id") @db.Uuid
   jobTitle    String?                 @map("job_title")
   isSuggested Boolean                 @default(false) @map("is_suggested")
+  purpose     String                  @default("joining")
   version     Int                     @default(1)
   archivedAt  DateTime?               @map("archived_at") @db.Timestamptz
   createdBy   String?                 @map("created_by") @db.Uuid
@@ -703,6 +704,7 @@ model OnboardingCase {
   templateId        String               @map("template_id") @db.Uuid
   templateVersion   Int                  @map("template_version")
   templateName      String               @map("template_name")
+  purpose           String               @default("joining")
   siteId            String?              @map("site_id") @db.Uuid
   status            OnboardingCaseStatus @default(active)
   startDate         DateTime             @map("start_date") @db.Date
@@ -1821,4 +1823,26 @@ model MediaImage {
 
   @@unique([tenantId, id])
   @@map("media_image")
+}
+
+// ---------------------------------------------------------------------------
+// M18: offboarding (migration 20261119120000_offboarding). The employee
+// foreign key exists in SQL.
+
+model EmployeeLeaving {
+  id               String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  employeeId       String    @map("employee_id") @db.Uuid
+  lastDay          DateTime  @map("last_day") @db.Date
+  reason           String
+  note             String?
+  recordedBy       String    @map("recorded_by") @db.Uuid
+  recordedAt       DateTime  @default(now()) @map("recorded_at") @db.Timestamptz
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz
+  cancelledBy      String?   @map("cancelled_by") @db.Uuid
+  finalisedAt      DateTime? @map("finalised_at") @db.Timestamptz
+  accessEndedEarly Boolean   @default(false) @map("access_ended_early")
+
+  @@unique([tenantId, id])
+  @@map("employee_leaving")
 }
