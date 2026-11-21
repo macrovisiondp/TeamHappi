@@ -16,6 +16,7 @@ import {
   requireWorkspace,
 } from "@/features/workspace/components";
 import { OnboardingTabs } from "@/features/onboarding/labels";
+import { BulkUpload } from "@/features/signing/bulk-upload";
 import { formatDate } from "@/lib/format";
 import { jobTitlesApi, signingApi } from "@/lib/workspace";
 
@@ -139,8 +140,15 @@ export default async function DocumentsPage() {
       </section>
 
       {storage ? (
+        <Card aria-labelledby="add-many" className="gap-3">
+          <CardTitle id="add-many">Upload several at once</CardTitle>
+          <BulkUpload />
+        </Card>
+      ) : null}
+
+      {storage ? (
         <Card aria-labelledby="add-policy" className="gap-3">
-          <CardTitle id="add-policy">Add a policy or contract</CardTitle>
+          <CardTitle id="add-policy">Add one policy or contract</CardTitle>
           <p className="text-sm text-ink-muted">
             Upload the final version as a PDF. Each person signs the exact file
             you upload. To change it later, add the new version and remove the
