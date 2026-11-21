@@ -112,7 +112,11 @@ export function VacancyForm({
               ))}
             </Select>
           </Field>
-          <Field id="field-teamId" label="Team (optional)" error={e.teamId}>
+          <Field
+            id="field-teamId"
+            label="Department (optional)"
+            error={e.teamId}
+          >
             <Select
               id="field-teamId"
               name="teamId"
@@ -121,7 +125,7 @@ export function VacancyForm({
                 vacancy?.siteId === siteId ? (vacancy?.teamId ?? "") : ""
               }
             >
-              <option value="">No team</option>
+              <option value="">No department</option>
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

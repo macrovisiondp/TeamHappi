@@ -106,7 +106,7 @@ export default async function EmployeePage({
     ["Job title", person.jobTitle ?? "Not set"],
     ["Employee number", person.employeeNumber],
     ["Primary site", person.primarySite?.name ?? "Not set"],
-    ["Teams", person.teams.map((t) => t.team.name).join(", ") || "None"],
+    ["Departments", person.teams.map((t) => t.team.name).join(", ") || "None"],
     ["Start date", person.startDate ? formatDate(person.startDate) : "Not set"],
   ];
   if (person.endDate) rows.push(["End date", formatDate(person.endDate)]);

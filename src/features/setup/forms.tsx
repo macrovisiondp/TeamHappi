@@ -151,7 +151,7 @@ export function SiteStatusChange({
       nextStatus="archived"
       label="Deactivate site"
       confirmTitle={`Deactivate ${name}?`}
-      confirmText="It will no longer be offered for new teams or people. Existing records and history are kept, and you can reactivate it at any time."
+      confirmText="It will no longer be offered for new departments or people. Existing records and history are kept, and you can reactivate it at any time."
     />
   ) : (
     <StatusChange
@@ -160,7 +160,7 @@ export function SiteStatusChange({
       nextStatus="active"
       label="Reactivate site"
       confirmTitle={`Reactivate ${name}?`}
-      confirmText="It will be available again for new teams and people."
+      confirmText="It will be available again for new departments and people."
     />
   );
 }
@@ -175,14 +175,14 @@ export function TeamForm({
   return (
     <SetupForm
       action={saveTeam}
-      submitLabel={team ? "Save team" : "Add team"}
+      submitLabel={team ? "Save changes" : "Add department"}
       hidden={team ? { id: team.id } : undefined}
     >
       {(e) => (
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             name="name"
-            label="Team name"
+            label="Department name"
             defaultValue={team?.name}
             error={e.name}
             hint="For example Kitchen, Front of house or Bar."
@@ -219,7 +219,7 @@ export function TeamStatusChange({
       action={changeTeamStatus}
       id={id}
       nextStatus="active"
-      label="Reactivate team"
+      label="Reactivate department"
       confirmTitle={`Reactivate ${name}?`}
       confirmText="People can be added to it again."
     />
@@ -228,7 +228,7 @@ export function TeamStatusChange({
       action={changeTeamStatus}
       id={id}
       nextStatus="archived"
-      label="Deactivate team"
+      label="Deactivate department"
       confirmTitle={`Deactivate ${name}?`}
       confirmText="It won't be offered for new assignments. Current members and history are kept."
     />
@@ -358,7 +358,7 @@ export function EmployeeForm({
           </fieldset>
           <CheckboxGroup
             name="teamIds"
-            legend="Teams"
+            legend="Departments"
             options={teams.map((t) => ({
               value: t.id,
               label: t.name,
@@ -366,7 +366,7 @@ export function EmployeeForm({
             }))}
             defaultValues={employee?.teamIds ?? []}
             error={e.teamIds}
-            hint="Teams at the sites you manage."
+            hint="Departments at the sites you manage."
           />
           <fieldset className="grid gap-4 md:grid-cols-2">
             <legend className="mb-2 text-lg font-semibold">Work contact</legend>

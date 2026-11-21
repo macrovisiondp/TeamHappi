@@ -32,7 +32,7 @@ export default async function OrganisationSettingsPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Active sites" value={org.counts.sites} icon={MapPin} />
         <StatCard
-          label="Active teams"
+          label="Active departments"
           value={org.counts.teams}
           icon={UsersRound}
         />
@@ -96,7 +96,7 @@ export default async function OrganisationSettingsPage() {
           </Link>
         </Card>
         <Card aria-labelledby="next-teams">
-          <CardTitle id="next-teams">Teams</CardTitle>
+          <CardTitle id="next-teams">Departments</CardTitle>
           <CardDescription>
             Groups such as Kitchen or Front of house, at each site.
           </CardDescription>

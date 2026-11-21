@@ -73,7 +73,7 @@ export async function getStarted(
     },
     {
       id: "teams",
-      label: "Add your teams",
+      label: "Add your departments",
       hint: "For example Front of House and Kitchen",
       href: "/settings/teams",
       done: c.teams > 0,

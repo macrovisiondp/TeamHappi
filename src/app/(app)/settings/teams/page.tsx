@@ -14,7 +14,7 @@ import {
 } from "@/features/workspace/components";
 import { listTeams } from "@/lib/workspace";
 
-export const metadata: Metadata = { title: "Teams" };
+export const metadata: Metadata = { title: "Departments" };
 export const instant = false;
 
 export default async function TeamsPage() {
@@ -23,14 +23,14 @@ export default async function TeamsPage() {
   const teams = await listTeams(ws);
   if (!teams)
     return (
-      <PermissionDenied message="Your role doesn't include viewing sites and teams." />
+      <PermissionDenied message="Your role doesn't include viewing sites and departments." />
     );
   const canAdd = ws.grants.has("team.manage");
   const add = canAdd ? (
     <Button asChild>
       <Link href="/settings/teams/new">
         <Plus aria-hidden="true" />
-        Add team
+        Add department
       </Link>
     </Button>
   ) : null;
@@ -38,24 +38,24 @@ export default async function TeamsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Teams"
+        title="Departments"
         description="Groups of people at each site."
         actions={add}
       />
       {teams.length === 0 ? (
         <EmptyState
           icon={UsersRound}
-          title="No teams yet"
+          title="No departments yet"
           action={add ?? undefined}
         >
-          Teams such as Kitchen or Front of house help organise people at each
-          site. Add a site first if you haven&apos;t already.
+          Departments such as Kitchen or Front of house help organise people at
+          each site. Add a site first if you haven&apos;t already.
         </EmptyState>
       ) : (
-        <Table caption="Teams">
+        <Table caption="Departments">
           <thead>
             <tr>
-              <Th>Team</Th>
+              <Th>Department</Th>
               <Th>Site</Th>
               <Th>Status</Th>
               <Th className="text-right">Members</Th>

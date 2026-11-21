@@ -206,7 +206,7 @@ export async function createTeam(
   if (!parsed.success) return invalid(fieldErrors(parsed.error));
   const { name, siteId } = parsed.data;
   if (!can(ws.grants, "team.manage", siteId))
-    return forbidden("You can only add teams at sites you manage.");
+    return forbidden("You can only add departments at sites you manage.");
   try {
     return await run(client, ws, async (tx) => {
       if (!(await activeSite(tx, siteId)))
@@ -219,7 +219,10 @@ export async function createTeam(
     });
   } catch (error) {
     if (uniqueViolation(error))
-      return conflict("name", "This site already has a team with that name");
+      return conflict(
+        "name",
+        "This site already has a department with that name",
+      );
     throw error;
   }
 }
@@ -230,7 +233,7 @@ export async function updateTeam(
   teamId: string,
   raw: unknown,
 ): Promise<MutationResult> {
-  if (!isUuid(teamId)) return notFound("team");
+  if (!isUuid(teamId)) return notFound("department");
   const parsed = teamSchema.safeParse(raw);
   if (!parsed.success) return invalid(fieldErrors(parsed.error));
   try {
@@ -240,7 +243,7 @@ export async function updateTeam(
         select: { siteId: true },
       });
       if (!team || !can(ws.grants, "site.view", team.siteId))
-        return notFound("team");
+        return notFound("department");
       if (
         !can(ws.grants, "team.manage", team.siteId) ||
         !can(ws.grants, "team.manage", parsed.data.siteId)
@@ -260,7 +263,10 @@ export async function updateTeam(
     });
   } catch (error) {
     if (uniqueViolation(error))
-      return conflict("name", "This site already has a team with that name");
+      return conflict(
+        "name",
+        "This site already has a department with that name",
+      );
     throw error;
   }
 }
@@ -271,13 +277,13 @@ export async function setTeamArchived(
   teamId: string,
   archived: boolean,
 ): Promise<MutationResult> {
-  if (!isUuid(teamId)) return notFound("team");
+  if (!isUuid(teamId)) return notFound("department");
   return run(client, ws, async (tx) => {
     const team = await tx.team.findUnique({
       where: { id: teamId },
       select: { siteId: true },
     });
-    if (!team) return notFound("team");
+    if (!team) return notFound("department");
     if (!can(ws.grants, "team.manage", team.siteId)) return forbidden();
     await tx.team.update({
       where: { id: teamId },

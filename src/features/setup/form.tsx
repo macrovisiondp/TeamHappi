@@ -216,7 +216,7 @@ export function CheckboxGroup({
         </p>
       ) : null}
       {options.length === 0 ? (
-        <p className="text-sm text-ink-muted">No teams available yet.</p>
+        <p className="text-sm text-ink-muted">No departments available yet.</p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
           {options.map((o) => (

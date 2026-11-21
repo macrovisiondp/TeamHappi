@@ -157,24 +157,27 @@ test("an owner sets up sites, teams and people through the app", async ({
     page.getByRole("button", { name: "Deactivate site" }),
   ).toBeVisible(SLOW);
 
-  // Add a team there; a duplicate name is refused.
+  // Add a department there (back to the list, ready for the next); a
+  // duplicate name is refused.
   for (const attempt of [1, 2]) {
     await page.goto("/settings/teams/new", SLOW);
     await page
-      .getByLabel("Team name")
+      .getByLabel("Department name")
       .filter({ visible: true })
       .fill("Kitchen");
     await page
       .getByLabel("Site", { exact: true })
       .selectOption({ label: siteName });
-    await page.getByRole("button", { name: "Add team" }).click();
+    await page.getByRole("button", { name: "Add department" }).click();
     if (attempt === 1)
       await expect(
-        page.getByRole("heading", { level: 1, name: "Kitchen" }),
+        page.getByRole("link", { name: "Kitchen" }).first(),
       ).toBeVisible(SLOW);
     else
       await expect(
-        page.getByText("This site already has a team with that name").first(),
+        page
+          .getByText("This site already has a department with that name")
+          .first(),
       ).toBeVisible(SLOW);
   }
   await page.goto("/settings/teams", SLOW);
@@ -198,7 +201,7 @@ test("an owner sets up sites, teams and people through the app", async ({
     .filter({ visible: true })
     .selectOption({ label: siteName });
   await page
-    .getByRole("group", { name: "Teams" })
+    .getByRole("group", { name: "Departments" })
     .getByLabel(new RegExp(`Kitchen\\s*${siteName}`))
     .check();
   await axe(page, "add person form");

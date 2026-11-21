@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/settings", label: "Organisation", exact: true },
   { href: "/settings/sites", label: "Sites", exact: false },
-  { href: "/settings/teams", label: "Teams", exact: false },
+  { href: "/settings/teams", label: "Departments", exact: false },
   { href: "/settings/job-titles", label: "Job titles", exact: false },
   { href: "/settings/members", label: "Members", exact: false },
 ] as const;

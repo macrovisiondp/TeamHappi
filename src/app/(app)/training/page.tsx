@@ -110,9 +110,9 @@ export default async function TrainingPage({
           </Field>
         ) : null}
         {data.filters.teams.length ? (
-          <Field id="filter-team" label="Team">
+          <Field id="filter-team" label="Department">
             <Select id="filter-team" name="team" defaultValue={filter.teamId}>
-              <option value="">All teams</option>
+              <option value="">All departments</option>
               {data.filters.teams.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

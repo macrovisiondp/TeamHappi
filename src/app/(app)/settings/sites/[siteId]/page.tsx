@@ -84,7 +84,7 @@ export default async function SitePage({
         </Card>
       )}
       <Card aria-labelledby="site-teams">
-        <CardTitle id="site-teams">Teams at this site</CardTitle>
+        <CardTitle id="site-teams">Departments at this site</CardTitle>
         {site.teams.length ? (
           <ul className="flex flex-col divide-y divide-line text-sm">
             {site.teams.map((t) => (
@@ -103,7 +103,7 @@ export default async function SitePage({
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-ink-muted">No teams yet.</p>
+          <p className="text-sm text-ink-muted">No departments yet.</p>
         )}
       </Card>
     </div>

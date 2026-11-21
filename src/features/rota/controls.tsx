@@ -201,13 +201,17 @@ export function ShiftDialog({
                 defaultValue={shift?.roleLabel ?? ""}
               />
             </Field>
-            <Field id={`team-${id}`} label="Team (optional)" error={e.teamId}>
+            <Field
+              id={`team-${id}`}
+              label="Department (optional)"
+              error={e.teamId}
+            >
               <Select
                 id={`team-${id}`}
                 name="teamId"
                 defaultValue={shift?.teamId ?? ""}
               >
-                <option value="">No team</option>
+                <option value="">No department</option>
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}

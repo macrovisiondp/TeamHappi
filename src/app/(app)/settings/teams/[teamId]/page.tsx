@@ -1,9 +1,10 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EMPLOYMENT_STATUSES, fullName } from "@/features/people/directory";
 import { TeamForm, TeamStatusChange } from "@/features/setup/forms";
@@ -13,7 +14,7 @@ import {
 } from "@/features/workspace/components";
 import { can, formOptions, getTeam } from "@/lib/workspace";
 
-export const metadata: Metadata = { title: "Team" };
+export const metadata: Metadata = { title: "Department" };
 export const instant = false;
 
 export default async function TeamPage({
@@ -40,7 +41,7 @@ export default async function TeamPage({
         className="flex w-fit items-center gap-2 text-sm font-semibold text-forest underline-offset-4 hover:underline"
       >
         <ArrowLeft aria-hidden="true" className="size-4" />
-        All teams
+        All departments
       </Link>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1.5">
@@ -51,16 +52,24 @@ export default async function TeamPage({
           </Badge>
         </div>
         {canManage ? (
-          <TeamStatusChange
-            id={team.id}
-            name={team.name}
-            archived={team.archived}
-          />
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href="/settings/teams/new">
+                <Plus aria-hidden="true" />
+                Add another department
+              </Link>
+            </Button>
+            <TeamStatusChange
+              id={team.id}
+              name={team.name}
+              archived={team.archived}
+            />
+          </div>
         ) : null}
       </header>
       {canManage ? (
         <Card aria-labelledby="team-edit">
-          <CardTitle id="team-edit">Team details</CardTitle>
+          <CardTitle id="team-edit">Edit this department</CardTitle>
           <TeamForm
             team={{ id: team.id, name: team.name, siteId: team.siteId }}
             sites={siteChoices}
@@ -85,8 +94,8 @@ export default async function TeamPage({
           </ul>
         ) : (
           <p className="text-sm text-ink-muted">
-            No one in this team yet. Add people to teams from their record in
-            People.
+            No one in this department yet. Add people to departments from their
+            record in People.
           </p>
         )}
       </Card>

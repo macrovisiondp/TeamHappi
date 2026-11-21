@@ -89,11 +89,11 @@ export async function saveTeam(
     const result = await mutate.createTeam(ws, input);
     return toState(
       result,
-      "Team added.",
-      result.ok ? `/settings/teams/${result.data.id}` : undefined,
+      "Department added",
+      result.ok ? "/settings/teams" : undefined,
     );
   }
-  return toState(await mutate.updateTeam(ws, id, input), "Team saved.");
+  return toState(await mutate.updateTeam(ws, id, input), "Department saved");
 }
 
 export async function changeTeamStatus(
@@ -105,7 +105,7 @@ export async function changeTeamStatus(
   const archived = form.get("status") === "archived";
   return toState(
     await mutate.setTeamArchived(ws, String(form.get("id") ?? ""), archived),
-    archived ? "Team deactivated." : "Team reactivated.",
+    archived ? "Department deactivated" : "Department reactivated",
   );
 }
 

@@ -65,7 +65,7 @@ export default async function DashboardPage() {
           icon={CalendarClock}
         />
         <StatCard
-          label="Teams"
+          label="Departments"
           value={data.canViewSites ? data.counts.teams : "—"}
           detail="Across your sites"
           icon={UsersRound}
@@ -93,7 +93,9 @@ export default async function DashboardPage() {
         >
           <ol className="mx-auto max-w-md list-decimal pl-5 text-left">
             <li>Add your sites (each restaurant, kitchen or venue).</li>
-            <li>Add teams at each site, such as Kitchen or Front of house.</li>
+            <li>
+              Add departments at each site, such as Kitchen or Front of house.
+            </li>
             <li>Add the people who work there.</li>
           </ol>
         </EmptyState>

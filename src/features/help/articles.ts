@@ -44,7 +44,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
           "Settings › Organisation: check your organisation's name and time zone, and upload your logo.",
           "Settings › Sites: add each restaurant, bar or venue.",
           "Settings › Job titles: add the job titles you use, exactly as your training and onboarding plans use them.",
-          "Settings › Teams (optional): for example Front of House and Kitchen.",
+          "Settings › Departments (optional): for example Front of House and Kitchen.",
           "People: add your staff records, then invite your managers so they can run their sites.",
           "Onboarding › Documents: upload your contracts and policies, and make starter packs.",
           "Training › Courses: add or import your courses, and say who needs each one.",

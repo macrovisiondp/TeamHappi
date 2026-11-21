@@ -49,7 +49,7 @@ export default async function SitesPage() {
           action={add ?? undefined}
         >
           {canAdd
-            ? "Add your first site, such as your restaurant or kitchen. Teams and people are organised by site."
+            ? "Add your first site, such as your restaurant or kitchen. Departments and people are organised by site."
             : "Your organisation hasn't added any sites you can see yet."}
         </EmptyState>
       ) : (
@@ -59,7 +59,7 @@ export default async function SitesPage() {
               <Th>Site</Th>
               <Th>Location</Th>
               <Th>Status</Th>
-              <Th className="text-right">Teams</Th>
+              <Th className="text-right">Departments</Th>
               <Th className="text-right">Active staff</Th>
             </tr>
           </thead>
