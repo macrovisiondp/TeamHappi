@@ -53,8 +53,17 @@ export async function uploadPolicyAction(
   const file = await fileFrom(form);
   if (!file) return NO_FILE;
   return toState(
-    await signingApi.uploadPolicy(ws, str(form, "title"), file),
-    "Document added.",
+    await signingApi.uploadPolicy(
+      ws,
+      str(form, "title"),
+      file,
+      str(form, "kind") === "contract_template"
+        ? "contract_template"
+        : "policy",
+    ),
+    str(form, "kind") === "contract_template"
+      ? "Contract template added"
+      : "Policy added",
   );
 }
 

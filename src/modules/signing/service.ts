@@ -142,14 +142,33 @@ export interface FileMeta {
   storageKey: string;
 }
 
-// --- Library (policies) -------------------------------------------------------------
+// --- Library (policies and contract templates) ------------------------------------------
+
+/**
+ * What the library holds (M19): policies people read and sign, and contract
+ * TEMPLATES (one file for everyone with a job title) that are sent as a
+ * contract and countersigned by a manager.
+ */
+const LIBRARY_KINDS = ["policy", "contract_template"];
+export type LibraryKind = "policy" | "contract_template";
+const countersignFor = (kind: string) => kind !== "policy";
 
 export async function library(tx: TenantTx, actor: Actor) {
   if (!canManage(actor)) return null;
   return tx.signDocument.findMany({
-    where: { tenantId: actor.tenantId, kind: "policy", archivedAt: null },
-    orderBy: { title: "asc" },
-    select: { id: true, title: true, fileName: true, uploadedAt: true },
+    where: {
+      tenantId: actor.tenantId,
+      kind: { in: LIBRARY_KINDS },
+      archivedAt: null,
+    },
+    orderBy: [{ kind: "asc" }, { title: "asc" }],
+    select: {
+      id: true,
+      title: true,
+      kind: true,
+      fileName: true,
+      uploadedAt: true,
+    },
   });
 }
 
@@ -172,12 +191,13 @@ export async function recordPolicy(
   actor: Actor,
   title: string,
   file: FileMeta,
+  kind: LibraryKind = "policy",
 ): Promise<Result> {
   if (!canManage(actor)) return forbidden;
   const doc = await tx.signDocument.create({
     data: {
       tenantId: actor.tenantId,
-      kind: "policy",
+      kind,
       title,
       ...file,
       uploadedBy: actor.userId,
@@ -185,7 +205,7 @@ export async function recordPolicy(
     select: { id: true },
   });
   await audit(tx, actor, "documents.uploaded", "sign_document", doc.id, {
-    kind: "policy",
+    kind,
   });
   return { ok: true, data: doc };
 }
@@ -202,7 +222,8 @@ export async function archivePolicy(
     where: { tenantId_id: { tenantId: actor.tenantId, id } },
     select: { id: true, kind: true, archivedAt: true },
   });
-  if (!doc || doc.kind !== "policy" || doc.archivedAt) return notFound();
+  if (!doc || !LIBRARY_KINDS.includes(doc.kind) || doc.archivedAt)
+    return notFound();
   await tx.signDocument.update({
     where: { tenantId_id: { tenantId: actor.tenantId, id } },
     data: { archivedAt: new Date(), archivedBy: actor.userId },
@@ -322,15 +343,16 @@ export async function sendPolicies(
     where: {
       tenantId: actor.tenantId,
       id: { in: list },
-      kind: "policy",
+      kind: { in: LIBRARY_KINDS },
       archivedAt: null,
     },
-    select: { id: true },
+    select: { id: true, kind: true },
   });
   if (docs.length !== new Set(list).size) return notFound();
   let sent = 0;
   for (const d of docs)
-    if (await openRequest(tx, actor, e.id, d.id, false)) sent += 1;
+    if (await openRequest(tx, actor, e.id, d.id, countersignFor(d.kind)))
+      sent += 1;
   if (!sent)
     return conflict("Those documents are already waiting to be signed.");
   return { ok: true, data: { sent } };
@@ -410,7 +432,8 @@ const view = (r: {
   id: r.id,
   status: r.status as
     "awaiting_employee" | "awaiting_countersign" | "completed" | "withdrawn",
-  kind: r.document.kind as "policy" | "contract",
+  kind: (r.document.kind === "policy" ? "policy" : "contract") as
+    "policy" | "contract",
   title: r.document.title,
   needsCountersign: r.needsCountersign,
   sentAt: r.sentAt,
@@ -725,7 +748,9 @@ export async function starterPacks(tx: TenantTx, actor: Actor) {
       jobTitle: true,
       documents: {
         where: { document: { archivedAt: null } },
-        select: { document: { select: { id: true, title: true } } },
+        select: {
+          document: { select: { id: true, title: true, kind: true } },
+        },
       },
     },
   });
@@ -772,7 +797,7 @@ export async function createStarterPack(
     where: {
       tenantId: actor.tenantId,
       id: { in: ids },
-      kind: "policy",
+      kind: { in: LIBRARY_KINDS },
       archivedAt: null,
     },
     select: { id: true },
@@ -835,9 +860,10 @@ export async function sendStarterPack(
   const packs = (await starterPacks(tx, actor))!.filter(
     (p) => !p.jobTitle || norm(p.jobTitle) === norm(job?.jobTitle),
   );
-  const docIds = [
-    ...new Set(packs.flatMap((p) => p.documents.map((d) => d.id))),
-  ];
+  const kindOf = new Map(
+    packs.flatMap((p) => p.documents.map((d) => [d.id, d.kind] as const)),
+  );
+  const docIds = [...kindOf.keys()];
   if (!docIds.length)
     return { ok: true, data: { sent: 0, packs: packs.length } };
   const already = await tx.signRequest.findMany({
@@ -854,7 +880,10 @@ export async function sendStarterPack(
   const done = new Set(already.map((r) => r.signDocumentId));
   let sent = 0;
   for (const id of docIds)
-    if (!done.has(id) && (await openRequest(tx, actor, e.id, id, false)))
+    if (
+      !done.has(id) &&
+      (await openRequest(tx, actor, e.id, id, countersignFor(kindOf.get(id)!)))
+    )
       sent += 1;
   return { ok: true, data: { sent, packs: packs.length } };
 }

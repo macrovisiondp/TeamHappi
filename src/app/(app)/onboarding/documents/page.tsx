@@ -63,14 +63,21 @@ export default async function DocumentsPage() {
         </Alert>
       ) : null}
       {lib.length ? (
-        <ul className="flex flex-col gap-2" aria-label="Policy library">
+        <ul className="flex flex-col gap-2" aria-label="Document library">
           {lib.map((d) => (
             <li
               key={d.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line-strong p-3 text-sm"
             >
               <div>
-                <p className="font-semibold">{d.title}</p>
+                <p className="font-semibold">
+                  {d.title}
+                  {d.kind === "contract_template" ? (
+                    <span className="ml-2 rounded-full bg-sage px-2 py-0.5 text-xs font-semibold text-forest">
+                      Contract
+                    </span>
+                  ) : null}
+                </p>
                 <p className="text-ink-muted">
                   {d.fileName} · added {formatDate(d.uploadedAt)}
                 </p>
@@ -89,8 +96,9 @@ export default async function DocumentsPage() {
           Starter packs
         </h2>
         <p className="text-sm text-ink-muted">
-          Policies sent automatically when you hire someone into a job title (or
-          everyone). You can also send them from a person&rsquo;s record.
+          Policies and contracts sent automatically when you add or hire someone
+          into a job title (or everyone). Contracts are countersigned after they
+          sign. You can also send them from a person&rsquo;s record.
         </p>
         {packs?.length ? (
           <ul className="flex flex-col gap-2" aria-label="Starter packs">
@@ -132,7 +140,7 @@ export default async function DocumentsPage() {
 
       {storage ? (
         <Card aria-labelledby="add-policy" className="gap-3">
-          <CardTitle id="add-policy">Add a policy</CardTitle>
+          <CardTitle id="add-policy">Add a policy or contract</CardTitle>
           <p className="text-sm text-ink-muted">
             Upload the final version as a PDF. Each person signs the exact file
             you upload. To change it later, add the new version and remove the

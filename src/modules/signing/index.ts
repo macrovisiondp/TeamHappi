@@ -27,6 +27,7 @@ export {
   withdrawRequest,
   type Actor,
   type FileMeta,
+  type LibraryKind,
   type RequestView,
   type Result,
   type SigningContext,

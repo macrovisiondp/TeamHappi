@@ -204,6 +204,39 @@ describe("starter packs", () => {
     ).toMatchObject({ ok: false, code: "not_found" });
   });
 
+  it("can include a contract template, sent as a contract to countersign (M19)", async () => {
+    const contract = ok(
+      await files.uploadPolicy(
+        deps,
+        owner,
+        "Zero-hours contract (FOH)",
+        { name: "zero-hours.pdf", bytes: await pdf("Zero-hours contract") },
+        "contract_template",
+      ),
+    ).id;
+    const lib = await run(owner, (tx, a) => signing.library(tx, a));
+    expect(lib!.find((d) => d.id === contract)?.kind).toBe("contract_template");
+    ok(
+      await run(owner, (tx, a) =>
+        signing.createStarterPack(tx, a, {
+          name: "Server contract",
+          jobTitle: "Server",
+          documentIds: [contract],
+        }),
+      ),
+    );
+    ok(await run(owner, (tx, a) => signing.sendStarterPack(tx, a, server)));
+    const sent = await run(owner, (tx, a) =>
+      signing.personRequests(tx, a, server),
+    );
+    const c = sent!.find((r) => r.title === "Zero-hours contract (FOH)")!;
+    expect(c).toMatchObject({
+      kind: "contract",
+      needsCountersign: true,
+      status: "awaiting_employee",
+    });
+  });
+
   it("can't be deleted or have their contents changed by the app", async () => {
     await withPg(urls.appUrl, async (c) => {
       for (const t of ["starter_pack", "starter_pack_document"])

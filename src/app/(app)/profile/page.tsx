@@ -3,6 +3,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   LifeBuoy,
+  Sparkles,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -23,6 +24,7 @@ export const metadata: Metadata = { title: "My profile" };
 export const instant = false;
 
 const LINKS = [
+  { href: "/welcome", label: "Your first steps", icon: Sparkles },
   { href: "/rota/me", label: "My shifts", icon: CalendarDays },
   { href: "/training/me", label: "My training", icon: GraduationCap },
   {

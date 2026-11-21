@@ -29,6 +29,7 @@ import * as signingFiles from "./signing-files";
 import { certificatePdf } from "./training-certificate";
 import * as jobTitleAdmin from "./job-titles";
 import * as images from "./images";
+import { stepFacts as stepFactsOf } from "@/lib/first-steps";
 import { liveJobTitles } from "@/lib/job-titles";
 import * as offerFiles from "./offer-files";
 import { getStarted } from "./get-started";
@@ -949,7 +950,8 @@ export const signingApi = {
     ws: Ready,
     title: unknown,
     file: { name: string; bytes: Uint8Array },
-  ) => signingFiles.uploadPolicy(await signingDeps(), ws, title, file),
+    kind: signing.LibraryKind = "policy",
+  ) => signingFiles.uploadPolicy(await signingDeps(), ws, title, file, kind),
   archivePolicy: (ws: Ready, id: unknown) =>
     inSigning(ws, (tx, a) => signing.archivePolicy(tx, a, id)),
   personRequests: (ws: Ready, employeeId: unknown) =>
@@ -1158,3 +1160,37 @@ export const publicOffer = {
   ) =>
     offerFiles.respondToOffer(await offerDeps(), token, decision, name, agreed),
 };
+
+// --- Your first steps (M19) -------------------------------------------------------------
+
+export { stepFacts, type StepFacts } from "@/lib/first-steps";
+
+/**
+ * The signed-in person's first steps, or null when they have no linked staff
+ * record here (or have left).
+ */
+export async function firstSteps(ws: Ready) {
+  const ownId = await personalApi.ownId(ws);
+  if (!ownId) return null;
+  const [details, requests, training] = await Promise.all([
+    personalApi.view(ws, ownId),
+    signingApi.mine(ws),
+    trainingApi.mine(ws),
+  ]);
+  if (!training) return null;
+  const facts = stepFactsOf({
+    details:
+      details && details.level !== "emergency"
+        ? {
+            address: details.address,
+            dateOfBirth: details.dateOfBirth,
+            emergency: details.emergency,
+          }
+        : details
+          ? { emergency: details.emergency }
+          : null,
+    requests: (requests ?? []).map((r) => ({ status: r.status, kind: r.kind })),
+    training: training.required,
+  });
+  return { employeeId: ownId, firstName: training.firstName, details, facts };
+}

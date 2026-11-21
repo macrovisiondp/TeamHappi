@@ -1,6 +1,11 @@
 "use server";
 
-import { getWorkspace, mutate, type MutationResult } from "@/lib/workspace";
+import {
+  getWorkspace,
+  mutate,
+  type MutationResult,
+  welcomeNewStarter,
+} from "@/lib/workspace";
 import { formToObject } from "@/lib/validation/organisation";
 
 import type { FormState } from "./form-state";
@@ -117,12 +122,36 @@ export async function saveEmployee(
   if (!ws) return NO_WORKSPACE;
   const id = String(form.get("id") ?? "");
   const input = formToObject(form, ["teamIds"]);
+  // M19: a new person is invited and sent their starter pack straight away,
+  // unless the box is unticked. Inviting needs their email address.
+  const welcome = !id && form.get("sendWelcome") === "on";
+  if (welcome && !String(form.get("email") ?? "").trim())
+    return {
+      status: "error",
+      message: "Please check the highlighted fields.",
+      fieldErrors: {
+        email:
+          "Add their email so we can invite them, or untick \u201cSend their invitation\u201d",
+      },
+    };
   const result = id
     ? await mutate.updateEmployee(ws, id, input)
     : await mutate.createEmployee(ws, input);
-  return toState(
-    result,
-    id ? "Changes saved." : "Person added.",
-    result.ok ? `/people/${result.data.id}` : undefined,
-  );
+  if (!result.ok || id || !welcome)
+    return toState(
+      result,
+      id ? "Changes saved" : "Person added",
+      result.ok ? `/people/${result.data.id}` : undefined,
+    );
+  const w = await welcomeNewStarter(ws, result.data.id, {
+    invite: true,
+    pack: true,
+  });
+  const name = String(form.get("preferredName") || form.get("givenName") || "");
+  const docs = w.pack.state === "sent" ? w.pack.documents : 0;
+  const message =
+    w.invite.state === "emailed"
+      ? `${name} is added and invited${docs ? `, with ${docs} document${docs === 1 ? "" : "s"} to sign` : ""}`
+      : `${name} is added. ${"reason" in w.invite ? w.invite.reason : "Use Send invitation on their record."}`;
+  return toState(result, message, `/people/${result.data.id}`);
 }

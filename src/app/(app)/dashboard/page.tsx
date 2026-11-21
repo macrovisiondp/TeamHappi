@@ -1,6 +1,7 @@
 import { Building2, CalendarClock, UserCheck, UsersRound } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, StatCard } from "@/components/ui/misc";
 import { Table, Td, Th } from "@/components/ui/table";
 import { GetStarted } from "@/features/dashboard/get-started";
-import { dashboardData, getStartedSteps } from "@/lib/workspace";
+import { dashboardData, firstSteps, getStartedSteps } from "@/lib/workspace";
 import {
   NoOrganisation,
   requireWorkspace,
@@ -25,9 +26,18 @@ export const metadata: Metadata = { title: "Dashboard" };
 // Session-gated (see (app)/layout.tsx): renders per request, not prefetch-validated.
 export const instant = false;
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: PageProps<"/dashboard">) {
   const ws = await requireWorkspace();
   if (ws.kind === "none") return <NoOrganisation blocked={ws.blocked} />;
+  // M19: a new starter goes to their first steps until they're done, unless
+  // they chose "Do this later" (or have just finished).
+  const welcome = (await searchParams).welcome;
+  if (welcome !== "later" && welcome !== "done") {
+    const mine = await firstSteps(ws);
+    if (mine && !mine.facts.allDone) redirect("/welcome");
+  }
   const [data, steps] = await Promise.all([
     dashboardData(ws),
     getStartedSteps(ws),
